@@ -1,8 +1,8 @@
 /**
- * Run Store — Persistent workflow run history
+ * Run Store — PostgreSQL-backed persistent workflow run history
  */
 
-import { JsonFileStore } from './store.js';
+import { query, queryOne, queryAll } from './store.js';
 
 export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'waiting-approval' | 'approved' | 'rejected';
 export type StageStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting-approval';
@@ -34,7 +34,7 @@ export interface Run {
   status: RunStatus;
   stages: RunStage[];
   approvalHistory: ApprovalRecord[];
-  artifacts: string[];  // artifact file paths
+  artifacts: string[];
   error?: string;
   startedAt: number;
   completedAt?: number;
@@ -42,101 +42,152 @@ export interface Run {
   trigger: 'manual' | 'api' | 'auto';
 }
 
+/** Map a DB row to Run interface. */
+function rowToRun(row: Record<string, unknown>): Run {
+  return {
+    id: row.id as string,
+    workflowId: row.workflow_id as string,
+    workflowName: row.workflow_name as string,
+    status: row.status as RunStatus,
+    stages: (typeof row.stages === 'string' ? JSON.parse(row.stages as string) : row.stages) as RunStage[],
+    approvalHistory: (typeof row.approval_history === 'string' ? JSON.parse(row.approval_history as string) : row.approval_history) as ApprovalRecord[],
+    artifacts: (typeof row.artifacts === 'string' ? JSON.parse(row.artifacts as string) : row.artifacts) as string[],
+    error: row.error as string | undefined,
+    startedAt: Number(row.started_at),
+    completedAt: row.completed_at ? Number(row.completed_at) : undefined,
+    duration: row.duration ? Number(row.duration) : undefined,
+    trigger: row.trigger as Run['trigger'],
+  };
+}
+
 export class RunStore {
-  private store: JsonFileStore<Run>;
-
-  constructor(baseDir?: string) {
-    this.store = new JsonFileStore<Run>('runs.json', { baseDir });
-  }
-
-  create(id: string, workflowId: string, workflowName: string, trigger: Run['trigger'] = 'manual'): Run {
-    const run: Run = {
-      id,
-      workflowId,
-      workflowName,
-      status: 'pending',
-      stages: [],
-      approvalHistory: [],
-      artifacts: [],
-      startedAt: Date.now(),
-      trigger,
+  async create(id: string, workflowId: string, workflowName: string, trigger: Run['trigger'] = 'manual'): Promise<Run> {
+    const now = Date.now();
+    await query(
+      `INSERT INTO runs (id, workflow_id, workflow_name, status, stages, approval_history, artifacts, started_at, trigger)
+       VALUES ($1, $2, $3, 'pending', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $4, $5)`,
+      [id, workflowId, workflowName, now, trigger]
+    );
+    return {
+      id, workflowId, workflowName, status: 'pending',
+      stages: [], approvalHistory: [], artifacts: [],
+      startedAt: now, trigger,
     };
-    this.store.write(id, run);
-    return run;
   }
 
-  get(id: string): Run | undefined {
-    return this.store.read(id);
+  async get(id: string): Promise<Run | undefined> {
+    const row = await queryOne('SELECT * FROM runs WHERE id = $1', [id]);
+    return row ? rowToRun(row) : undefined;
   }
 
-  list(): Run[] {
-    return this.store.list().sort((a, b) => b.startedAt - a.startedAt);
+  async list(): Promise<Run[]> {
+    const rows = await queryAll('SELECT * FROM runs ORDER BY started_at DESC');
+    return rows.map(rowToRun);
   }
 
-  update(id: string, patch: Partial<Run>): Run | undefined {
-    return this.store.update(id, patch);
+  async update(id: string, patch: Partial<Run>): Promise<Run | undefined> {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    let paramIdx = 1;
+
+    if (patch.status !== undefined) {
+      sets.push(`status = $${paramIdx++}`);
+      values.push(patch.status);
+    }
+    if (patch.stages !== undefined) {
+      sets.push(`stages = $${paramIdx++}::jsonb`);
+      values.push(JSON.stringify(patch.stages));
+    }
+    if (patch.approvalHistory !== undefined) {
+      sets.push(`approval_history = $${paramIdx++}::jsonb`);
+      values.push(JSON.stringify(patch.approvalHistory));
+    }
+    if (patch.artifacts !== undefined) {
+      sets.push(`artifacts = $${paramIdx++}::jsonb`);
+      values.push(JSON.stringify(patch.artifacts));
+    }
+    if (patch.error !== undefined) {
+      sets.push(`error = $${paramIdx++}`);
+      values.push(patch.error);
+    }
+    if (patch.completedAt !== undefined) {
+      sets.push(`completed_at = $${paramIdx++}`);
+      values.push(patch.completedAt);
+    }
+    if (patch.duration !== undefined) {
+      sets.push(`duration = $${paramIdx++}`);
+      values.push(patch.duration);
+    }
+
+    if (sets.length === 0) return this.get(id);
+
+    values.push(id);
+    const sql = `UPDATE runs SET ${sets.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
+    const row = await queryOne(sql, values);
+    return row ? rowToRun(row) : undefined;
   }
 
-  delete(id: string): boolean {
-    return this.store.delete(id);
+  async delete(id: string): Promise<boolean> {
+    const result = await query('DELETE FROM runs WHERE id = $1', [id]);
+    return (result.rowCount ?? 0) > 0;
   }
 
-  /** Update a specific stage within a run. */
-  updateStage(runId: string, stageId: string, patch: Partial<RunStage>): Run | undefined {
-    const run = this.store.read(runId);
+  async updateStage(runId: string, stageId: string, patch: Partial<RunStage>): Promise<Run | undefined> {
+    const run = await this.get(runId);
     if (!run) return undefined;
+
     const stageIndex = run.stages.findIndex(s => s.id === stageId);
     if (stageIndex === -1) {
-      // Add new stage
       run.stages.push({ id: stageId, name: stageId, nodeType: 'unknown', status: 'pending', logs: [], ...patch });
     } else {
       run.stages[stageIndex] = { ...run.stages[stageIndex], ...patch };
     }
-    this.store.write(runId, run);
-    return run;
+
+    return this.update(runId, { stages: run.stages });
   }
 
-  /** Mark run as completed. */
-  complete(runId: string, error?: string): Run | undefined {
-    const run = this.store.read(runId);
-    if (!run) return undefined;
+  async complete(runId: string, error?: string): Promise<Run | undefined> {
     const now = Date.now();
-    run.status = error ? 'failed' : 'completed';
-    run.completedAt = now;
-    run.duration = now - run.startedAt;
-    if (error) run.error = error;
-    this.store.write(runId, run);
-    return run;
+    const run = await this.get(runId);
+    if (!run) return undefined;
+
+    return this.update(runId, {
+      status: error ? 'failed' : 'completed',
+      completedAt: now,
+      duration: now - run.startedAt,
+      error,
+    });
   }
 
-  /** Add approval record. */
-  addApproval(runId: string, approval: ApprovalRecord): Run | undefined {
-    const run = this.store.read(runId);
+  async addApproval(runId: string, approval: ApprovalRecord): Promise<Run | undefined> {
+    const run = await this.get(runId);
     if (!run) return undefined;
+
     run.approvalHistory.push(approval);
-    run.status = approval.action === 'approved' ? 'approved' : 'rejected';
-    this.store.write(runId, run);
-    return run;
+    return this.update(runId, {
+      approvalHistory: run.approvalHistory,
+      status: approval.action === 'approved' ? 'approved' : 'rejected',
+    });
   }
 
-  /** Add artifact path to run. */
-  addArtifact(runId: string, artifactPath: string): Run | undefined {
-    const run = this.store.read(runId);
+  async addArtifact(runId: string, artifactPath: string): Promise<Run | undefined> {
+    const run = await this.get(runId);
     if (!run) return undefined;
+
     if (!run.artifacts.includes(artifactPath)) {
       run.artifacts.push(artifactPath);
+      return this.update(runId, { artifacts: run.artifacts });
     }
-    this.store.write(runId, run);
     return run;
   }
 
-  /** Get recent runs (last N). */
-  recent(limit: number = 20): Run[] {
-    return this.list().slice(0, limit);
+  async recent(limit: number = 20): Promise<Run[]> {
+    const rows = await queryAll('SELECT * FROM runs ORDER BY started_at DESC LIMIT $1', [limit]);
+    return rows.map(rowToRun);
   }
 
-  /** Get runs for a specific workflow. */
-  byWorkflow(workflowId: string): Run[] {
-    return this.list().filter(r => r.workflowId === workflowId);
+  async byWorkflow(workflowId: string): Promise<Run[]> {
+    const rows = await queryAll('SELECT * FROM runs WHERE workflow_id = $1 ORDER BY started_at DESC', [workflowId]);
+    return rows.map(rowToRun);
   }
 }

@@ -1,8 +1,8 @@
 /**
- * Session Store — Persistent session management
+ * Session Store — PostgreSQL-backed persistent session management
  */
 
-import { JsonFileStore } from './store.js';
+import { query, queryOne, queryAll } from './store.js';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -22,57 +22,111 @@ export interface Session {
   updatedAt: number;
 }
 
+/** Map a DB row to Session interface. */
+function rowToSession(row: Record<string, unknown>): Session {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    profileId: row.profile_id as string | undefined,
+    uiLibrary: row.ui_library as string | undefined,
+    messages: (typeof row.messages === 'string' ? JSON.parse(row.messages as string) : row.messages) as ChatMessage[],
+    document: row.document ? (typeof row.document === 'string' ? JSON.parse(row.document as string) : row.document as Record<string, unknown>) : undefined,
+    completeness: row.completeness as number,
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
+
 export class SessionStore {
-  private store: JsonFileStore<Session>;
-
-  constructor(baseDir?: string) {
-    this.store = new JsonFileStore<Session>('sessions.json', { baseDir });
-  }
-
-  create(id: string, name?: string): Session {
+  async create(id: string, name?: string): Promise<Session> {
     const now = Date.now();
-    const session: Session = {
-      id,
-      name: name ?? `会话 ${new Date(now).toLocaleString('zh-CN')}`,
-      messages: [],
-      completeness: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.store.write(id, session);
-    return session;
+    const sessionName = name ?? `会话 ${new Date(now).toLocaleString('zh-CN')}`;
+    await query(
+      `INSERT INTO sessions (id, name, messages, completeness, created_at, updated_at)
+       VALUES ($1, $2, '[]'::jsonb, 0, $3, $3)`,
+      [id, sessionName, now]
+    );
+    return { id, name: sessionName, messages: [], completeness: 0, createdAt: now, updatedAt: now };
   }
 
-  get(id: string): Session | undefined {
-    return this.store.read(id);
+  async get(id: string): Promise<Session | undefined> {
+    const row = await queryOne('SELECT * FROM sessions WHERE id = $1', [id]);
+    return row ? rowToSession(row) : undefined;
   }
 
-  list(): Session[] {
-    return this.store.list().sort((a, b) => b.updatedAt - a.updatedAt);
+  async list(): Promise<Session[]> {
+    const rows = await queryAll('SELECT * FROM sessions ORDER BY updated_at DESC');
+    return rows.map(rowToSession);
   }
 
-  update(id: string, patch: Partial<Session>): Session | undefined {
-    return this.store.update(id, { ...patch, updatedAt: Date.now() });
+  async update(id: string, patch: Partial<Session>): Promise<Session | undefined> {
+    const sets: string[] = [];
+    const values: unknown[] = [];
+    let paramIdx = 1;
+
+    if (patch.name !== undefined) {
+      sets.push(`name = $${paramIdx++}`);
+      values.push(patch.name);
+    }
+    if (patch.profileId !== undefined) {
+      sets.push(`profile_id = $${paramIdx++}`);
+      values.push(patch.profileId);
+    }
+    if (patch.uiLibrary !== undefined) {
+      sets.push(`ui_library = $${paramIdx++}`);
+      values.push(patch.uiLibrary);
+    }
+    if (patch.messages !== undefined) {
+      sets.push(`messages = $${paramIdx++}::jsonb`);
+      values.push(JSON.stringify(patch.messages));
+    }
+    if (patch.document !== undefined) {
+      sets.push(`document = $${paramIdx++}::jsonb`);
+      values.push(JSON.stringify(patch.document));
+    }
+    if (patch.completeness !== undefined) {
+      sets.push(`completeness = $${paramIdx++}`);
+      values.push(patch.completeness);
+    }
+
+    sets.push(`updated_at = $${paramIdx++}`);
+    values.push(Date.now());
+
+    values.push(id);
+    const sql = `UPDATE sessions SET ${sets.join(', ')} WHERE id = $${paramIdx} RETURNING *`;
+    const row = await queryOne(sql, values);
+    return row ? rowToSession(row) : undefined;
   }
 
-  delete(id: string): boolean {
-    return this.store.delete(id);
+  async delete(id: string): Promise<boolean> {
+    const result = await query('DELETE FROM sessions WHERE id = $1', [id]);
+    return (result.rowCount ?? 0) > 0;
   }
 
-  addMessage(id: string, message: ChatMessage): Session | undefined {
-    const session = this.store.read(id);
-    if (!session) return undefined;
-    session.messages.push(message);
-    session.updatedAt = Date.now();
-    this.store.write(id, session);
-    return session;
+  async addMessage(id: string, message: ChatMessage): Promise<Session | undefined> {
+    const now = Date.now();
+    const row = await queryOne(
+      `UPDATE sessions
+       SET messages = messages || $2::jsonb,
+           updated_at = $3
+       WHERE id = $1
+       RETURNING *`,
+      [id, JSON.stringify(message), now]
+    );
+    return row ? rowToSession(row) : undefined;
   }
 
-  updateDocument(id: string, document: Record<string, unknown>, completeness: number): Session | undefined {
-    return this.store.update(id, {
-      document,
-      completeness,
-      updatedAt: Date.now(),
-    });
+  async updateDocument(id: string, document: Record<string, unknown>, completeness: number): Promise<Session | undefined> {
+    const now = Date.now();
+    const row = await queryOne(
+      `UPDATE sessions
+       SET document = $2::jsonb,
+           completeness = $3,
+           updated_at = $4
+       WHERE id = $1
+       RETURNING *`,
+      [id, JSON.stringify(document), completeness, now]
+    );
+    return row ? rowToSession(row) : undefined;
   }
 }

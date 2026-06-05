@@ -1,107 +1,81 @@
 /**
- * JSON File Store — Atomic read/write with directory auto-creation
+ * Database Store — PostgreSQL connection pool + query helpers
  *
- * All data persisted as JSON files under a configurable base directory.
- * Default: ~/.ai-studio/data/
+ * Replaces the JSON file store with PostgreSQL for better concurrency,
+ * performance, and scalability.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, unlinkSync, statSync, renameSync, rmSync } from 'node:fs';
+import pg from 'pg';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, renameSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
+const { Pool } = pg;
 
-const DEFAULT_BASE_DIR = join(homedir(), '.ai-studio', 'data');
+const DEFAULT_CONNECTION_STRING = 'postgresql://studio:studio2026@localhost:5432/studio';
+const DEFAULT_ARTIFACT_DIR = join(homedir(), '.ai-studio', 'data', 'artifacts');
+
+let pool: pg.Pool | null = null;
 
 export interface StoreOptions {
-  baseDir?: string;
+  connectionString?: string;
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-export class JsonFileStore<T = any> {
-  private filePath: string;
-  private dirPath: string;
+/** Initialize the connection pool. Call once at startup. */
+export function initPool(options: StoreOptions = {}): pg.Pool {
+  if (pool) return pool;
+  pool = new Pool({
+    connectionString: options.connectionString ?? DEFAULT_CONNECTION_STRING,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  });
+  pool.on('error', (err) => {
+    console.error('[PostgresStore] Unexpected pool error:', err.message);
+  });
+  return pool;
+}
 
-  constructor(filename: string, options: StoreOptions = {}) {
-    const baseDir = options.baseDir ?? DEFAULT_BASE_DIR;
-    this.dirPath = baseDir;
-    this.filePath = join(baseDir, filename);
-    this.ensureDir();
+/** Get the existing pool. Throws if not initialized. */
+export function getPool(): pg.Pool {
+  if (!pool) {
+    throw new Error('[PostgresStore] Pool not initialized. Call initPool() first.');
   }
+  return pool;
+}
 
-  private ensureDir(): void {
-    if (!existsSync(this.dirPath)) {
-      mkdirSync(this.dirPath, { recursive: true });
-    }
+/** Close the pool gracefully. */
+export async function closePool(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
   }
+}
 
-  /** Read all records. Returns empty object if file doesn't exist. */
-  readAll(): Record<string, T> {
-    this.ensureDir();
-    if (!existsSync(this.filePath)) {
-      return {};
-    }
-    try {
-      const raw = readFileSync(this.filePath, 'utf-8');
-      return JSON.parse(raw) as Record<string, T>;
-    } catch {
-      return {};
-    }
-  }
+/** Execute a query with automatic parameterized binding. */
+export async function query<T extends pg.QueryResultRow = Record<string, unknown>>(
+  text: string,
+  params?: unknown[]
+): Promise<pg.QueryResult<T>> {
+  const p = getPool();
+  return p.query<T>(text, params);
+}
 
-  /** Read a single record by ID. Returns undefined if not found. */
-  read(id: string): T | undefined {
-    const all = this.readAll();
-    return all[id];
-  }
+/** Execute a query and return the first row or undefined. */
+export async function queryOne<T extends pg.QueryResultRow = Record<string, unknown>>(
+  text: string,
+  params?: unknown[]
+): Promise<T | undefined> {
+  const result = await query<T>(text, params);
+  return result.rows[0];
+}
 
-  /** Write a single record. Merges with existing data. */
-  write(id: string, record: T): void {
-    const all = this.readAll();
-    all[id] = record;
-    this.writeAll(all);
-  }
-
-  /** Write all records atomically. */
-  writeAll(data: Record<string, T>): void {
-    this.ensureDir();
-    const tmp = this.filePath + '.tmp';
-    writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-    // Atomic rename (same filesystem)
-    renameSync(tmp, this.filePath);
-  }
-
-  /** Delete a single record by ID. */
-  delete(id: string): boolean {
-    const all = this.readAll();
-    if (!(id in all)) return false;
-    delete all[id];
-    this.writeAll(all);
-    return true;
-  }
-
-  /** Update a single record (partial merge). */
-  update(id: string, patch: Partial<T>): T | undefined {
-    const all = this.readAll();
-    if (!(id in all)) return undefined;
-    all[id] = { ...all[id], ...patch };
-    this.writeAll(all);
-    return all[id];
-  }
-
-  /** List all records as array. */
-  list(): T[] {
-    return Object.values(this.readAll());
-  }
-
-  /** Check if a record exists. */
-  exists(id: string): boolean {
-    const all = this.readAll();
-    return id in all;
-  }
-
-  /** Get record count. */
-  count(): number {
-    return Object.keys(this.readAll()).length;
-  }
+/** Execute a query and return all rows. */
+export async function queryAll<T extends pg.QueryResultRow = Record<string, unknown>>(
+  text: string,
+  params?: unknown[]
+): Promise<T[]> {
+  const result = await query<T>(text, params);
+  return result.rows;
 }
 
 /**
@@ -112,7 +86,7 @@ export class ArtifactStore {
   private baseDir: string;
 
   constructor(baseDir?: string) {
-    this.baseDir = baseDir ?? join(DEFAULT_BASE_DIR, 'artifacts');
+    this.baseDir = baseDir ?? DEFAULT_ARTIFACT_DIR;
     if (!existsSync(this.baseDir)) {
       mkdirSync(this.baseDir, { recursive: true });
     }
