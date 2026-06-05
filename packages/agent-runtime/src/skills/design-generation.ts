@@ -16,8 +16,9 @@ export const designGenerationSkill: SkillDefinition = {
   outputSchema: { name: 'generation-report' },
   defaultModel: {
     model: 'auto',
-    temperature: 0.2,
+    temperature: 0.6,  // Required when thinking is disabled
     maxTokens: 8192,
+    thinking: { type: 'disabled' },  // Disable reasoning to save tokens for HTML output
   },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
