@@ -53,7 +53,8 @@ import {
 import type { SkillContext } from '@ai-frontend-engineering-agent/skill-sdk';
 import type { JsonObject } from '@ai-frontend-engineering-agent/shared-types';
 import { getCompatibleLibraries } from '@ai-frontend-engineering-agent/agent-runtime';
-import { SessionStore, RunStore, ArtifactStore } from '@ai-frontend-engineering-agent/persistence';
+import { generateImage, IMAGE_MODELS } from '@ai-frontend-engineering-agent/agent-runtime';
+import { SessionStore, RunStore, ArtifactStore, initPool } from '@ai-frontend-engineering-agent/persistence';
 import type { Session, ChatMessage } from '@ai-frontend-engineering-agent/persistence';
 
 // Workflow execution
@@ -88,6 +89,8 @@ const policies = new FilePolicyRegistry({
 const sessionStore = new SessionStore();
 const runStore = new RunStore();
 const artifactStore = new ArtifactStore();
+
+await initPool();
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -148,6 +151,57 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', model: llmConfig.model, timestamp: Date.now() });
 });
 
+// Available model presets
+const MODEL_PRESETS: Record<string, { baseUrl: string; model: string; label: string; temperature?: number }> = {
+  'kimi-k2.6': {
+    baseUrl: 'https://api.moonshot.cn/v1',
+    model: 'kimi-k2.6',
+    label: 'Kimi K2.6',
+    temperature: 1,
+  },
+  'mimo-v2.5-pro': {
+    baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
+    model: 'mimo-v2.5-pro',
+    label: 'MiMo v2.5 Pro',
+  },
+};
+
+// GET /api/models — list available model presets
+app.get('/api/models', (_req, res) => {
+  const models = Object.entries(MODEL_PRESETS).map(([id, preset]) => ({
+    id,
+    label: preset.label,
+    model: preset.model,
+    active: llmConfig.model === preset.model,
+  }));
+  res.json(models);
+});
+
+// GET /api/models/current — get current model config (no secrets)
+app.get('/api/models/current', (_req, res) => {
+  res.json({
+    model: llmConfig.model,
+    baseUrl: llmConfig.baseUrl,
+  });
+});
+
+// POST /api/models/switch — switch model at runtime
+app.post('/api/models/switch', (req, res) => {
+  const { modelId } = req.body as { modelId?: string };
+  if (!modelId || !MODEL_PRESETS[modelId]) {
+    return res.status(400).json({ error: `Unknown model: ${modelId}. Available: ${Object.keys(MODEL_PRESETS).join(', ')}` });
+  }
+  const preset = MODEL_PRESETS[modelId];
+  llmConfig = {
+    ...llmConfig,
+    baseUrl: preset.baseUrl,
+    model: preset.model,
+    temperature: preset.temperature,
+  };
+  console.log(`🔄 Model switched to: ${preset.label} (${preset.model})`);
+  res.json({ ok: true, model: llmConfig.model, label: preset.label });
+});
+
 // Profiles
 app.get('/api/profiles', async (_req, res) => {
   try {
@@ -173,8 +227,8 @@ app.get('/api/catalog/ui', (req, res) => {
 // ─── Session endpoints ──────────────────────────────────────────────────
 
 // List sessions
-app.get('/api/sessions', (_req, res) => {
-  const list = sessionStore.list().map(s => ({
+app.get('/api/sessions', async (_req, res) => {
+  const list = (await sessionStore.list()).map(s => ({
     id: s.id,
     name: s.name,
     profileId: s.profileId,
@@ -188,35 +242,35 @@ app.get('/api/sessions', (_req, res) => {
 });
 
 // Create session
-app.post('/api/sessions', (req, res) => {
+app.post('/api/sessions', async (req, res) => {
   const { profileId = 'vue3-admin', name } = req.body;
   const id = `session-${generateId()}`;
-  const session = sessionStore.create(id, name);
-  if (profileId) sessionStore.update(id, { profileId });
+  const session = await sessionStore.create(id, name);
+  if (profileId) await sessionStore.update(id, { profileId });
   res.json({ id, name: session.name, profileId });
 });
 
 // Get session
-app.get('/api/sessions/:id', (req, res) => {
-  const session = sessionStore.get(req.params.id);
+app.get('/api/sessions/:id', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
   res.json(session);
 });
 
 // Delete session
-app.delete('/api/sessions/:id', (req, res) => {
-  const existed = sessionStore.delete(req.params.id);
+app.delete('/api/sessions/:id', async (req, res) => {
+  const existed = await sessionStore.delete(req.params.id);
   res.json({ ok: existed });
 });
 
 // Update session
-app.patch('/api/sessions/:id', (req, res) => {
-  const session = sessionStore.get(req.params.id);
+app.patch('/api/sessions/:id', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
   const patch: Partial<Session> = {};
   if (req.body.name) patch.name = req.body.name;
   if (req.body.profileId) patch.profileId = req.body.profileId;
-  sessionStore.update(req.params.id, patch);
+  await sessionStore.update(req.params.id, patch);
   res.json({ ok: true });
 });
 
@@ -232,13 +286,13 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // Get or create session
-    let session = sessionStore.get(sessionId);
+    let session = await sessionStore.get(sessionId);
     if (!session) {
-      session = sessionStore.create(sessionId);
-      sessionStore.update(sessionId, { profileId });
+      session = await sessionStore.create(sessionId);
+      await sessionStore.update(sessionId, { profileId });
     }
 
-    sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
+    await sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
 
     const skill = getSkill('interactive-requirement');
     if (!skill) {
@@ -258,11 +312,11 @@ app.post('/api/chat', async (req, res) => {
     if (result.ok && result.output) {
       const doc = result.output as Record<string, unknown>;
       const completeness = (doc.completeness as number) ?? 0;
-      sessionStore.updateDocument(sessionId, doc, completeness);
-      sessionStore.addMessage(sessionId, { role: 'assistant', content: JSON.stringify(result.output), timestamp: Date.now() });
+      await sessionStore.updateDocument(sessionId, doc, completeness);
+      await sessionStore.addMessage(sessionId, { role: 'assistant', content: JSON.stringify(result.output), timestamp: Date.now() });
     }
 
-    session = sessionStore.get(sessionId)!;
+    session = (await sessionStore.get(sessionId))!;
     res.json({
       ok: result.ok,
       document: session.document,
@@ -286,13 +340,13 @@ app.post('/api/chat/stream', async (req, res) => {
   }
 
   // Get or create session
-  let session = sessionStore.get(sessionId);
+  let session = await sessionStore.get(sessionId);
   if (!session) {
-    session = sessionStore.create(sessionId);
-    sessionStore.update(sessionId, { profileId });
+    session = await sessionStore.create(sessionId);
+    await sessionStore.update(sessionId, { profileId });
   }
 
-  sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
+  await sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
 
   // SSE headers
   res.writeHead(200, {
@@ -315,7 +369,7 @@ app.post('/api/chat/stream', async (req, res) => {
     }
 
     const ctx = createSkillContext(profileId);
-    session = sessionStore.get(sessionId)!;
+    session = (await sessionStore.get(sessionId))!;
     const input: JsonObject = {
       userMessage,
       conversationHistory: session.messages as JsonObject[],
@@ -336,7 +390,7 @@ app.post('/api/chat/stream', async (req, res) => {
     const body = {
       model: llmConfig.model,
       messages,
-      temperature: llmConfig.temperature ?? 0.2,
+      temperature: llmConfig.temperature ?? Object.values(MODEL_PRESETS).find(p => p.model === llmConfig.model)?.temperature ?? 0.2,
       max_tokens: llmConfig.maxTokens ?? 131072,
       stream: true,
     };
@@ -430,54 +484,59 @@ app.post('/api/chat/stream', async (req, res) => {
     console.log(`📝 [${sessionId}] Storing message: original=${fullContent.length} chars, stripped=${textContent.length} chars, json=${fullContent !== textContent}`);
 
     // Store assistant message (text only, no JSON)
-    sessionStore.addMessage(sessionId, { role: 'assistant', content: messageToStore, timestamp: Date.now() });
+    await sessionStore.addMessage(sessionId, { role: 'assistant', content: messageToStore, timestamp: Date.now() });
 
-    // Extract structured info from the conversation (separate lightweight LLM call)
+    // Extract structured info synchronously — send document update via SSE before closing
+    session = (await sessionStore.get(sessionId))!;
     try {
       const { extractRequirementInfo, mergeDocument } = await import('@ai-frontend-engineering-agent/agent-runtime');
-      
+
       const currentDoc = session.document ?? {};
-      const allMessages = sessionStore.get(sessionId)?.messages ?? [];
-      
+      const allMessages = session.messages ?? [];
+
       // Build a compact conversation summary for extraction (use stripped text)
-      const recentMsgs = allMessages.slice(-6);
+      // Kimi K2.6 is a reasoning model — keep context short to leave room for output
+      const recentMsgs = allMessages.slice(-4);
       const conversationSummary = recentMsgs
         .map(m => {
           const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-          return `[${m.role}]: ${c.slice(0, 300)}`;
+          return `[${m.role}]: ${c.slice(0, 150)}`;
         })
         .join('\n');
-      
+
+      console.log(`🔍 [${sessionId}] Extraction starting: msgs=${recentMsgs.length}, docKeys=${Object.keys(currentDoc).length}`);
       const extracted = await extractRequirementInfo(
         llmConfig,
         conversationSummary,
         currentDoc,
       );
-      
+      console.log(`🔍 [${sessionId}] Extraction result:`, extracted ? `completeness=${extracted.completeness}` : 'null');
+
       if (extracted) {
         const merged = mergeDocument(currentDoc, extracted);
         const completeness = (merged.completeness as number) ?? 0;
-        sessionStore.updateDocument(sessionId, merged, completeness);
+        await sessionStore.updateDocument(sessionId, merged, completeness);
         console.log(`✅ [${sessionId}] Document updated: completeness=${completeness}%`);
-        send('document', { document: merged });
+        // Push document update to frontend via SSE
+        send('document', { document: merged, completeness });
       }
     } catch (extractErr) {
-      console.error(`⚠️ [${sessionId}] Extraction failed:`, extractErr);
-      // Don't fail the whole request if extraction fails
+      console.error(`⚠️ [${sessionId}] Extraction failed:`, extractErr instanceof Error ? extractErr.message : extractErr);
+      console.error(`⚠️ [${sessionId}] Extraction stack:`, extractErr instanceof Error ? extractErr.stack?.slice(0, 500) : 'N/A');
     }
 
-    session = sessionStore.get(sessionId)!;
-    send('end', { sessionId: session.id, messageCount: session.messages.length });
+    // Now close the SSE connection
+    send('end', { sessionId: sessionId, messageCount: (await sessionStore.get(sessionId))?.messages.length ?? 0 });
+    res.end();
   } catch (err) {
     send('error', { error: String(err) });
+    res.end();
   }
-
-  res.end();
 });
 
 // Get chat session state
-app.get('/api/chat/:sessionId', (req, res) => {
-  const session = sessionStore.get(req.params.sessionId);
+app.get('/api/chat/:sessionId', async (req, res) => {
+  const session = await sessionStore.get(req.params.sessionId);
   if (!session) {
     return res.status(404).json({ error: 'Session not found' });
   }
@@ -490,20 +549,101 @@ app.get('/api/chat/:sessionId', (req, res) => {
   });
 });
 
+// ─── Document Generation Endpoints ─────────────────────────────────────
+
+// POST /api/chat/document/generate — 全量生成结构化文档
+app.post('/api/chat/document/generate', async (req, res) => {
+  const { sessionId } = req.body;
+  if (!sessionId) return res.status(400).json({ error: 'sessionId required' });
+
+  const session = await sessionStore.get(sessionId);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  try {
+    const messages = session.messages ?? [];
+    const currentDoc = (session.document ?? {}) as Record<string, unknown>;
+
+    // Build conversation summary (last 20 messages, compact)
+    const recentMsgs = messages.slice(-20);
+    const conversationText = recentMsgs
+      .map(m => {
+        const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        return `[${m.role}]: ${c.slice(0, 500)}`;
+      })
+      .join('\n');
+
+    const { generateFullDocument, mergeDocumentDeep } = await import('@ai-frontend-engineering-agent/agent-runtime');
+
+    console.log(`📄 [${sessionId}] Generating full document from ${recentMsgs.length} messages...`);
+    const newDoc = await generateFullDocument(llmConfig, conversationText, currentDoc);
+
+    // Deep merge to preserve existing confirmed content
+    const merged = mergeDocumentDeep(currentDoc, newDoc);
+    const completeness = (merged.completeness as number) ?? 0;
+
+    await sessionStore.updateDocument(sessionId, merged, completeness);
+    console.log(`✅ [${sessionId}] Document generated: completeness=${completeness}%`);
+
+    res.json({ ok: true, document: merged, completeness });
+  } catch (err) {
+    console.error(`❌ [${sessionId}] Document generation failed:`, err instanceof Error ? err.message : err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// POST /api/chat/document/optimize — 优化单个模块
+app.post('/api/chat/document/optimize', async (req, res) => {
+  const { sessionId, module, instruction } = req.body;
+  if (!sessionId || !module || !instruction) {
+    return res.status(400).json({ error: 'sessionId, module, instruction required' });
+  }
+
+  const session = await sessionStore.get(sessionId);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  try {
+    const currentDoc = (session.document ?? {}) as Record<string, unknown>;
+    const currentModuleValue = currentDoc[module];
+
+    const { optimizeModule, estimateCompleteness } = await import('@ai-frontend-engineering-agent/agent-runtime');
+
+    console.log(`🔧 [${sessionId}] Optimizing module "${module}" with instruction: ${instruction.slice(0, 50)}...`);
+    const optimizedValue = await optimizeModule(llmConfig, module, currentModuleValue, instruction, currentDoc);
+
+    // Only update the specified module
+    currentDoc[module] = optimizedValue;
+
+    // Recalculate completeness
+    const completeness = estimateCompleteness(currentDoc);
+    currentDoc.completeness = completeness;
+
+    await sessionStore.updateDocument(sessionId, currentDoc, completeness);
+    console.log(`✅ [${sessionId}] Module "${module}" optimized: completeness=${completeness}%`);
+
+    res.json({ ok: true, document: currentDoc, module, completeness });
+  } catch (err) {
+    console.error(`❌ [${sessionId}] Module optimization failed:`, err instanceof Error ? err.message : err);
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ─── Generation endpoints ───────────────────────────────────────────────
 
 // Generate design mockup
 app.post('/api/generate/design', async (req, res) => {
   try {
     const { sessionId = 'default', profileId = 'vue3-admin' } = req.body;
-    const session = sessionStore.get(sessionId);
+    console.log(`🎨 [${sessionId}] Starting design generation...`);
+    const session = await sessionStore.get(sessionId);
 
     if (!session?.document) {
+      console.log(`❌ [${sessionId}] No requirement document found`);
       return res.status(400).json({ error: 'No requirement document. Complete the chat first.' });
     }
 
     const skill = getSkill('design-generation');
     if (!skill) {
+      console.log(`❌ [${sessionId}] design-generation skill not found`);
       return res.status(500).json({ error: 'design-generation skill not found' });
     }
 
@@ -513,7 +653,13 @@ app.post('/api/generate/design', async (req, res) => {
       phaseId: 'P1',
     };
 
+    console.log(`📤 [${sessionId}] Calling LLM for design generation...`);
     const result = await runSkillThroughLlm(skill, ctx, input, llmConfig);
+    console.log(`📥 [${sessionId}] LLM response received:`, result.ok ? 'success' : 'failed');
+    if (!result.ok) {
+      console.log(`❌ [${sessionId}] LLM error:`, result.error);
+      console.log(`❌ [${sessionId}] LLM raw response:`, result.raw?.substring(0, 500));
+    }
 
     if (result.ok && result.output) {
       const files = result.output.generatedFiles as Array<{ path: string; content: string }>;
@@ -542,11 +688,62 @@ app.post('/api/generate/design', async (req, res) => {
   }
 });
 
+// Image generation models list
+app.get('/api/image/models', (_req, res) => {
+  res.json({ models: IMAGE_MODELS });
+});
+
+// Generate image via Right Code draw API (SSE stream for progress)
+app.post('/api/generate/image', async (req, res) => {
+  try {
+    const { prompt, model = 'gpt-image-2' } = req.body;
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'prompt is required' });
+    }
+
+    console.log(`🖼️ Generating image with model=${model}, prompt="${prompt.substring(0, 80)}..."`);
+
+    // Set SSE headers for progress streaming
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    });
+
+    const result = await generateImage({
+      prompt,
+      model,
+      onProgress: (progress) => {
+        res.write(`data: ${JSON.stringify({ type: 'progress', progress })}\n\n`);
+      },
+    });
+
+    if (result.success) {
+      res.write(`data: ${JSON.stringify({ type: 'complete', imageUrl: result.imageUrl })}\n\n`);
+    } else {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: result.error })}\n\n`);
+    }
+
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } catch (err) {
+    console.error('Image generation error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: String(err) });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: String(err) })}\n\n`);
+      res.end();
+    }
+  }
+});
+
 // Generate code
 app.post('/api/generate/code', async (req, res) => {
   try {
     const { sessionId = 'default', profileId = 'vue3-admin', phaseId = 'P1' } = req.body;
-    const session = sessionStore.get(sessionId);
+    const session = await sessionStore.get(sessionId);
 
     if (!session?.document) {
       return res.status(400).json({ error: 'No requirement document. Complete the chat first.' });
@@ -611,7 +808,7 @@ app.post('/api/workflows/:id/run', async (req, res) => {
   const workflowId = req.params.id;
 
   // Create persistent run record
-  const run = runStore.create(runId, workflowId, workflowId, 'manual');
+  const run = await runStore.create(runId, workflowId, workflowId, 'manual');
 
   // Return immediately, run in background
   res.json({ ok: true, runId, status: 'pending' });
@@ -619,21 +816,21 @@ app.post('/api/workflows/:id/run', async (req, res) => {
   // Execute workflow in background
   (async () => {
     try {
-      runStore.update(runId, { status: 'running' });
+      await runStore.update(runId, { status: 'running' });
 
       // Load workflow definition
       const registry = await loadWorkflowRegistry(path.join(repoRoot, 'workflows'));
       const definition = registry.get(workflowId);
 
       if (!definition) {
-        runStore.complete(runId, `Workflow not found: ${workflowId}`);
+        await runStore.complete(runId, `Workflow not found: ${workflowId}`);
         return;
       }
 
       // Update stages from workflow nodes
       if (definition.nodes) {
         for (const node of definition.nodes) {
-          runStore.updateStage(runId, node.id, {
+          await runStore.updateStage(runId, node.id, {
             name: node.name ?? node.id,
             nodeType: node.type,
             status: 'pending',
@@ -644,18 +841,18 @@ app.post('/api/workflows/:id/run', async (req, res) => {
       // Create executor with adapters
       const executor = new WorkflowExecutor({
         runAgent: async (node, input, state) => {
-          runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
-          runStore.update(runId, { status: 'running' });
+          await runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
+          await runStore.update(runId, { status: 'running' });
 
           const skillName = node.skill;
           if (!skillName) {
-            runStore.updateStage(runId, node.id, { status: 'failed', error: 'No skill defined' });
+            await runStore.updateStage(runId, node.id, { status: 'failed', error: 'No skill defined' });
             return { ok: false, error: `Agent node ${node.id} has no skill defined` };
           }
 
           const skill = getSkill(skillName);
           if (!skill) {
-            runStore.updateStage(runId, node.id, { status: 'failed', error: `Skill not found: ${skillName}` });
+            await runStore.updateStage(runId, node.id, { status: 'failed', error: `Skill not found: ${skillName}` });
             return { ok: false, error: `Skill not found: ${skillName}` };
           }
 
@@ -663,13 +860,13 @@ app.post('/api/workflows/:id/run', async (req, res) => {
           const result = await runSkillThroughLlm(skill, ctx, input, llmConfig);
 
           if (result.ok) {
-            runStore.updateStage(runId, node.id, {
+            await runStore.updateStage(runId, node.id, {
               status: 'completed',
               completedAt: Date.now(),
               result: result.output,
             });
           } else {
-            runStore.updateStage(runId, node.id, {
+            await runStore.updateStage(runId, node.id, {
               status: 'failed',
               completedAt: Date.now(),
               error: result.error,
@@ -684,7 +881,7 @@ app.post('/api/workflows/:id/run', async (req, res) => {
         },
 
         runPlugin: async (node, input, state) => {
-          runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
+          await runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
 
           // Dispatch to real plugins
           let result: WorkflowNodeResult;
@@ -726,19 +923,19 @@ app.post('/api/workflows/:id/run', async (req, res) => {
           }
 
           if (result.ok) {
-            runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now(), result: result.output });
+            await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now(), result: result.output });
           } else {
-            runStore.updateStage(runId, node.id, { status: 'failed', completedAt: Date.now(), error: result.error });
+            await runStore.updateStage(runId, node.id, { status: 'failed', completedAt: Date.now(), error: result.error });
           }
 
           return result;
         },
 
         runPluginGroup: async (node, input, state) => {
-          runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
+          await runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
           // Run all plugins in the group
           const result = { ok: true, output: { message: `Plugin group ${node.id} executed` } };
-          runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now(), result: result.output });
+          await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now(), result: result.output });
           return result;
         },
       });
@@ -757,19 +954,19 @@ app.post('/api/workflows/:id/run', async (req, res) => {
         policies,
         // Approval callback — set run to waiting-approval status
         onApprovalRequired: async (node, state) => {
-          runStore.update(runId, { status: 'waiting-approval' });
-          runStore.updateStage(runId, node.id, { status: 'waiting-approval' });
+          await runStore.update(runId, { status: 'waiting-approval' });
+          await runStore.updateStage(runId, node.id, { status: 'waiting-approval' });
           // In a real system, this would wait for user approval
           // For now, auto-approve (return true)
           return true;
         },
         // Node event callbacks
-        onNodeStart: (node) => {
-          runStore.update(runId, { status: 'running' });
+        onNodeStart: async (node) => {
+          await runStore.update(runId, { status: 'running' });
         },
-        onNodeComplete: (node, result) => {
+        onNodeComplete: async (node, result) => {
           if (result.ok) {
-            runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now() });
+            await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now() });
           }
         },
       };
@@ -777,7 +974,7 @@ app.post('/api/workflows/:id/run', async (req, res) => {
       const executionResult = await executor.execute(definition, input, options);
 
       // Save results
-      runStore.update(runId, {
+      await runStore.update(runId, {
         status: executionResult.status === 'completed' ? 'completed' : executionResult.status === 'waiting-approval' ? 'waiting-approval' : 'failed',
         result: executionResult.nodeResults as unknown as JsonObject,
       });
@@ -790,22 +987,22 @@ app.post('/api/workflows/:id/run', async (req, res) => {
           if (Array.isArray(output.generatedFiles)) {
             for (const file of output.generatedFiles as Array<{ path: string; content: string }>) {
               artifactStore.save(runId, `${nodeId}/${file.path}`, file.content);
-              runStore.addArtifact(runId, `${nodeId}/${file.path}`);
+              await runStore.addArtifact(runId, `${nodeId}/${file.path}`);
             }
           }
         }
       }
 
-      runStore.complete(runId);
+      await runStore.complete(runId);
     } catch (err) {
-      runStore.complete(runId, String(err));
+      await runStore.complete(runId, String(err));
     }
   })();
 });
 
 // List runs
-app.get('/api/runs', (_req, res) => {
-  const list = runStore.list().map(r => ({
+app.get('/api/runs', async (_req, res) => {
+  const list = (await runStore.list()).map(r => ({
     id: r.id,
     workflowId: r.workflowId,
     workflowName: r.workflowName,
@@ -820,8 +1017,8 @@ app.get('/api/runs', (_req, res) => {
 });
 
 // Get run detail
-app.get('/api/runs/:id', (req, res) => {
-  const run = runStore.get(req.params.id);
+app.get('/api/runs/:id', async (req, res) => {
+  const run = await runStore.get(req.params.id);
   if (!run) return res.status(404).json({ error: 'Run not found' });
   res.json(run);
 });
@@ -829,36 +1026,36 @@ app.get('/api/runs/:id', (req, res) => {
 // ─── Approval endpoints ─────────────────────────────────────────────────
 
 // Approve a run
-app.post('/api/runs/:id/approve', (req, res) => {
-  const run = runStore.get(req.params.id);
+app.post('/api/runs/:id/approve', async (req, res) => {
+  const run = await runStore.get(req.params.id);
   if (!run) return res.status(404).json({ error: 'Run not found' });
   if (run.status !== 'waiting-approval') {
     return res.status(400).json({ error: `Run is not waiting for approval (current: ${run.status})` });
   }
 
   const { by = 'user', comment } = req.body;
-  runStore.addApproval(req.params.id, { action: 'approved', by, at: Date.now(), comment });
+  await runStore.addApproval(req.params.id, { action: 'approved', by, at: Date.now(), comment });
   res.json({ ok: true, status: 'approved' });
 });
 
 // Reject a run
-app.post('/api/runs/:id/reject', (req, res) => {
-  const run = runStore.get(req.params.id);
+app.post('/api/runs/:id/reject', async (req, res) => {
+  const run = await runStore.get(req.params.id);
   if (!run) return res.status(404).json({ error: 'Run not found' });
   if (run.status !== 'waiting-approval') {
     return res.status(400).json({ error: `Run is not waiting for approval (current: ${run.status})` });
   }
 
   const { by = 'user', comment } = req.body;
-  runStore.addApproval(req.params.id, { action: 'rejected', by, at: Date.now(), comment });
+  await runStore.addApproval(req.params.id, { action: 'rejected', by, at: Date.now(), comment });
   res.json({ ok: true, status: 'rejected' });
 });
 
 // ─── Artifact endpoints ─────────────────────────────────────────────────
 
 // List artifacts for a run
-app.get('/api/runs/:id/artifacts', (req, res) => {
-  const run = runStore.get(req.params.id);
+app.get('/api/runs/:id/artifacts', async (req, res) => {
+  const run = await runStore.get(req.params.id);
   if (!run) return res.status(404).json({ error: 'Run not found' });
 
   const artifacts = artifactStore.list(req.params.id);
@@ -866,8 +1063,8 @@ app.get('/api/runs/:id/artifacts', (req, res) => {
 });
 
 // Get artifact content — use req.path to extract the file path after /api/runs/:id/artifacts/
-app.get('/api/runs/:id/artifacts/*path', (req, res) => {
-  const run = runStore.get(req.params.id);
+app.get('/api/runs/:id/artifacts/*path', async (req, res) => {
+  const run = await runStore.get(req.params.id);
   if (!run) return res.status(404).json({ error: 'Run not found' });
 
   const filePath = (req.params as Record<string, string>).path ?? req.path.split('/artifacts/')[1];
