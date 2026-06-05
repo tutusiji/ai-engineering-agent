@@ -11,6 +11,7 @@ export interface LlmConfig {
   model: string;
   temperature?: number;
   maxTokens?: number;
+  thinking?: { type: 'enabled' | 'disabled' };
 }
 
 export interface ChatMessage {
@@ -48,12 +49,20 @@ export async function chatCompletion(
 ): Promise<LlmCallResult> {
   const url = `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
-  const body = {
+  const body: Record<string, unknown> = {
     model: config.model,
     messages,
     temperature: config.temperature ?? 0.2,
     max_tokens: config.maxTokens ?? 131072,
   };
+
+  // Kimi K2.6 thinking parameter
+  if (config.thinking) {
+    body.thinking = config.thinking;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes
 
   const response = await fetch(url, {
     method: 'POST',
@@ -62,19 +71,25 @@ export async function chatCompletion(
       Authorization: `Bearer ${config.apiKey}`,
     },
     body: JSON.stringify(body),
+    signal: controller.signal,
   });
+
+  clearTimeout(timeout);
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
+    console.error(`LLM request failed (${response.status}):`, errorText || response.statusText);
     throw new Error(
       `LLM request failed (${response.status}): ${errorText || response.statusText}`,
     );
   }
 
   const data = (await response.json()) as ChatCompletion;
+  console.log('LLM response:', JSON.stringify(data).substring(0, 500));
 
   const choice = data.choices?.[0];
   if (!choice?.message?.content) {
+    console.error('LLM returned empty content:', JSON.stringify(choice));
     throw new Error('LLM returned empty response');
   }
 
@@ -90,6 +105,7 @@ export async function chatCompletion(
  *
  * Priority:
  *   LLM_BASE_URL + LLM_API_KEY + LLM_MODEL  (generic override)
+ *   KIMI_API_KEY                              (Kimi / Moonshot)
  *   XIAOMI_BASE_URL + XIAOMI_API_KEY         (Xiaomi MiMo)
  *   OPENROUTER_API_KEY                        (OpenRouter)
  */
@@ -100,6 +116,16 @@ export function loadLlmConfigFromEnv(): LlmConfig {
       baseUrl: process.env.LLM_BASE_URL,
       apiKey: process.env.LLM_API_KEY,
       model: process.env.LLM_MODEL ?? 'gpt-4o-mini',
+    };
+  }
+
+  // Kimi / Moonshot
+  if (process.env.KIMI_API_KEY) {
+    return {
+      baseUrl: process.env.KIMI_BASE_URL ?? 'https://api.moonshot.cn/v1',
+      apiKey: process.env.KIMI_API_KEY,
+      model: process.env.KIMI_MODEL ?? 'kimi-k2.6',
+      temperature: 1,  // Kimi requires temperature=1
     };
   }
 
@@ -123,6 +149,6 @@ export function loadLlmConfigFromEnv(): LlmConfig {
 
   throw new Error(
     'No LLM credentials found. Set LLM_BASE_URL + LLM_API_KEY, ' +
-    'or XIAOMI_API_KEY, or OPENROUTER_API_KEY in your environment.',
+    'or KIMI_API_KEY, or XIAOMI_API_KEY, or OPENROUTER_API_KEY in your environment.',
   );
 }

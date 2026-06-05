@@ -36,13 +36,21 @@ export async function runSkillThroughLlm(
     // 1. Build prompt
     const prompt: SkillPrompt = await skill.buildPrompt(ctx, input);
 
-    // 2. Call LLM
+    // 2. Call LLM — merge skill's defaultModel with global config
+    const mergedConfig: LlmConfig = {
+      ...llmConfig,
+      ...(skill.defaultModel?.temperature != null && { temperature: skill.defaultModel.temperature }),
+      ...(skill.defaultModel?.maxTokens != null && { maxTokens: skill.defaultModel.maxTokens }),
+      ...(skill.defaultModel?.model && skill.defaultModel.model !== 'auto' && { model: skill.defaultModel.model }),
+      ...(skill.defaultModel?.thinking && { thinking: skill.defaultModel.thinking }),
+    };
+
     const messages = [
       { role: 'system' as const, content: prompt.system },
       { role: 'user' as const, content: buildUserContent(prompt) },
     ];
 
-    const result = await chatCompletion(llmConfig, messages);
+    const result = await chatCompletion(mergedConfig, messages);
 
     // 3. Extract JSON
     const parsed = extractJson(result.content);
@@ -109,6 +117,54 @@ export function extractJson(text: string): JsonObject | null {
     // Fence content might be truncated — try repair
     const repairedFenced = tryRepairJson(fenced[1].trim());
     if (repairedFenced) return repairedFenced;
+  }
+
+  // Try extracting from ```html ... ``` fences (for design generation)
+  const htmlFenced = text.match(/```html\s*\n?([\s\S]*?)```/);
+  if (htmlFenced?.[1]) {
+    const htmlContent = htmlFenced[1].trim();
+    if (htmlContent.length > 100) {
+      return {
+        pageName: 'design-mockup',
+        targetProfile: 'vue3-admin',
+        generatedFiles: [{
+          path: 'artifacts/design-mockup.html',
+          kind: 'page',
+          status: 'generated',
+          content: htmlContent,
+        }],
+        patches: [{
+          target: 'artifacts/design-mockup.html',
+          action: 'create',
+          summary: 'HTML 设计稿',
+        }],
+        notes: ['从 HTML 代码块提取'],
+      };
+    }
+  }
+
+  // Try incomplete HTML fence (truncated before closing ```)
+  const incompleteHtmlFence = text.match(/```html\s*\n?([\s\S]+)/);
+  if (incompleteHtmlFence?.[1]) {
+    const htmlContent = incompleteHtmlFence[1].trim();
+    if (htmlContent.length > 100) {
+      return {
+        pageName: 'design-mockup',
+        targetProfile: 'vue3-admin',
+        generatedFiles: [{
+          path: 'artifacts/design-mockup.html',
+          kind: 'page',
+          status: 'generated',
+          content: htmlContent,
+        }],
+        patches: [{
+          target: 'artifacts/design-mockup.html',
+          action: 'create',
+          summary: 'HTML 设计稿（截断）',
+        }],
+        notes: ['从截断的 HTML 代码块提取'],
+      };
+    }
   }
 
   // Try incomplete fence (truncated before closing ```)

@@ -71,22 +71,35 @@ ${currentDocSummary || '（空文档）'}
 
   try {
     const result = await chatCompletion(
-      { ...config, maxTokens: 2048 },
+      { ...config, maxTokens: 8192 },
       prompt,
     );
 
+    console.log(`🔍 [extractor] LLM response length: ${result.content.length}`);
+    console.log(`🔍 [extractor] LLM response preview: ${result.content.slice(0, 200)}`);
+
     // Extract JSON from response
     const jsonMatch = result.content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
+    if (!jsonMatch) {
+      console.warn(`⚠️ [extractor] No JSON found in response`);
+      return null;
+    }
 
-    const parsed = JSON.parse(jsonMatch[0]) as ExtractedInfo;
-    return {
-      confirmed: parsed.confirmed ?? {},
-      newQuestions: Array.isArray(parsed.newQuestions) ? parsed.newQuestions : [],
-      answeredQuestions: Array.isArray(parsed.answeredQuestions) ? parsed.answeredQuestions : [],
-      completeness: typeof parsed.completeness === 'number' ? parsed.completeness : undefined,
-    };
-  } catch {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]) as ExtractedInfo;
+      return {
+        confirmed: parsed.confirmed ?? {},
+        newQuestions: Array.isArray(parsed.newQuestions) ? parsed.newQuestions : [],
+        answeredQuestions: Array.isArray(parsed.answeredQuestions) ? parsed.answeredQuestions : [],
+        completeness: typeof parsed.completeness === 'number' ? parsed.completeness : undefined,
+      };
+    } catch (parseErr) {
+      console.warn(`⚠️ [extractor] JSON parse failed:`, parseErr instanceof Error ? parseErr.message : parseErr);
+      console.warn(`⚠️ [extractor] JSON text: ${jsonMatch[0].slice(0, 300)}`);
+      return null;
+    }
+  } catch (err) {
+    console.error(`⚠️ [extractor] chatCompletion failed:`, err instanceof Error ? err.message : err);
     return null;
   }
 }
