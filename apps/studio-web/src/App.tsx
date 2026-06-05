@@ -14,23 +14,26 @@
  *   └──────────┴───────────────────────┴───────────────┘
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabList, Tab, TabPanel } from '@heroui/react/tabs';
 import { Badge } from '@heroui/react/badge';
-import { Zap, Image, Code, FileText } from 'lucide-react';
+import { Zap, Image, Code, Sparkles, FileText, ChevronDown, Check, Cpu } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
+import { useDocument } from './hooks/useDocument';
 import { Sidebar } from './components/Sidebar';
-import { ChatPanel, DocumentPanel } from './components/ChatPanel';
+import { ChatPanel } from './components/ChatPanel';
+import { DocumentPanel } from './components/DocumentPanel';
 import { DesignPanel } from './components/DesignPanel';
 import { CodePanel } from './components/CodePanel';
+import { ImageDesignPanel } from './components/ImageDesignPanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { RunHistory } from './components/RunHistory';
 
 const API = '/api';
 
 type NavKey = 'chat' | 'workflows' | 'history';
-type ChatTab = 'chat' | 'design' | 'code' | 'document';
+type ChatTab = 'chat' | 'design' | 'ai-image' | 'code' | 'document';
 
 export default function App() {
   const {
@@ -52,14 +55,59 @@ export default function App() {
   const [designLoading, setDesignLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
 
-  const chat = useChat(activeSessionId, profileId);
+  // Model switcher state
+  interface ModelOption { id: string; label: string; model: string; active: boolean }
+  const [models, setModels] = useState<ModelOption[]>([]);
+  const [currentModel, setCurrentModel] = useState<string>('');
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+
+  const fetchModels = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/models`);
+      const data = await res.json();
+      setModels(data);
+      const active = data.find((m: ModelOption) => m.active);
+      if (active) setCurrentModel(active.label);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchModels(); }, [fetchModels]);
+
+  const switchModel = async (modelId: string) => {
+    try {
+      const res = await fetch(`${API}/models/switch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ modelId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCurrentModel(data.label);
+        setModels(prev => prev.map(m => ({ ...m, active: m.id === modelId })));
+      }
+    } catch { /* ignore */ }
+    setModelMenuOpen(false);
+  };
+
+  const docHook = useDocument(activeSessionId);
+
+  const chat = useChat(activeSessionId, profileId, docHook.updateFromSSE);
 
   // Load session data when switching sessions
   useEffect(() => {
     if (activeSessionId) {
-      chat.loadSession(activeSessionId);
+      chat.loadSession(activeSessionId).then(() => {
+        // Document will be loaded from session data via loadSession
+      });
     }
   }, [activeSessionId]);
+
+  // Sync document from chat to docHook when session loads
+  useEffect(() => {
+    if (chat.document) {
+      docHook.loadDocument(chat.document);
+    }
+  }, [chat.document]);
 
   const handleCreateSession = async () => {
     const id = await createSession(profileId);
@@ -116,7 +164,7 @@ export default function App() {
     }
   };
 
-  const completeness = chat.document?.completeness ?? 0;
+  const completeness = docHook.completeness;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -130,15 +178,56 @@ export default function App() {
         <h4 className="text-white m-0 flex-1 text-lg font-semibold">
           AI Frontend Engineering Agent
         </h4>
-        <div className="flex gap-2 items-center">
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/15 text-white/90 backdrop-blur-sm">
-            {profileId}
-          </span>
+        <div className="flex gap-3 items-center">
           {activeSession && (
             <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 backdrop-blur-sm">
               {activeSession.name}
             </span>
           )}
+          {/* Model Switcher */}
+          <div className="relative">
+            <button
+              onClick={() => setModelMenuOpen(!modelMenuOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium
+                bg-white/10 hover:bg-white/20 text-white/90 backdrop-blur-sm
+                border border-white/10 hover:border-white/20 transition-all cursor-pointer"
+            >
+              <Cpu className="w-3.5 h-3.5" />
+              <span>{currentModel || 'Loading...'}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${modelMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {modelMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setModelMenuOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-52 rounded-xl overflow-hidden
+                  bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-2xl">
+                  <div className="px-3 py-2 text-[10px] text-white/40 uppercase tracking-wider font-medium">
+                    选择模型
+                  </div>
+                  {models.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => switchModel(m.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors cursor-pointer
+                        ${m.active
+                          ? 'bg-blue-500/20 text-blue-300'
+                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                        }`}
+                    >
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center
+                        ${m.active ? 'bg-blue-500/30' : 'bg-white/10'}`}>
+                        {m.active ? <Check className="w-3 h-3" /> : <Cpu className="w-3 h-3" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{m.label}</div>
+                        <div className="text-[10px] opacity-50 truncate">{m.model}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -193,6 +282,12 @@ export default function App() {
                       </div>
                     )}
                   </Tab>
+                  <Tab id="ai-image">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <span>AI 画图</span>
+                    </div>
+                  </Tab>
                   <Tab id="code">
                     {generatedFiles.length > 0 ? (
                       <Badge content={String(generatedFiles.length)} color="success" size="sm">
@@ -214,7 +309,7 @@ export default function App() {
                 <TabPanel id="chat" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
                   <ChatPanel
                     messages={chat.messages}
-                    document={chat.document}
+                    document={docHook.document}
                     loading={chat.loading}
                     streaming={chat.streaming}
                     streamContent={chat.streamContent}
@@ -223,14 +318,20 @@ export default function App() {
                     onProfileChange={setProfileId}
                     onSend={chat.send}
                     onStop={chat.stop}
-                    onGenerateDesign={handleGenerateDesign}
-                    onGenerateCode={handleGenerateCode}
-                    designLoading={designLoading}
-                    codeLoading={codeLoading}
                   />
                 </TabPanel>
                 <TabPanel id="design">
-                  <DesignPanel html={designHtml} />
+                  <DesignPanel
+                    html={designHtml}
+                    completeness={completeness}
+                    loading={designLoading}
+                    onGenerate={handleGenerateDesign}
+                  />
+                </TabPanel>
+                <TabPanel id="ai-image">
+                  <ImageDesignPanel
+                    defaultPrompt={docHook.document?.featureName ? `为"${docHook.document.featureName}"生成一张设计概念图` : ''}
+                  />
                 </TabPanel>
                 <TabPanel id="code">
                   <CodePanel files={generatedFiles} />
@@ -253,9 +354,13 @@ export default function App() {
         {activeNav === 'chat' && (
           <aside className="w-[360px] shrink-0 bg-white border-l border-divider overflow-auto h-full">
             <DocumentPanel
-              document={chat.document}
+              document={docHook.document}
+              sessionId={activeSessionId}
+              generating={docHook.generating}
+              optimizingModule={docHook.optimizingModule}
+              onGenerate={docHook.generate}
+              onOptimize={docHook.optimize}
               onSend={chat.send}
-              onRegenerate={() => chat.send('请根据当前对话内容，重新输出完整的需求文档 JSON')}
               loading={chat.loading}
             />
           </aside>

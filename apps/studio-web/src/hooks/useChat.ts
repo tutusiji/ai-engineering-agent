@@ -37,13 +37,19 @@ export interface RequirementDocument {
   suggestedNextStep?: string;
 }
 
-export function useChat(sessionId: string | null, profileId: string) {
+export function useChat(
+  sessionId: string | null,
+  profileId: string,
+  onDocumentUpdate?: (doc: RequirementDocument) => void,
+) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [document, setDocument] = useState<RequirementDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const onDocumentUpdateRef = useRef(onDocumentUpdate);
+  onDocumentUpdateRef.current = onDocumentUpdate;
 
   // Load session messages
   const loadSession = useCallback(async (sid: string) => {
@@ -73,6 +79,8 @@ export function useChat(sessionId: string | null, profileId: string) {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    let fullContent = '';
+
     try {
       const res = await fetch(`${API}/chat/stream`, {
         method: 'POST',
@@ -90,7 +98,7 @@ export function useChat(sessionId: string | null, profileId: string) {
 
       const decoder = new TextDecoder();
       let buffer = '';
-      let fullContent = '';
+      let currentEvent = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -102,27 +110,60 @@ export function useChat(sessionId: string | null, profileId: string) {
 
         for (const line of lines) {
           if (line.startsWith('event: ')) {
-            const event = line.slice(7).trim();
+            currentEvent = line.slice(7).trim();
             continue;
           }
           if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
+            try {
+              const data = JSON.parse(line.slice(6));
 
-            if (data.content) {
-              fullContent += data.content;
-              setStreamContent(fullContent);
+              if (currentEvent === 'error') {
+                throw new Error(data.error || 'LLM error');
+              }
+
+              if (data.content) {
+                fullContent += data.content;
+                setStreamContent(fullContent);
+              }
+              if (data.document) {
+                setDocument(data.document);
+                onDocumentUpdateRef.current?.(data.document);
+              }
+              if (data.message && !data.content) {
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: data.message,
+                  timestamp: Date.now(),
+                }]);
+              }
+            } catch (parseErr) {
+              // If it's our thrown error, re-throw
+              if ((parseErr as Error).message && !(parseErr as Error).message.includes('JSON')) {
+                throw parseErr;
+              }
+              // Otherwise skip malformed JSON lines
+              console.warn('SSE parse skip:', line);
             }
-            if (data.document) {
-              setDocument(data.document);
-            }
-            if (data.message && !data.content) {
-              // Warning or info message from backend (e.g. truncation warning)
-              setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: data.message,
-                timestamp: Date.now(),
-              }]);
-            }
+          }
+        }
+      }
+
+      // Process remaining buffer
+      if (buffer.trim()) {
+        const lines = buffer.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                fullContent += data.content;
+                setStreamContent(fullContent);
+              }
+              if (data.document) {
+                setDocument(data.document);
+                onDocumentUpdateRef.current?.(data.document);
+              }
+            } catch { /* skip */ }
           }
         }
       }
@@ -149,11 +190,26 @@ export function useChat(sessionId: string | null, profileId: string) {
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `❌ 请求失败: ${(err as Error).message}`,
-          timestamp: Date.now(),
-        }]);
+        // Check both fullContent and streamContent — streamContent is the React state
+        // that may have accumulated content even if the stream errored out
+        const hasContent = fullContent.length > 0 || streamContent.length > 0;
+        if (!hasContent) {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `❌ 请求失败: ${(err as Error).message}`,
+            timestamp: Date.now(),
+          }]);
+        } else {
+          console.warn('SSE stream error (content already received):', (err as Error).message);
+          // Content was received — add it as a final message so user sees it properly
+          if (fullContent) {
+            setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: fullContent,
+              timestamp: Date.now(),
+            }]);
+          }
+        }
       }
     } finally {
       setLoading(false);

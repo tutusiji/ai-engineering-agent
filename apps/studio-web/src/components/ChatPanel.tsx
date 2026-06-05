@@ -65,10 +65,6 @@ interface ChatPanelProps {
   onProfileChange: (v: string) => void;
   onSend: (text: string) => void;
   onStop: () => void;
-  onGenerateDesign: () => void;
-  onGenerateCode: () => void;
-  designLoading: boolean;
-  codeLoading: boolean;
 }
 
 /** Check if content looks like JSON (requirement doc) */
@@ -179,10 +175,6 @@ export function ChatPanel({
   onProfileChange,
   onSend,
   onStop,
-  onGenerateDesign,
-  onGenerateCode,
-  designLoading,
-  codeLoading,
 }: ChatPanelProps) {
   const [inputValue, setInputValue] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -259,22 +251,7 @@ export function ChatPanel({
             valueLabel={`${completeness}%`}
           />
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          onPress={onGenerateDesign}
-          isDisabled={completeness < 80 || designLoading}
-        >
-          <Image size={16} className="inline mr-1" /> 设计稿
-        </Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onPress={onGenerateCode}
-          isDisabled={completeness < 95 || codeLoading}
-        >
-          <Code size={16} className="inline mr-1" /> 代码
-        </Button>
+
       </div>
 
       {/* Messages — scrollable area */}
