@@ -9,9 +9,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-frontend-engineering-agent/shared-types": "workspace:*"
+    "@ai-frontend-engineering-agent/shared-types": "workspace:*",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0"
+    "@types/node": "^25.6.0",
+    "@types/pg": "^8.20.0"
   }
 }
