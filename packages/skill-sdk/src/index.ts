@@ -37,6 +37,7 @@ export interface SkillModelConfig {
   model: string;
   temperature?: number;
   maxTokens?: number;
+  thinking?: { type: 'enabled' | 'disabled' };
 }
 
 // Skill 负责受约束的推理与结构化输出，不直接承担不透明的副作用。
