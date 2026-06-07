@@ -203,13 +203,24 @@ app.post('/api/models/switch', (req, res) => {
 });
 
 // Profiles
-app.get('/api/profiles', async (_req, res) => {
+app.get('/api/profiles', async (req, res) => {
   try {
-    const profileIds = ['vue3-admin', 'react-admin', 'pc-spa', 'h5-spa', 'wechat-miniapp'];
+    const profileIds = await policies.listTargetProfiles();
+    const frontendFilter = req.query.frontend as string | undefined;
+    const backendFilter = req.query.backend as string | undefined;
+
     const profiles = [];
     for (const id of profileIds) {
       const p = await policies.getTargetProfile(id);
-      if (p) profiles.push({ id, ...p });
+      if (!p) continue;
+
+      if (frontendFilter && p.framework !== frontendFilter) continue;
+      if (backendFilter && (p as Record<string, unknown>).backend) {
+        const be = (p as Record<string, unknown>).backend as Record<string, unknown> | undefined;
+        if (be?.framework !== backendFilter) continue;
+      }
+
+      profiles.push({ id, ...p });
     }
     res.json(profiles);
   } catch (err) {
