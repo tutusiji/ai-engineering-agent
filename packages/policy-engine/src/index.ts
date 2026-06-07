@@ -8,6 +8,25 @@ export interface PolicyRegistryOptions {
   targetPoliciesDir: string;
 }
 
+export interface BackendProfile {
+  framework: string;
+  language: string;
+  orm?: string;
+  patterns: string[];
+  testing?: string[];
+}
+
+export interface DatabaseProfile {
+  strategy: 'auto-recommend' | 'fixed';
+  candidates?: string[];
+  migration: 'auto' | 'manual';
+}
+
+export interface DeploymentProfile {
+  strategy: 'docker-compose' | 'k8s' | 'static';
+  components: string[];
+}
+
 export interface TargetProfileDefinition extends TargetProfileRef {
   uiLibrary?: string;
   routingMode?: string;
@@ -15,6 +34,9 @@ export interface TargetProfileDefinition extends TargetProfileRef {
   pagePatterns?: JsonObject;
   preferredPlugins?: JsonObject;
   validation?: JsonObject;
+  backend?: BackendProfile;
+  database?: DatabaseProfile;
+  deployment?: DeploymentProfile;
 }
 
 export class FilePolicyRegistry {
