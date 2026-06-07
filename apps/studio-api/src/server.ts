@@ -161,10 +161,10 @@ const MODEL_PRESETS: Record<string, { baseUrl: string; model: string; label: str
     label: 'Kimi K2.6',
     temperature: 1,
   },
-  'deepseek-v3': {
+  'deepseek-v4-pro': {
     baseUrl: 'https://api.deepseek.com/v1',
-    model: 'deepseek-chat',
-    label: 'DeepSeek V3',
+    model: 'deepseek-v4-pro',
+    label: 'DeepSeek V4 Pro',
     temperature: 0.2,
   },
 };
