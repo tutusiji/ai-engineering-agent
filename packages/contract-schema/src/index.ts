@@ -30,4 +30,21 @@ export class FileSchemaRegistry {
       .map((entry) => entry.name.replace(/\.schema\.json$/, ''))
       .sort();
   }
+
+  async validate(ref: SchemaRef, data: JsonObject): Promise<{ valid: boolean; errors: string[] }> {
+    const schema = await this.get(ref);
+    if (!schema) {
+      return { valid: false, errors: [`Schema not found: ${ref.name}`] };
+    }
+    const errors: string[] = [];
+    const required = (schema as Record<string, unknown>).required as string[] | undefined;
+    if (required) {
+      for (const field of required) {
+        if (!(field in data) || data[field] === undefined || data[field] === null) {
+          errors.push(`Missing required field: ${field}`);
+        }
+      }
+    }
+    return { valid: errors.length === 0, errors };
+  }
 }
