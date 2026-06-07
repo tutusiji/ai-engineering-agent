@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "deployment-config.schema.json",
+  "title": "DeploymentConfig",
+  "description": "部署配置 — 服务、端口、环境变量、数据卷",
+  "type": "object",
+  "required": ["services"],
+  "properties": {
+    "services": { "type": "array", "items": { "type": "string", "enum": ["nginx", "api", "db", "redis", "worker"] } },
+    "ports": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "envVars": { "type": "array", "items": { "type": "string" } },
+    "volumes": { "type": "array", "items": { "type": "string" } },
+    "healthChecks": { "type": "object", "additionalProperties": { "type": "string" } },
+    "domains": { "type": "array", "items": { "type": "string" } }
+  }
+}

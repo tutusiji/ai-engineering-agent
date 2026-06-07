@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "project-scaffold.schema.json",
+  "title": "ProjectScaffold",
+  "description": "项目骨架计划",
+  "type": "object",
+  "required": ["structure"],
+  "properties": {
+    "structure": {
+      "type": "object",
+      "required": ["directories"],
+      "properties": {
+        "directories": { "type": "array", "items": { "type": "string" } },
+        "entryPoints": { "type": "object", "additionalProperties": { "type": "string" } }
+      }
+    },
+    "packageManager": { "type": "string", "enum": ["pnpm", "npm", "yarn", "poetry", "go-mod"] },
+    "monorepo": { "type": "boolean" },
+    "packages": { "type": "array", "items": { "type": "string" } }
+  }
+}
