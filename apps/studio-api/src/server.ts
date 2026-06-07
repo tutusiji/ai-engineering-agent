@@ -54,7 +54,8 @@ import {
 import type { SkillContext } from '@ai-frontend-engineering-agent/skill-sdk';
 import type { JsonObject } from '@ai-frontend-engineering-agent/shared-types';
 import { getCompatibleLibraries } from '@ai-frontend-engineering-agent/agent-runtime';
-import { SessionStore, RunStore, ArtifactStore, initPool } from '@ai-frontend-engineering-agent/persistence';
+import { generateImage, IMAGE_MODELS } from '@ai-frontend-engineering-agent/agent-runtime';
+import { SessionStore, RunStore, ArtifactStore, MetricsStore, initPool } from '@ai-frontend-engineering-agent/persistence';
 import type { Session, ChatMessage } from '@ai-frontend-engineering-agent/persistence';
 
 // Workflow execution
@@ -89,8 +90,10 @@ const policies = new FilePolicyRegistry({
 const sessionStore = new SessionStore();
 const runStore = new RunStore();
 const artifactStore = new ArtifactStore();
+const metricsStore = new MetricsStore();
 
 await initPool();
+await metricsStore.ensureTable();
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
@@ -1137,6 +1140,59 @@ app.get('/api/runs/:id/artifacts/*path', async (req, res) => {
   res.send(content);
 });
 
+// ─── Metrics / DataView endpoints ────────────────────────────────────────
+
+app.get('/api/metrics/projects', async (_req, res) => {
+  try {
+    const list = await metricsStore.list(50);
+    res.json(list.map(m => ({
+      projectId: m.projectId,
+      sessionId: m.sessionId,
+      profile: m.profile,
+      status: m.status,
+      stageCount: m.stages.length,
+      totalFiles:
+        (m.artifacts.frontend?.fileCount ?? 0) +
+        (m.artifacts.backend?.fileCount ?? 0) +
+        (m.artifacts.database?.fileCount ?? 0) +
+        (m.artifacts.deployment?.fileCount ?? 0),
+      duration: m.timings.end ? m.timings.end - m.timings.start : undefined,
+      start: m.timings.start,
+    })));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/metrics/projects/:id', async (req, res) => {
+  try {
+    const m = await metricsStore.get(req.params.id);
+    if (!m) return res.status(404).json({ error: 'Project metrics not found' });
+    res.json(m);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/metrics/overview', async (_req, res) => {
+  try {
+    const overview = await metricsStore.overview();
+    res.json(overview);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.get('/api/metrics/projects/:id/stages', async (req, res) => {
+  try {
+    const m = await metricsStore.get(req.params.id);
+    if (!m) return res.status(404).json({ error: 'Project metrics not found' });
+    res.json(m.stages);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ─── Start ──────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -1168,4 +1224,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`    POST /api/runs/:id/reject`);
   console.log(`    GET  /api/runs/:id/artifacts`);
   console.log(`    GET  /api/runs/:id/artifacts/:file`);
+  console.log(`    GET  /api/metrics/projects`);
+  console.log(`    GET  /api/metrics/projects/:id`);
+  console.log(`    GET  /api/metrics/overview`);
+  console.log(`    GET  /api/metrics/projects/:id/stages`);
 });
