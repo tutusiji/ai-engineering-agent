@@ -2,7 +2,7 @@
  * OpenAI-compatible LLM HTTP client.
  *
  * Works with any provider that exposes the /v1/chat/completions endpoint:
- * Xiaomi MiMo, OpenRouter, DeepSeek, local vLLM, etc.
+ * OpenRouter, DeepSeek, local vLLM, etc.
  */
 
 export interface LlmConfig {
@@ -106,7 +106,7 @@ export async function chatCompletion(
  * Priority:
  *   LLM_BASE_URL + LLM_API_KEY + LLM_MODEL  (generic override)
  *   KIMI_API_KEY                              (Kimi / Moonshot)
- *   XIAOMI_BASE_URL + XIAOMI_API_KEY         (Xiaomi MiMo)
+ *   DEEPSEEK_BASE_URL + DEEPSEEK_API_KEY         (DeepSeek)
  *   OPENROUTER_API_KEY                        (OpenRouter)
  */
 export function loadLlmConfigFromEnv(): LlmConfig {
@@ -130,11 +130,11 @@ export function loadLlmConfigFromEnv(): LlmConfig {
   }
 
   // Xiaomi MiMo
-  if (process.env.XIAOMI_API_KEY) {
+  if (process.env.DEEPSEEK_API_KEY) {
     return {
-      baseUrl: process.env.XIAOMI_BASE_URL ?? 'https://api.xiaomimimo.com/v1',
-      apiKey: process.env.XIAOMI_API_KEY,
-      model: process.env.XIAOMI_MODEL ?? 'mimo-v2.5-pro',
+      baseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com/v1',
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      model: process.env.DEEPSEEK_MODEL ?? 'deepseek-chat',
     };
   }
 
@@ -149,6 +149,6 @@ export function loadLlmConfigFromEnv(): LlmConfig {
 
   throw new Error(
     'No LLM credentials found. Set LLM_BASE_URL + LLM_API_KEY, ' +
-    'or KIMI_API_KEY, or XIAOMI_API_KEY, or OPENROUTER_API_KEY in your environment.',
+    'or KIMI_API_KEY, or DEEPSEEK_API_KEY, or OPENROUTER_API_KEY in your environment.',
   );
 }

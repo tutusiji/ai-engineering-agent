@@ -161,10 +161,11 @@ const MODEL_PRESETS: Record<string, { baseUrl: string; model: string; label: str
     label: 'Kimi K2.6',
     temperature: 1,
   },
-  'mimo-v2.5-pro': {
-    baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
-    model: 'mimo-v2.5-pro',
-    label: 'MiMo v2.5 Pro',
+  'deepseek-v3': {
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-chat',
+    label: 'DeepSeek V3',
+    temperature: 0.2,
   },
 };
 
