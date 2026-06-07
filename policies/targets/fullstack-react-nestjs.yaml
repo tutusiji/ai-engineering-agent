@@ -1,15 +1,20 @@
-id: h5-spa
-platform: h5-spa
-framework: unknown
-uiLibrary: custom
-routingMode: custom
+id: fullstack-react-nestjs
+platform: fullstack
+framework: react
+uiLibrary: antd
+routingMode: react-router
 styling:
-  - custom
+  - tailwindcss
 pagePatterns:
   supports:
     - route-page
-    - standalone-page
+    - drawer
+    - modal
     - tab-page
+preferredPlugins:
+  scanner: react-project-scanner
+  navigation: route-menu-decider
+  generator: crud-page-generator
 validation:
   visualRegression: true
   playwright: true
