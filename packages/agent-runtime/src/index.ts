@@ -16,6 +16,12 @@ import { designGenerationSkill } from './skills/design-generation';
 import { codeGenerationSkill } from './skills/code-generation';
 import { uiLibrarySelectionSkill } from './skills/ui-library-selection';
 
+// New fullstack skills
+import { dataModelingSkill } from './skills/data-modeling';
+import { apiDesignSkill } from './skills/api-design';
+import { backendCodingSkill } from './skills/backend-coding';
+import { deploymentPlanningSkill } from './skills/deployment-planning';
+
 export const skillRegistry: Record<string, SkillDefinition> = {
   // Original workflow skills
   'requirement-analysis': requirementAnalysisSkill,
@@ -28,6 +34,12 @@ export const skillRegistry: Record<string, SkillDefinition> = {
   'design-generation': designGenerationSkill,
   'code-generation': codeGenerationSkill,
   'ui-library-selection': uiLibrarySelectionSkill,
+
+  // Fullstack skills
+  'data-modeling': dataModelingSkill,
+  'api-design': apiDesignSkill,
+  'backend-coding': backendCodingSkill,
+  'deployment-planning': deploymentPlanningSkill,
 };
 
 export function getSkill(name: string): SkillDefinition | undefined {
@@ -45,6 +57,10 @@ export { interactiveRequirementSkill } from './skills/interactive-requirement';
 export { designGenerationSkill } from './skills/design-generation';
 export { codeGenerationSkill } from './skills/code-generation';
 export { uiLibrarySelectionSkill } from './skills/ui-library-selection';
+export { dataModelingSkill } from './skills/data-modeling';
+export { apiDesignSkill } from './skills/api-design';
+export { backendCodingSkill } from './skills/backend-coding';
+export { deploymentPlanningSkill } from './skills/deployment-planning';
 export { UI_CATALOG, getCompatibleLibraries, getUiLibrary, getLibrarySummary } from './ui-catalog';
 export type { RequirementDocument } from './skills/interactive-requirement';
 export {
