@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "api-contract.schema.json",
+  "title": "ApiContract",
+  "description": "API 契约 — 端点列表、请求/响应结构、错误码",
+  "type": "object",
+  "required": ["basePath", "auth", "endpoints"],
+  "properties": {
+    "basePath": { "type": "string" },
+    "auth": { "type": "string", "enum": ["none", "jwt", "session", "apikey"] },
+    "endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["method", "path"],
+        "properties": {
+          "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          "path": { "type": "string" },
+          "summary": { "type": "string" },
+          "auth": { "type": "boolean" },
+          "request": {
+            "type": "object",
+            "properties": {
+              "params": { "type": "object", "additionalProperties": { "type": "string" } },
+              "query": { "type": "object", "additionalProperties": { "type": "string" } },
+              "body": { "type": "object", "additionalProperties": { "type": "string" } }
+            }
+          },
+          "response": { "type": "object", "additionalProperties": { "type": "string" } },
+          "errors": { "type": "array", "items": { "type": "integer" } }
+        }
+      }
+    }
+  }
+}
