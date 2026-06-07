@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "data-model.schema.json",
+  "title": "DataModel",
+  "description": "结构化数据模型 — 实体、字段、关系、索引",
+  "type": "object",
+  "required": ["entities", "recommendedDb"],
+  "properties": {
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "fields"],
+        "properties": {
+          "name": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string", "enum": ["uuid", "string", "number", "boolean", "date", "datetime", "text", "json", "enum"] },
+                "primary": { "type": "boolean" },
+                "unique": { "type": "boolean" },
+                "nullable": { "type": "boolean" },
+                "default": {},
+                "values": { "type": "array", "items": { "type": "string" } },
+                "description": { "type": "string" }
+              }
+            }
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "target", "foreignKey"],
+              "properties": {
+                "kind": { "type": "string", "enum": ["hasOne", "hasMany", "belongsTo", "manyToMany"] },
+                "target": { "type": "string" },
+                "foreignKey": { "type": "string" }
+              }
+            }
+          },
+          "indexes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["fields"],
+              "properties": {
+                "fields": { "type": "array", "items": { "type": "string" } },
+                "unique": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "recommendedDb": { "type": "string", "enum": ["postgresql", "mysql", "sqlite"] },
+    "reasoning": { "type": "string" }
+  }
+}
