@@ -27,3 +27,31 @@ export interface ValidationPluginDefinition {
   category: ValidationIssue['category'];
   defaultSeverity?: ValidationIssue['severity'];
 }
+
+export interface ApiContractValidationResult {
+  passed: boolean;
+  totalEndpoints: number;
+  matchedEndpoints: number;
+  missingEndpoints: string[];
+  typeMismatches: Array<{ endpoint: string; field: string; expected: string; actual: string }>;
+}
+
+export interface DbMigrationValidationResult {
+  passed: boolean;
+  migrationCount: number;
+  canApply: boolean;
+  errors: string[];
+}
+
+export interface IntegrationTestResult {
+  passed: boolean;
+  totalTests: number;
+  passedTests: number;
+  failedTests: number;
+  failures: Array<{ test: string; error: string }>;
+}
+
+export interface DeploymentValidationResult {
+  passed: boolean;
+  services: Array<{ name: string; healthy: boolean; url?: string }>;
+}
