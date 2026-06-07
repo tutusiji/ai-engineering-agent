@@ -12,6 +12,8 @@ export interface SkillContext {
   nodeId: string;
   targetProject?: string;
   targetProfile?: TargetProfileRef;
+  /** 解析后的完整 target profile（包含 backend/database/deployment 等扩展字段） */
+  resolvedTargetProfile?: JsonObject;
   schemas: SkillSchemaResolver;
   policies: SkillPolicyResolver;
   artifacts: ArtifactRef[];
