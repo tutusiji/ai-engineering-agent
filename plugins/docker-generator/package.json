@@ -1,0 +1,8 @@
+{
+  "name": "@ai-frontend-engineering-agent/plugin-docker-generator",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {},
+  "dependencies": {}
+}
