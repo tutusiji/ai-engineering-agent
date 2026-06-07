@@ -928,6 +928,52 @@ app.post('/api/workflows/:id/run', async (req, res) => {
                 result = { ok: true, output: vr.buildVisualRegressionValidation(state.context.targetProject ?? '.') as unknown as JsonObject };
                 break;
               }
+              case 'db-migration': {
+                const { generateMigration } = await import('../../../plugins/db-migration/src/index.js');
+                const dataModel = state.nodeResults['data_modeling']?.output;
+                const entities = (dataModel as Record<string, unknown>)?.entities as Array<Record<string, unknown>> | undefined;
+                result = { ok: true, output: generateMigration({
+                  entities: entities ?? [],
+                  recommendedDb: String((dataModel as Record<string, unknown>)?.recommendedDb ?? 'postgresql'),
+                }) as unknown as JsonObject };
+                break;
+              }
+              case 'api-scaffold': {
+                const { scaffoldApi } = await import('../../../plugins/api-scaffold/src/index.js');
+                const resolvedProfile = state.context.resolvedTargetProfile as unknown as Record<string, unknown> | undefined;
+                const backendRaw = resolvedProfile?.backend as Record<string, unknown> | undefined;
+                result = { ok: true, output: scaffoldApi({
+                  targetDir: state.context.targetProject ?? './generated',
+                  apiContract: (state.nodeResults['api_design']?.output ?? {}) as JsonObject,
+                  backendProfile: {
+                    framework: String(backendRaw?.framework ?? 'nestjs'),
+                    language: String(backendRaw?.language ?? 'typescript'),
+                  },
+                }) as unknown as JsonObject };
+                break;
+              }
+              case 'docker-generator': {
+                const { generateDocker } = await import('../../../plugins/docker-generator/src/index.js');
+                result = { ok: true, output: generateDocker({
+                  appName: 'generated-app',
+                  backendPort: 3000,
+                  frontendPort: 80,
+                  dbType: 'postgresql',
+                  services: ['nginx', 'api', 'db'],
+                }) as unknown as JsonObject };
+                break;
+              }
+              case 'api-contract-validator': {
+                const { validateApiContract } = await import('../../../plugins/api-contract-validator/src/index.js');
+                const apiContract = (state.nodeResults['api_design']?.output ?? {}) as JsonObject;
+                const backendOutput = state.nodeResults['backend_coding']?.output as Record<string, unknown> | undefined;
+                const generatedFiles = (backendOutput?.generatedFiles as Array<{path: string; content: string}>) ?? [];
+                result = { ok: true, output: validateApiContract({
+                  apiContract,
+                  generatedFiles,
+                }) as unknown as JsonObject };
+                break;
+              }
               default:
                 result = { ok: true, output: { message: `Plugin ${node.id} executed (stub)` } };
             }
