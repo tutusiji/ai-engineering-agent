@@ -13,3 +13,19 @@ pagePatterns:
 validation:
   visualRegression: true
   playwright: true
+
+backend:
+  framework: nestjs
+  language: typescript
+  orm: prisma
+  patterns: [crud, auth, upload, export, pagination]
+  testing: [jest, supertest]
+
+database:
+  strategy: auto-recommend
+  candidates: [postgresql, sqlite]
+  migration: auto
+
+deployment:
+  strategy: docker-compose
+  components: [nginx, api, db]

@@ -1,15 +1,20 @@
-id: h5-spa
-platform: h5-spa
-framework: unknown
-uiLibrary: custom
-routingMode: custom
+id: fullstack-vue3-nestjs
+platform: fullstack
+framework: vue3
+uiLibrary: element-plus
+routingMode: vue-router
 styling:
-  - custom
+  - tailwindcss
 pagePatterns:
   supports:
     - route-page
-    - standalone-page
+    - drawer
+    - modal
     - tab-page
+preferredPlugins:
+  scanner: vue3-project-scanner
+  navigation: route-menu-decider
+  generator: crud-page-generator
 validation:
   visualRegression: true
   playwright: true
