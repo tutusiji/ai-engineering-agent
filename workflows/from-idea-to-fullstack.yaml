@@ -1,0 +1,147 @@
+id: from-idea-to-fullstack
+name: From Idea To Fullstack Application
+version: 0.3.0
+description: 全栈项目生成工作流 — 从想法到可部署的全栈应用（前端+后端+数据库+部署）
+
+input:
+  schema: idea-input
+  fields:
+    - name: userMessage
+      type: string
+      required: true
+    - name: conversationHistory
+      type: array
+      required: false
+    - name: existingDocument
+      type: object
+      required: false
+
+nodes:
+  # ─── Phase 1: 需求与分析 ───
+  - id: interactive_requirement
+    type: agent
+    name: 交互式需求收集
+    skill: interactive-requirement
+    outputSchema: requirement-spec
+
+  - id: requirement_analysis
+    type: agent
+    name: 需求结构化
+    skill: requirement-analysis
+    dependsOn: [interactive_requirement]
+    outputSchema: requirement-spec
+
+  - id: target_profile_selection
+    type: agent
+    name: 全栈 Profile 选择
+    skill: target-profile-selection
+    dependsOn: [requirement_analysis]
+    outputSchema: target-profile-selection
+
+  # ─── Phase 2: 设计与建模 ───
+  - id: data_modeling
+    type: agent
+    name: 数据建模
+    skill: data-modeling
+    dependsOn: [target_profile_selection]
+    outputSchema: data-model
+
+  - id: api_design
+    type: agent
+    name: API 设计
+    skill: api-design
+    dependsOn: [data_modeling]
+    outputSchema: api-contract
+
+  - id: page_planning
+    type: agent
+    name: 页面规划
+    skill: page-planning
+    dependsOn: [target_profile_selection]
+    outputSchema: page-plan
+
+  # ─── Phase 3: 代码生成 ───
+  - id: backend_coding
+    type: agent
+    name: 后端代码生成
+    skill: backend-coding
+    dependsOn: [api_design]
+    outputSchema: generation-report
+    retryTarget: api_design
+    maxRetries: 2
+
+  - id: frontend_coding
+    type: agent
+    name: 前端代码生成
+    skill: frontend-coding-core
+    dependsOn: [page_planning, api_design]
+    outputSchema: generation-report
+    retryTarget: page_planning
+    maxRetries: 2
+
+  # ─── Phase 4: 插件执行 ───
+  - id: db_migration
+    type: plugin
+    name: 数据库迁移生成
+    plugin: db-migration
+    dependsOn: [data_modeling]
+
+  - id: api_scaffold
+    type: plugin
+    name: API 脚手架生成
+    plugin: api-scaffold
+    dependsOn: [api_design]
+
+  - id: project_scanner
+    type: plugin
+    name: 项目结构扫描
+    plugin: project-scanner
+    dependsOn: [backend_coding, frontend_coding]
+
+  - id: rule_checkers
+    type: pluginGroup
+    name: 规则检查
+    plugins: [loading-checker, debounce-checker, confirm-checker, api-contract-validator]
+    dependsOn: [project_scanner]
+
+  # ─── Phase 5: 测试 ───
+  - id: playwright_runner
+    type: plugin
+    name: E2E 冒烟测试
+    plugin: playwright-runner
+    dependsOn: [rule_checkers]
+    when:
+      allPassed: true
+
+  - id: visual_regression
+    type: plugin
+    name: 视觉回归测试
+    plugin: visual-regression-runner
+    dependsOn: [playwright_runner]
+    when:
+      allPassed: true
+
+  # ─── Phase 6: 部署 ───
+  - id: deployment_planning
+    type: agent
+    name: 部署配置生成
+    skill: deployment-planning
+    dependsOn: [visual_regression]
+    outputSchema: deployment-config
+
+  - id: docker_gen
+    type: plugin
+    name: Docker 文件生成
+    plugin: docker-generator
+    dependsOn: [deployment_planning]
+
+output:
+  primaryFrom: docker_gen
+
+approvalGates:
+  - afterStage: data_modeling
+    name: 数据模型审批
+    required: true
+  - afterStage: backend_coding
+    name: 后端代码审批
+    required: false
