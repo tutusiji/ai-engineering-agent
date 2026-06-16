@@ -307,7 +307,7 @@ async function main(): Promise<void> {
   const userPrompt = cliArgs[3] ?? '生成一个用户管理页面，包含用户列表、新增用户、编辑用户和删除用户功能';
 
   console.log('╔══════════════════════════════════════════════════╗');
-  console.log('║   AI Frontend Engineering Agent — LLM Runner     ║');
+  console.log('║   AI Engineering Agent — LLM Runner              ║');
   console.log('╚══════════════════════════════════════════════════╝');
   console.log('');
   console.log(`📋 Workflow:   ${requestedWorkflowId}`);

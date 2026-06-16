@@ -176,7 +176,7 @@ export default function App() {
           <Zap className="w-5 h-5 text-white" />
         </div>
         <h4 className="text-white m-0 flex-1 text-lg font-semibold">
-          AI Frontend Engineering Agent
+          AI Engineering Agent
         </h4>
         <div className="flex gap-3 items-center">
           {activeSession && (

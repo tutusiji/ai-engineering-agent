@@ -1,4 +1,4 @@
-# AI Frontend Engineering Agent
+# AI Engineering Agent
 
 一个面向多前端目标的多 Agent 工程平台。
 

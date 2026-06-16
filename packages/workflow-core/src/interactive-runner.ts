@@ -422,7 +422,7 @@ async function main(): Promise<void> {
   }
 
   console.log('╔══════════════════════════════════════════════════╗');
-  console.log('║   AI Frontend Engineering Agent                  ║');
+  console.log('║   AI Engineering Agent                           ║');
   console.log('║   交互式需求对话                                  ║');
   console.log('╚══════════════════════════════════════════════════╝');
   console.log('');
