@@ -175,7 +175,7 @@ export function mergeDocument(
   if (comp >= 95) {
     doc.suggestedNextStep = 'start-coding';
   } else if (comp >= 80) {
-    doc.suggestedNextStep = 'generate-design';
+    doc.suggestedNextStep = 'generate-preview';
   } else {
     doc.suggestedNextStep = 'continue-gathering';
   }

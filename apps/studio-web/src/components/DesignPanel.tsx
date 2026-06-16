@@ -1,5 +1,5 @@
 /**
- * DesignPanel — design mockup viewer with generate button
+ * DesignPanel — frontend preview viewer with generate button
  */
 
 import { Image, Sparkles, Loader2 } from 'lucide-react';
@@ -18,10 +18,10 @@ export function DesignPanel({ html, completeness, loading, onGenerate }: DesignP
     return (
       <div className="flex flex-col items-center justify-center p-16 text-gray-400">
         <Image className="w-16 h-16 mb-4 opacity-40" />
-        <h4 className="text-lg font-semibold text-gray-500 mb-2">设计稿预览</h4>
+        <h4 className="text-lg font-semibold text-gray-500 mb-2">前端预览</h4>
         <p className="text-sm mb-6 text-center">
           {canGenerate
-            ? '需求已就绪，点击下方按钮生成设计稿'
+            ? '需求已就绪，点击下方按钮生成可预览前端页面'
             : `需求完整度需要达到 80% 才能生成（当前 ${completeness}%）`}
         </p>
         <button
@@ -39,7 +39,7 @@ export function DesignPanel({ html, completeness, loading, onGenerate }: DesignP
           ) : (
             <>
               <Sparkles size={16} />
-              生成设计稿
+              生成预览页
             </>
           )}
         </button>
@@ -52,7 +52,7 @@ export function DesignPanel({ html, completeness, loading, onGenerate }: DesignP
       <iframe
         srcDoc={html}
         className="flex-1 w-full border-none"
-        title="Design Mockup"
+        title="Frontend Preview"
       />
     </div>
   );

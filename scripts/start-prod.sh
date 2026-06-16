@@ -6,12 +6,16 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Load LLM env
-if [ -f ~/.hermes/.env ]; then
-  set -a
-  source ~/.hermes/.env
-  set +a
+# Load app env first (project-local settings such as KIMI_API_KEY, STUDIO_API_PORT),
+# then Hermes env as a fallback for shared provider credentials.
+set -a
+if [ -f "$PROJECT_ROOT/.env" ]; then
+  source "$PROJECT_ROOT/.env"
 fi
+if [ -f ~/.hermes/.env ]; then
+  source ~/.hermes/.env
+fi
+set +a
 
 start_api() {
   echo "🚀 Starting Studio API (port 4401)..."

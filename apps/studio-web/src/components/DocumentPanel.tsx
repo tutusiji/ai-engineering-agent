@@ -15,7 +15,10 @@ import {
   Sparkles,
   Pencil,
   X,
+  LayoutTemplate,
 } from 'lucide-react';
+import { Select, SelectTrigger, SelectValue, SelectPopover } from '@heroui/react/select';
+import { ListBox } from '@heroui/react/list-box';
 import type { RequirementDocument } from '../hooks/useChat';
 
 // ─── Normalize ─────────────────────────────────────────────────────────
@@ -494,6 +497,8 @@ interface DocumentPanelProps {
   onOptimize: (module: string, instruction: string) => void;
   onSend?: (text: string) => void;
   loading?: boolean;
+  profileId?: string;
+  onProfileChange?: (v: string) => void;
 }
 
 export function DocumentPanel({
@@ -505,6 +510,8 @@ export function DocumentPanel({
   onOptimize,
   onSend,
   loading,
+  profileId = 'vue3-admin',
+  onProfileChange,
 }: DocumentPanelProps) {
   if (!doc) {
     return (
@@ -563,6 +570,34 @@ export function DocumentPanel({
         </div>
       </div>
 
+      {/* Profile selector */}
+      {onProfileChange && (
+        <div className="flex items-center gap-2">
+          <LayoutTemplate size={14} className="text-default-400 shrink-0" />
+          <Select
+            aria-label="Profile"
+            selectedKey={profileId}
+            onSelectionChange={(key) => {
+              if (key) onProfileChange(String(key));
+            }}
+            className="flex-1"
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectPopover>
+              <ListBox>
+                <ListBox.Item key="vue3-admin" id="vue3-admin">Vue3 Admin</ListBox.Item>
+                <ListBox.Item key="react-admin" id="react-admin">React Admin</ListBox.Item>
+                <ListBox.Item key="pc-spa" id="pc-spa">PC SPA</ListBox.Item>
+                <ListBox.Item key="h5-spa" id="h5-spa">H5 SPA</ListBox.Item>
+                <ListBox.Item key="wechat-miniapp" id="wechat-miniapp">微信小程序</ListBox.Item>
+              </ListBox>
+            </SelectPopover>
+          </Select>
+        </div>
+      )}
+
       {/* Completeness progress */}
       <div>
         <ProgressBar
@@ -575,7 +610,7 @@ export function DocumentPanel({
         {d.completeness >= 80 && d.completeness < 95 && (
           <div className="mt-2 p-2 rounded-lg bg-success-50 border border-success-200 flex items-start gap-2">
             <CheckCircle size={14} className="text-success-500 mt-0.5 shrink-0" />
-            <span className="text-xs text-success-700">需求已足够完整，可以生成设计稿了</span>
+            <span className="text-xs text-success-700">需求已足够完整，可以生成可预览前端页面了</span>
           </div>
         )}
         {d.completeness >= 95 && (

@@ -60,7 +60,7 @@ ${currentSummary}
   "phases": [{"id": "P1", "name": "阶段名", "pages": ["页面"], "priority": "high/medium/low"}],
   "completeness": 0-100,
   "openQuestions": ["待确认问题"],
-  "suggestedNextStep": "continue-gathering/generate-design/start-coding"
+  "suggestedNextStep": "continue-gathering/generate-preview/start-coding"
 }
 
 规则：
@@ -213,7 +213,7 @@ export function mergeDocumentDeep(
   if (completeness >= 95) {
     merged.suggestedNextStep = 'start-coding';
   } else if (completeness >= 80) {
-    merged.suggestedNextStep = 'generate-design';
+    merged.suggestedNextStep = 'generate-preview';
   } else {
     merged.suggestedNextStep = 'continue-gathering';
   }

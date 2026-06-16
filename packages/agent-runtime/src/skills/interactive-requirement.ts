@@ -56,7 +56,7 @@ export interface RequirementDocument {
   /** AI 提出的待确认问题 */
   openQuestions: string[];
   /** 建议下一步 */
-  suggestedNextStep: 'continue-gathering' | 'review-document' | 'generate-design' | 'start-coding';
+  suggestedNextStep: 'continue-gathering' | 'review-document' | 'generate-preview' | 'start-coding';
 }
 
 export const interactiveRequirementSkill: SkillDefinition = {
@@ -236,11 +236,11 @@ function getModeInstructions(mode: string): string {
 - **< 50%**：继续追问核心缺失项（功能范围、页面结构、用户角色）
 - **50%-70%**：只追问最关键的 1 个缺失项，其余放到待确认问题
 - **>= 70%**：**停止追问！** 改为总结已确认的需求，明确告知用户"需求已基本完整"，建议进入下一步
-- **>= 80%**：直接建议生成设计稿
+- **>= 80%**：直接建议生成可预览前端页面
 - **>= 95%**：建议直接生成代码
 
 当你判断 completeness >= 70% 时，你的回复应该是：
-"好的，需求已基本梳理完成！目前已确认 [总结]。你可以查看右侧面板的需求文档。建议下一步：生成设计稿。"
+"好的，需求已基本梳理完成！目前已确认 [总结]。你可以查看右侧面板的需求文档。建议下一步：生成可预览前端页面。"
 不要再问新的问题。`;
 
     case 'refine':
@@ -260,7 +260,7 @@ function getModeInstructions(mode: string): string {
 - 给出具体的分数和理由
 - 指出最薄弱的环节
 - 给出明确的改进建议
-- 如果 completeness >= 80，suggestedNextStep 设为 "generate-design"
+- 如果 completeness >= 80，suggestedNextStep 设为 "generate-preview"
 - 如果 completeness >= 95，suggestedNextStep 设为 "start-coding"`;
 
     default:

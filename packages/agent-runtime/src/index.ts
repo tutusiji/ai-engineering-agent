@@ -47,7 +47,6 @@ export { codeGenerationSkill } from './skills/code-generation';
 export { uiLibrarySelectionSkill } from './skills/ui-library-selection';
 export { UI_CATALOG, getCompatibleLibraries, getUiLibrary, getLibrarySummary } from './ui-catalog';
 export type { RequirementDocument } from './skills/interactive-requirement';
-export { generateImage, IMAGE_MODELS, type ImageGenerationOptions, type ImageGenerationResult } from './image-client';
 export {
   generateFullDocument,
   optimizeModule,

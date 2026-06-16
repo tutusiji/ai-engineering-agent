@@ -5,8 +5,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '@heroui/react/button';
 import { TextArea } from '@heroui/react/textarea';
-import { Select, SelectTrigger, SelectValue, SelectPopover } from '@heroui/react/select';
-import { ListBox } from '@heroui/react/list-box';
 import { Chip } from '@heroui/react/chip';
 import { ProgressBar } from '@heroui/react/progress-bar';
 import { Spinner } from '@heroui/react/spinner';
@@ -61,8 +59,6 @@ interface ChatPanelProps {
   streaming: boolean;
   streamContent: string;
   completeness: number;
-  profileId: string;
-  onProfileChange: (v: string) => void;
   onSend: (text: string) => void;
   onStop: () => void;
 }
@@ -99,7 +95,7 @@ function formatDocAsMarkdown(doc: RequirementDocument): string {
   }
 
   if (doc.suggestedNextStep === 'generate-design') {
-    parts.push(`\n💡 *需求已足够完整，可以生成设计稿了*`);
+    parts.push(`\n💡 *需求已足够完整，可以生成可预览前端页面了*`);
   } else if (doc.suggestedNextStep === 'start-coding') {
     parts.push(`\n🚀 *需求已非常完整，可以开始生成代码*`);
   }
@@ -171,8 +167,6 @@ export function ChatPanel({
   streaming,
   streamContent,
   completeness,
-  profileId,
-  onProfileChange,
   onSend,
   onStop,
 }: ChatPanelProps) {
@@ -210,38 +204,11 @@ export function ChatPanel({
     onSend(text);
   };
 
-  const profileItems = [
-    { key: 'vue3-admin', label: 'Vue3 Admin' },
-    { key: 'react-admin', label: 'React Admin' },
-    { key: 'pc-spa', label: 'PC SPA' },
-    { key: 'h5-spa', label: 'H5 SPA' },
-    { key: 'wechat-miniapp', label: '微信小程序' },
-  ];
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Action bar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-default-200 bg-white flex-shrink-0">
-        <Zap size={16} className="text-primary-500" />
-        <Select
-          aria-label="Profile"
-          selectedKey={profileId}
-          onSelectionChange={(key) => {
-            if (key) onProfileChange(String(key));
-          }}
-          className="w-[140px]"
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectPopover>
-            <ListBox>
-              {profileItems.map(item => (
-                <ListBox.Item key={item.key} id={item.key}>{item.label}</ListBox.Item>
-              ))}
-            </ListBox>
-          </SelectPopover>
-        </Select>
+        <Zap size={16} className="text-primary-500 shrink-0" />
         <div className="flex-1 flex items-center gap-2">
           <ProgressBar
             value={completeness}
@@ -616,7 +583,7 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
         <div className="mb-3 p-2 rounded-lg bg-success-50 border border-success-200 flex items-start gap-2">
           <CheckCircle size={16} className="text-success-500 mt-0.5 flex-shrink-0" />
           <div className="text-sm text-success-700">
-            <span className="font-medium">需求已足够完整！</span> 可以生成设计稿了。
+            <span className="font-medium">需求已足够完整！</span> 可以生成可预览前端页面了。
           </div>
         </div>
       )}

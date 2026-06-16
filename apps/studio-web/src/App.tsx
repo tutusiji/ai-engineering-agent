@@ -17,7 +17,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabList, Tab, TabPanel } from '@heroui/react/tabs';
 import { Badge } from '@heroui/react/badge';
-import { Zap, Image, Code, Sparkles, FileText, ChevronDown, Check, Cpu } from 'lucide-react';
+import { Zap, Image, Code, FileText, ChevronDown, Check, Cpu } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
@@ -26,14 +26,13 @@ import { ChatPanel } from './components/ChatPanel';
 import { DocumentPanel } from './components/DocumentPanel';
 import { DesignPanel } from './components/DesignPanel';
 import { CodePanel } from './components/CodePanel';
-import { ImageDesignPanel } from './components/ImageDesignPanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { RunHistory } from './components/RunHistory';
 
 const API = '/api';
 
 type NavKey = 'chat' | 'workflows' | 'history';
-type ChatTab = 'chat' | 'design' | 'ai-image' | 'code' | 'document';
+type ChatTab = 'chat' | 'design' | 'code' | 'document';
 
 export default function App() {
   const {
@@ -129,7 +128,7 @@ export default function App() {
       if (data.ok && data.htmlContent) {
         setDesignHtml(data.htmlContent);
         setActiveChatTab('design');
-        console.log('设计稿生成成功');
+        console.log('前端预览生成成功');
       } else {
         console.error(data.error || '生成失败');
       }
@@ -272,21 +271,15 @@ export default function App() {
                       <Badge content="!" color="default" size="sm">
                         <div className="flex items-center gap-1.5">
                           <Image className="w-4 h-4" />
-                          <span>设计稿</span>
+                          <span>前端预览</span>
                         </div>
                       </Badge>
                     ) : (
                       <div className="flex items-center gap-1.5">
                         <Image className="w-4 h-4" />
-                        <span>设计稿</span>
+                        <span>前端预览</span>
                       </div>
                     )}
-                  </Tab>
-                  <Tab id="ai-image">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-purple-400" />
-                      <span>AI 画图</span>
-                    </div>
                   </Tab>
                   <Tab id="code">
                     {generatedFiles.length > 0 ? (
@@ -314,8 +307,6 @@ export default function App() {
                     streaming={chat.streaming}
                     streamContent={chat.streamContent}
                     completeness={completeness}
-                    profileId={profileId}
-                    onProfileChange={setProfileId}
                     onSend={chat.send}
                     onStop={chat.stop}
                   />
@@ -326,11 +317,6 @@ export default function App() {
                     completeness={completeness}
                     loading={designLoading}
                     onGenerate={handleGenerateDesign}
-                  />
-                </TabPanel>
-                <TabPanel id="ai-image">
-                  <ImageDesignPanel
-                    defaultPrompt={docHook.document?.featureName ? `为"${docHook.document.featureName}"生成一张设计概念图` : ''}
                   />
                 </TabPanel>
                 <TabPanel id="code">
@@ -362,6 +348,8 @@ export default function App() {
               onOptimize={docHook.optimize}
               onSend={chat.send}
               loading={chat.loading}
+              profileId={profileId}
+              onProfileChange={setProfileId}
             />
           </aside>
         )}

@@ -10,7 +10,7 @@
  *   2. 用户输入回答
  *   3. AI 追问 + 更新需求文档
  *   4. 重复直到 completeness >= 80%
- *   5. 展示需求文档，询问是否生成设计稿或直接编码
+ *   5. 展示需求文档，询问是否生成前端预览页或直接编码
  */
 
 import * as readline from 'node:readline';
@@ -90,7 +90,7 @@ function printCompleteness(doc: RequirementDocument) {
   if (doc.completeness >= 95) {
     console.log('   ✨ 需求已非常完整，可以开始编码！');
   } else if (doc.completeness >= 80) {
-    console.log('   ✅ 需求已足够完整，可以生成设计稿');
+    console.log('   ✅ 需求已足够完整，可以生成前端预览页');
   } else if (doc.completeness >= 50) {
     console.log('   🔄 需求进行中，继续完善');
   } else {
@@ -146,9 +146,9 @@ async function saveDocument(doc: RequirementDocument, outputDir: string) {
 
 async function saveDesignHtml(html: string, outputDir: string) {
   await fs.mkdir(outputDir, { recursive: true });
-  const filePath = path.join(outputDir, 'design-mockup.html');
+  const filePath = path.join(outputDir, 'frontend-preview.html');
   await fs.writeFile(filePath, html, 'utf-8');
-  console.log(`\n🎨 设计稿已保存: ${filePath}`);
+  console.log(`\n🧩 前端预览页已保存: ${filePath}`);
   return filePath;
 }
 
@@ -262,7 +262,7 @@ async function runGatherPhase(
   // Auto-phase transition
   if (doc.completeness >= 80 && state.phase === 'gather') {
     console.log('\n💡 需求完整度已达到 80%，可以:');
-    console.log('   /design — 生成设计稿');
+    console.log('   /design — 生成前端预览页');
     console.log('   /code   — 直接开始编码');
     console.log('   /score  — 详细评分报告');
     console.log('   继续输入 — 继续完善需求');
@@ -320,7 +320,7 @@ async function runDesignPhase(
     return;
   }
 
-  console.log('\n🎨 正在生成设计稿...');
+  console.log('\n🧩 正在生成前端预览页...');
 
   const input: JsonObject = {
     ...(state.document as unknown as JsonObject),
@@ -433,7 +433,7 @@ async function main(): Promise<void> {
   console.log('  /doc    — 查看当前需求文档');
   console.log('  /ui     — 查看可用 UI 组件库');
   console.log('  /score  — 评估需求完整度');
-  console.log('  /design — 生成设计稿 (需完整度 >= 80%)');
+  console.log('  /design — 生成前端预览页 (需完整度 >= 80%)');
   console.log('  /code   — 生成代码 (需完整度 >= 95%)');
   console.log('  /quit   — 退出');
   console.log('');

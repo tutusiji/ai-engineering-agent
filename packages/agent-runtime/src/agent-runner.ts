@@ -119,26 +119,26 @@ export function extractJson(text: string): JsonObject | null {
     if (repairedFenced) return repairedFenced;
   }
 
-  // Try extracting from ```html ... ``` fences (for design generation)
+  // Try extracting from ```html ... ``` fences (for frontend preview generation)
   const htmlFenced = text.match(/```html\s*\n?([\s\S]*?)```/);
   if (htmlFenced?.[1]) {
     const htmlContent = htmlFenced[1].trim();
     if (htmlContent.length > 100) {
       return {
-        pageName: 'design-mockup',
+        pageName: 'frontend-preview',
         targetProfile: 'vue3-admin',
         generatedFiles: [{
-          path: 'artifacts/design-mockup.html',
+          path: 'artifacts/frontend-preview.html',
           kind: 'page',
           status: 'generated',
           content: htmlContent,
         }],
         patches: [{
-          target: 'artifacts/design-mockup.html',
+          target: 'artifacts/frontend-preview.html',
           action: 'create',
-          summary: 'HTML 设计稿',
+          summary: '前端预览页',
         }],
-        notes: ['从 HTML 代码块提取'],
+        notes: ['从 HTML 代码块提取预览页'],
       };
     }
   }
@@ -149,20 +149,20 @@ export function extractJson(text: string): JsonObject | null {
     const htmlContent = incompleteHtmlFence[1].trim();
     if (htmlContent.length > 100) {
       return {
-        pageName: 'design-mockup',
+        pageName: 'frontend-preview',
         targetProfile: 'vue3-admin',
         generatedFiles: [{
-          path: 'artifacts/design-mockup.html',
+          path: 'artifacts/frontend-preview.html',
           kind: 'page',
           status: 'generated',
           content: htmlContent,
         }],
         patches: [{
-          target: 'artifacts/design-mockup.html',
+          target: 'artifacts/frontend-preview.html',
           action: 'create',
-          summary: 'HTML 设计稿（截断）',
+          summary: '前端预览页（截断）',
         }],
-        notes: ['从截断的 HTML 代码块提取'],
+        notes: ['从截断的 HTML 代码块提取预览页'],
       };
     }
   }

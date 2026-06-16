@@ -19,7 +19,7 @@
  *     GET  /api/chat/:sessionId           — get session state
  *
  *   Generation:
- *     POST /api/generate/design           — generate HTML design mockup
+ *     POST /api/generate/design           — generate previewable frontend page
  *     POST /api/generate/code             — generate code files
  *
  *   Workflows:
@@ -42,6 +42,7 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { parse as parseYaml } from 'yaml';
 import { FileSchemaRegistry } from '@ai-frontend-engineering-agent/contract-schema';
 import { FilePolicyRegistry } from '@ai-frontend-engineering-agent/policy-engine';
 import {
@@ -53,7 +54,6 @@ import {
 import type { SkillContext } from '@ai-frontend-engineering-agent/skill-sdk';
 import type { JsonObject } from '@ai-frontend-engineering-agent/shared-types';
 import { getCompatibleLibraries } from '@ai-frontend-engineering-agent/agent-runtime';
-import { generateImage, IMAGE_MODELS } from '@ai-frontend-engineering-agent/agent-runtime';
 import { SessionStore, RunStore, ArtifactStore, initPool } from '@ai-frontend-engineering-agent/persistence';
 import type { Session, ChatMessage } from '@ai-frontend-engineering-agent/persistence';
 
@@ -151,20 +151,108 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', model: llmConfig.model, timestamp: Date.now() });
 });
 
-// Available model presets
-const MODEL_PRESETS: Record<string, { baseUrl: string; model: string; label: string; temperature?: number }> = {
-  'kimi-k2.6': {
-    baseUrl: 'https://api.moonshot.cn/v1',
-    model: 'kimi-k2.6',
-    label: 'Kimi K2.6',
-    temperature: 1,
-  },
-  'mimo-v2.5-pro': {
-    baseUrl: 'https://token-plan-cn.xiaomimimo.com/v1',
-    model: 'mimo-v2.5-pro',
-    label: 'MiMo v2.5 Pro',
-  },
+type ModelPreset = {
+  baseUrl: string;
+  model: string;
+  label: string;
+  apiKey?: string;
+  temperature?: number;
 };
+
+type HermesConfig = {
+  model?: {
+    base_url?: string;
+    default?: string;
+  };
+  providers?: {
+    rightcode?: {
+      base_url?: string;
+    };
+  };
+};
+
+function pickEnv(...names: string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
+function loadRightCodePreset(): ModelPreset | null {
+  const apiKey = pickEnv('RIGHTCODE_API_KEY', 'OPENAI_API_KEY', 'LLM_API_KEY');
+  if (!apiKey) return null;
+
+  let baseUrl = 'https://right.codes/codex/v1';
+  let model = 'gpt-5.5';
+
+  try {
+    const hermesConfigPath = path.join(process.env.HOME ?? '/root', '.hermes', 'config.yaml');
+    if (existsSync(hermesConfigPath)) {
+      const parsed = parseYaml(readFileSync(hermesConfigPath, 'utf-8')) as HermesConfig;
+      baseUrl = parsed.model?.base_url ?? parsed.providers?.rightcode?.base_url ?? baseUrl;
+      model = parsed.model?.default ?? model;
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to read Hermes right.codes config:', error);
+  }
+
+  model = pickEnv('RIGHTCODE_MODEL', 'OPENAI_MODEL') ?? model;
+
+  return {
+    baseUrl,
+    model,
+    label: `right.codes (${model})`,
+    apiKey,
+  };
+}
+
+function buildModelPresets(): Record<string, ModelPreset> {
+  const presets: Record<string, ModelPreset> = {};
+
+  const deepseekApiKey = pickEnv('DEEPSEEK_API_KEY');
+  if (deepseekApiKey) {
+    presets['deepseek-v4-pro'] = {
+      baseUrl: pickEnv('DEEPSEEK_BASE_URL') ?? 'https://api.deepseek.com',
+      model: pickEnv('DEEPSEEK_MODEL') ?? 'deepseek-v4-pro',
+      label: 'DeepSeek V4 Pro',
+      apiKey: deepseekApiKey,
+    };
+  }
+
+  const rightCodePreset = loadRightCodePreset();
+  if (rightCodePreset) {
+    presets.rightcode = rightCodePreset;
+  }
+
+  return presets;
+}
+
+const MODEL_PRESETS: Record<string, ModelPreset> = buildModelPresets();
+
+function applyModelPreset(modelId: string): boolean {
+  const preset = MODEL_PRESETS[modelId];
+  if (!preset?.apiKey) return false;
+
+  llmConfig = {
+    ...llmConfig,
+    baseUrl: preset.baseUrl,
+    apiKey: preset.apiKey,
+    model: preset.model,
+    temperature: preset.temperature,
+  };
+
+  return true;
+}
+
+// Default Studio startup model: prefer right.codes, fall back to DeepSeek V4 Pro.
+const DEFAULT_MODEL_PRESET_ID = MODEL_PRESETS.rightcode
+  ? 'rightcode'
+  : (MODEL_PRESETS['deepseek-v4-pro'] ? 'deepseek-v4-pro' : undefined);
+
+if (DEFAULT_MODEL_PRESET_ID) {
+  applyModelPreset(DEFAULT_MODEL_PRESET_ID);
+}
 
 // GET /api/models — list available model presets
 app.get('/api/models', (_req, res) => {
@@ -191,13 +279,12 @@ app.post('/api/models/switch', (req, res) => {
   if (!modelId || !MODEL_PRESETS[modelId]) {
     return res.status(400).json({ error: `Unknown model: ${modelId}. Available: ${Object.keys(MODEL_PRESETS).join(', ')}` });
   }
+
+  if (!applyModelPreset(modelId)) {
+    return res.status(400).json({ error: `Model preset is not fully configured: ${modelId}` });
+  }
+
   const preset = MODEL_PRESETS[modelId];
-  llmConfig = {
-    ...llmConfig,
-    baseUrl: preset.baseUrl,
-    model: preset.model,
-    temperature: preset.temperature,
-  };
   console.log(`🔄 Model switched to: ${preset.label} (${preset.model})`);
   res.json({ ok: true, model: llmConfig.model, label: preset.label });
 });
@@ -629,11 +716,11 @@ app.post('/api/chat/document/optimize', async (req, res) => {
 
 // ─── Generation endpoints ───────────────────────────────────────────────
 
-// Generate design mockup
+// Generate previewable frontend page
 app.post('/api/generate/design', async (req, res) => {
   try {
     const { sessionId = 'default', profileId = 'vue3-admin' } = req.body;
-    console.log(`🎨 [${sessionId}] Starting design generation...`);
+    console.log(`🧩 [${sessionId}] Starting frontend preview generation...`);
     const session = await sessionStore.get(sessionId);
 
     if (!session?.document) {
@@ -653,7 +740,7 @@ app.post('/api/generate/design', async (req, res) => {
       phaseId: 'P1',
     };
 
-    console.log(`📤 [${sessionId}] Calling LLM for design generation...`);
+    console.log(`📤 [${sessionId}] Calling LLM for frontend preview generation...`);
     const result = await runSkillThroughLlm(skill, ctx, input, llmConfig);
     console.log(`📥 [${sessionId}] LLM response received:`, result.ok ? 'success' : 'failed');
     if (!result.ok) {
@@ -666,7 +753,7 @@ app.post('/api/generate/design', async (req, res) => {
       const htmlFile = files?.find(f => f.path?.endsWith('.html'));
 
       // Persist artifacts
-      const runId = `design-${generateId()}`;
+      const runId = `preview-${generateId()}`;
       if (files) {
         for (const file of files) {
           artifactStore.save(runId, file.path, file.content);
@@ -685,57 +772,6 @@ app.post('/api/generate/design', async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: String(err) });
-  }
-});
-
-// Image generation models list
-app.get('/api/image/models', (_req, res) => {
-  res.json({ models: IMAGE_MODELS });
-});
-
-// Generate image via Right Code draw API (SSE stream for progress)
-app.post('/api/generate/image', async (req, res) => {
-  try {
-    const { prompt, model = 'gpt-image-2' } = req.body;
-
-    if (!prompt) {
-      return res.status(400).json({ error: 'prompt is required' });
-    }
-
-    console.log(`🖼️ Generating image with model=${model}, prompt="${prompt.substring(0, 80)}..."`);
-
-    // Set SSE headers for progress streaming
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    });
-
-    const result = await generateImage({
-      prompt,
-      model,
-      onProgress: (progress) => {
-        res.write(`data: ${JSON.stringify({ type: 'progress', progress })}\n\n`);
-      },
-    });
-
-    if (result.success) {
-      res.write(`data: ${JSON.stringify({ type: 'complete', imageUrl: result.imageUrl })}\n\n`);
-    } else {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: result.error })}\n\n`);
-    }
-
-    res.write('data: [DONE]\n\n');
-    res.end();
-  } catch (err) {
-    console.error('Image generation error:', err);
-    if (!res.headersSent) {
-      res.status(500).json({ error: String(err) });
-    } else {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: String(err) })}\n\n`);
-      res.end();
-    }
   }
 });
 

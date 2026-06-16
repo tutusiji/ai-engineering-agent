@@ -284,7 +284,7 @@ function formatAiResponse(doc: RequirementDocument): string {
   }
 
   if (doc.suggestedNextStep === 'generate-design') {
-    parts.push('\n💡 需求已足够完整，可以生成设计稿了');
+    parts.push('\n💡 需求已足够完整，可以生成可预览前端页面了');
   } else if (doc.suggestedNextStep === 'start-coding') {
     parts.push('\n🚀 需求已非常完整，可以开始生成代码');
   }
