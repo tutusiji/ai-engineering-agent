@@ -31,10 +31,12 @@ jobs:
               HostName ${{ secrets.SSH_HOST }}
               User ${{ secrets.SSH_USER }}
               Port ${{ secrets.SSH_PORT || 22 }}
+              ServerAliveInterval 15
+              ServerAliveCountMax 4
 
-      - name: 📥 Pull & Deploy
+      - name: 📥 Pull & Build
         run: |
-          ssh deploy-server << 'DEPLOY_EOF'
+          ssh deploy-server 'bash -s' << 'DEPLOY_EOF'
             set -e
             cd /root/projects/ai-frontend-engineering-agent
 
@@ -48,13 +50,20 @@ jobs:
 
             echo "🔨 Building frontend..."
             pnpm --filter @ai-frontend-engineering-agent/studio-web build
+            echo "BUILD_OK"
+          DEPLOY_EOF
 
+      - name: 🔄 Restart PM2
+        run: |
+          ssh deploy-server 'bash -s' << 'RESTART_EOF'
+            set -e
+            cd /root/projects/ai-frontend-engineering-agent
             echo "🔄 Restarting via PM2..."
-            pm2 restart ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
-
+            pm2 reload ecosystem.config.cjs --update-env || pm2 restart ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
+            sleep 3
             echo "✅ Deploy complete!"
             pm2 status
-          DEPLOY_EOF
+          RESTART_EOF
 
       - name: 🔔 Notify
         if: always()
