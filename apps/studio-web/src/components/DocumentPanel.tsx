@@ -377,11 +377,11 @@ function ModuleSection({
 
   return (
     <>
-      <div className="border border-gray-100 rounded-xl p-3">
+      <div className="border border-gray-200 rounded-xl p-3 shadow-sm bg-white hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between mb-2">
-          <span className="font-semibold text-sm text-gray-700">
+          <span className="font-semibold text-sm text-gray-800">
             {config.icon} {config.label}
-            <span className="ml-1 text-xs text-gray-400 font-normal">
+            <span className="ml-1 text-xs text-gray-500 font-normal">
               ({Array.isArray(value) ? (value as unknown[]).length : value ? 1 : 0})
             </span>
           </span>
@@ -622,8 +622,8 @@ export function DocumentPanel({
         ))}
 
         {d.openQuestions.length > 0 && (
-          <div className="border border-gray-100 rounded-xl p-3">
-            <span className="font-semibold text-sm text-gray-700 mb-2 block">
+          <div className="border border-gray-200 rounded-xl p-3 shadow-sm bg-white">
+            <span className="font-semibold text-sm text-gray-800 mb-2 block">
               ❓ 待确认 ({d.openQuestions.length})
             </span>
             <OpenQuestionsSection
