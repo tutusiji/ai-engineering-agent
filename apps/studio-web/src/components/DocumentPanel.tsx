@@ -547,9 +547,11 @@ export function DocumentPanel({
   };
 
   return (
-    <div className="p-4 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      {/* Fixed header area */}
+      <div className="p-4 pb-2 shrink-0 flex flex-col gap-3">
+        {/* Header */}
+        <div className="flex items-center justify-between">
         <h5 className="text-lg font-semibold truncate flex-1">📋 {d.featureName || '未命名功能'}</h5>
         <div className="flex gap-1 shrink-0">
           <button
@@ -604,9 +606,11 @@ export function DocumentPanel({
         {generating ? <Spinner size="sm" className="mr-1" /> : <Sparkles size={14} className="mr-1" />}
         {generating ? '生成中...' : '生成结构化文档'}
       </Button>
+      </div>
 
-      {/* Module sections */}
-      <div className="flex flex-col gap-3">
+      {/* Scrollable module sections */}
+      <div className="flex-1 overflow-auto p-4 pt-0">
+        <div className="flex flex-col gap-3">
         {MODULES.map(config => (
           <ModuleSection
             key={config.key}
@@ -629,6 +633,7 @@ export function DocumentPanel({
             />
           </div>
         )}
+        </div>
       </div>
     </div>
   );
