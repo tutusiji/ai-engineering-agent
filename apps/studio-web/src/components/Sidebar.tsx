@@ -220,6 +220,24 @@ export function Sidebar({
                   </span>
                 </div>
 
+                {/* Delete confirmation bar */}
+                {confirmDeleteId === s.id && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[11px] text-gray-500 flex-1">确认删除?</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); setConfirmDeleteId(null); }}
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
+                    >
+                      删除
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition cursor-pointer"
+                    >
+                      取消
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
 
@@ -237,28 +255,6 @@ export function Sidebar({
                 </Button>
               </div>
             )}
-          </div>
-        </>
-      )}
-
-      {/* Delete confirmation popover — rendered outside scroll area to avoid clipping */}
-      {confirmDeleteId && (
-        <>
-          <div className="fixed inset-0 z-50" onClick={() => setConfirmDeleteId(null)} />
-          <div className="fixed top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-3 whitespace-nowrap">
-            <span className="text-sm text-gray-700 font-medium">确认删除该会话?</span>
-            <button
-              onClick={() => { onDeleteSession(confirmDeleteId); setConfirmDeleteId(null); }}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
-            >
-              删除
-            </button>
-            <button
-              onClick={() => setConfirmDeleteId(null)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
-            >
-              取消
-            </button>
           </div>
         </>
       )}
