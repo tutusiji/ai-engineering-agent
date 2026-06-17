@@ -95,9 +95,9 @@ export default function App() {
   // Load session data when switching sessions
   useEffect(() => {
     if (activeSessionId) {
-      chat.loadSession(activeSessionId).then(() => {
-        // Document will be loaded from session data via loadSession
-      });
+      setDesignHtml(null);
+      setGeneratedFiles([]);
+      chat.loadSession(activeSessionId);
     }
   }, [activeSessionId]);
 
@@ -105,6 +105,11 @@ export default function App() {
   useEffect(() => {
     if (chat.document) {
       docHook.loadDocument(chat.document);
+      // Restore persisted design HTML
+      const doc = chat.document as Record<string, unknown>;
+      if (doc._designHtml && typeof doc._designHtml === 'string') {
+        setDesignHtml(doc._designHtml);
+      }
     }
   }, [chat.document]);
 
@@ -311,7 +316,7 @@ export default function App() {
                     onStop={chat.stop}
                   />
                 </TabPanel>
-                <TabPanel id="design">
+                <TabPanel id="design" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
                   <DesignPanel
                     html={designHtml}
                     completeness={completeness}
@@ -319,7 +324,7 @@ export default function App() {
                     onGenerate={handleGenerateDesign}
                   />
                 </TabPanel>
-                <TabPanel id="code">
+                <TabPanel id="code" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
                   <CodePanel files={generatedFiles} />
                 </TabPanel>
 

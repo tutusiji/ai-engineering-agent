@@ -775,6 +775,16 @@ app.post('/api/generate/design', async (req, res) => {
         }
       }
 
+      // Save design HTML to session document for persistence
+      if (htmlFile?.content && session) {
+        const doc = (session.document ?? {}) as Record<string, unknown>;
+        await sessionStore.update(sessionId, {
+          ...session,
+          document: { ...doc, _designHtml: htmlFile.content, _designRunId: runId },
+        });
+        console.log(`💾 [${sessionId}] Design HTML saved to session`);
+      }
+
       res.json({
         ok: true,
         files: result.output.generatedFiles,
