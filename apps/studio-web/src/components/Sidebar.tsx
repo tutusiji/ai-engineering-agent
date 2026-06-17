@@ -224,7 +224,7 @@ export function Sidebar({
                 {confirmDeleteId === s.id && (
                   <>
                     <div className="fixed inset-0 z-50" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} />
-                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 px-3 py-2 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2 whitespace-nowrap">
+                    <div className="fixed left-[310px] top-1/2 -translate-y-1/2 z-50 px-3 py-2 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2 whitespace-nowrap">
                       <span className="text-xs text-gray-700">确认删除?</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); setConfirmDeleteId(null); }}
