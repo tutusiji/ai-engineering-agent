@@ -133,7 +133,7 @@ export function DesignPanel({ html, completeness, loading, versions, activeDesig
         </div>
       )}
       <iframe
-        srcDoc={html}
+        srcDoc={html ?? undefined}
         className="flex-1 w-full border-none"
         title="Frontend Preview"
       />
