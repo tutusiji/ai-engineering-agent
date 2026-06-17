@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Tabs, TabList, Tab, TabPanel } from '@heroui/react/tabs';
+import { Tabs, Tab, TabPanel } from '@heroui/react/tabs';
 import { Zap, Image, Code, ChevronDown, Check, Cpu } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
@@ -300,48 +300,39 @@ export default function App() {
         <main className="flex-1 flex flex-col bg-white h-full overflow-hidden">
           {activeNav === 'chat' && (
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+              {/* Tab bar */}
+              <div className="flex gap-0 px-4 bg-white border-b border-gray-200 shrink-0">
+                {([
+                  ['chat', Zap, '需求对话'],
+                  ['design', Image, 'UI预览'],
+                  ['code', Code, '代码'],
+                ] as const).map(([key, Icon, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveChatTab(key)}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-[1px]
+                      ${activeChatTab === key
+                        ? 'text-blue-600 border-blue-600'
+                        : 'text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300'
+                      }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab content */}
               <Tabs
                 selectedKey={activeChatTab}
                 onSelectionChange={(key) => setActiveChatTab(key as ChatTab)}
-                variant="primary"
                 className="flex-1 flex flex-col overflow-hidden min-h-0"
               >
-                <TabList className="px-2 bg-white border-b border-divider gap-1">
-                  <Tab
-                    id="chat"
-                    className="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors
-                      data-[selected=true]:text-blue-600 data-[selected=true]:border-b-2 data-[selected=true]:border-blue-600
-                      data-[selected=false]:text-gray-400 data-[selected=false]:hover:text-gray-600"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Zap className="w-4 h-4" />
-                      <span>需求对话</span>
-                    </div>
-                  </Tab>
-                  <Tab
-                    id="design"
-                    className="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors
-                      data-[selected=true]:text-blue-600 data-[selected=true]:border-b-2 data-[selected=true]:border-blue-600
-                      data-[selected=false]:text-gray-400 data-[selected=false]:hover:text-gray-600"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Image className="w-4 h-4" />
-                      <span>UI预览</span>
-                    </div>
-                  </Tab>
-                  <Tab
-                    id="code"
-                    className="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors
-                      data-[selected=true]:text-blue-600 data-[selected=true]:border-b-2 data-[selected=true]:border-blue-600
-                      data-[selected=false]:text-gray-400 data-[selected=false]:hover:text-gray-600"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <Code className="w-4 h-4" />
-                      <span>代码</span>
-                    </div>
-                  </Tab>
-
-                </TabList>
+                <div className="hidden">
+                  <Tab id="chat" />
+                  <Tab id="design" />
+                  <Tab id="code" />
+                </div>
 
                 <TabPanel id="chat" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
                   <ChatPanel
