@@ -118,7 +118,7 @@ export function Sidebar({
           </div>
 
           {/* Sessions */}
-          <div className="flex-1 overflow-auto px-3">
+          <div className="flex-1 overflow-auto px-3 relative">
             {sessions.map((s) => (
               <div
                 key={s.id}
@@ -220,27 +220,6 @@ export function Sidebar({
                   </span>
                 </div>
 
-                {/* Delete confirmation — floating popover */}
-                {confirmDeleteId === s.id && (
-                  <>
-                    <div className="fixed inset-0 z-50" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} />
-                    <div className="fixed left-[310px] top-1/2 -translate-y-1/2 z-50 px-3 py-2 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2 whitespace-nowrap">
-                      <span className="text-xs text-gray-700">确认删除?</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); setConfirmDeleteId(null); }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer whitespace-nowrap"
-                      >
-                        删除
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer whitespace-nowrap"
-                      >
-                        取消
-                      </button>
-                    </div>
-                  </>
-                )}
               </div>
             ))}
 
@@ -258,6 +237,28 @@ export function Sidebar({
                 </Button>
               </div>
             )}
+          </div>
+        </>
+      )}
+
+      {/* Delete confirmation popover — rendered outside scroll area to avoid clipping */}
+      {confirmDeleteId && (
+        <>
+          <div className="fixed inset-0 z-50" onClick={() => setConfirmDeleteId(null)} />
+          <div className="fixed top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 px-4 py-3 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-3 whitespace-nowrap">
+            <span className="text-sm text-gray-700 font-medium">确认删除该会话?</span>
+            <button
+              onClick={() => { onDeleteSession(confirmDeleteId); setConfirmDeleteId(null); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
+            >
+              删除
+            </button>
+            <button
+              onClick={() => setConfirmDeleteId(null)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
+            >
+              取消
+            </button>
           </div>
         </>
       )}
