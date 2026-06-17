@@ -52,6 +52,7 @@ export function Sidebar({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const startEdit = (s: Session) => {
     setEditingId(s.id);
@@ -66,9 +67,8 @@ export function Sidebar({
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('确认删除?')) {
-      onDeleteSession(id);
-    }
+    setMenuOpenId(null);
+    setConfirmDeleteId(id);
   };
 
   return (
@@ -189,7 +189,7 @@ export function Sidebar({
                                 重命名
                               </button>
                               <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(s.id); setMenuOpenId(null); }}
+                                onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
                                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition cursor-pointer"
                               >
                                 <Trash2 size={12} />
@@ -219,6 +219,25 @@ export function Sidebar({
                     {s.messageCount}
                   </span>
                 </div>
+
+                {/* Delete confirmation popover */}
+                {confirmDeleteId === s.id && (
+                  <div className="mt-2 p-2 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2">
+                    <span className="text-xs text-red-600 flex-1">确认删除该会话?</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); setConfirmDeleteId(null); }}
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
+                    >
+                      删除
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition cursor-pointer"
+                    >
+                      取消
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
 

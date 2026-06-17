@@ -76,8 +76,12 @@ interface OptimizeModalProps {
 
 function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, onOptimize }: OptimizeModalProps) {
   const [instruction, setInstruction] = useState('');
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState(() => ({
+    x: Math.max(0, (typeof window !== 'undefined' ? window.innerWidth - 480 : 0) / 2),
+    y: Math.max(0, (typeof window !== 'undefined' ? window.innerHeight - 400 : 0) / 2),
+  }));
   const [isDragging, setIsDragging] = useState(false);
+  const [visible, setVisible] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -89,6 +93,10 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
         y: Math.max(0, (window.innerHeight - 400) / 2),
       });
       setInstruction('');
+      // Delay visibility to avoid initial paint at wrong position
+      requestAnimationFrame(() => setVisible(true));
+    } else {
+      setVisible(false);
     }
   }, [isOpen]);
 
@@ -131,7 +139,7 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
     };
   }, [isDragging]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !visible) return null;
 
   const handleSubmit = () => {
     if (instruction.trim()) {
