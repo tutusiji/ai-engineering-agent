@@ -224,17 +224,17 @@ export function Sidebar({
                 {confirmDeleteId === s.id && (
                   <>
                     <div className="fixed inset-0 z-50" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} />
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 px-3 py-2 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2">
-                      <span className="text-xs text-gray-700 whitespace-nowrap">确认删除?</span>
+                    <div className="absolute right-0 -top-1 -translate-y-full z-50 px-3 py-2 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2 whitespace-nowrap">
+                      <span className="text-xs text-gray-700">确认删除?</span>
                       <button
                         onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); setConfirmDeleteId(null); }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer whitespace-nowrap"
                       >
                         删除
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
-                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer whitespace-nowrap"
                       >
                         取消
                       </button>
