@@ -168,7 +168,7 @@ export function Sidebar({
                               isIconOnly
                               variant="ghost"
                               size="sm"
-                              onPress={(e) => { e.stopPropagation(); onTogglePin(s.id); }}
+                              onPress={() => { onTogglePin(s.id); }}
                             >
                               <Pin size={11} className={s.pinned ? 'text-blue-500 fill-blue-500' : 'text-gray-400'} />
                             </Button>
