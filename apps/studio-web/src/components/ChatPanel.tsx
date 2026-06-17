@@ -191,6 +191,11 @@ export function ChatPanel({
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Scroll to bottom on mount (tab switch)
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'instant' });
+  }, []);
+
   useEffect(() => {
     if (isNearBottomRef.current) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
