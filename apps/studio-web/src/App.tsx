@@ -306,20 +306,35 @@ export default function App() {
                 variant="primary"
                 className="flex-1 flex flex-col overflow-hidden min-h-0"
               >
-                <TabList className="px-4 bg-white border-b border-divider">
-                  <Tab id="chat">
+                <TabList className="px-2 bg-white border-b border-divider gap-1">
+                  <Tab
+                    id="chat"
+                    className="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors
+                      data-[selected=true]:text-blue-600 data-[selected=true]:border-b-2 data-[selected=true]:border-blue-600
+                      data-[selected=false]:text-gray-400 data-[selected=false]:hover:text-gray-600"
+                  >
                     <div className="flex items-center gap-1.5">
                       <Zap className="w-4 h-4" />
                       <span>需求对话</span>
                     </div>
                   </Tab>
-                  <Tab id="design">
+                  <Tab
+                    id="design"
+                    className="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors
+                      data-[selected=true]:text-blue-600 data-[selected=true]:border-b-2 data-[selected=true]:border-blue-600
+                      data-[selected=false]:text-gray-400 data-[selected=false]:hover:text-gray-600"
+                  >
                     <div className="flex items-center gap-1.5">
                       <Image className="w-4 h-4" />
                       <span>UI预览</span>
                     </div>
                   </Tab>
-                  <Tab id="code">
+                  <Tab
+                    id="code"
+                    className="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors
+                      data-[selected=true]:text-blue-600 data-[selected=true]:border-b-2 data-[selected=true]:border-blue-600
+                      data-[selected=false]:text-gray-400 data-[selected=false]:hover:text-gray-600"
+                  >
                     <div className="flex items-center gap-1.5">
                       <Code className="w-4 h-4" />
                       <span>代码</span>
