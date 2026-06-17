@@ -720,6 +720,17 @@ app.post('/api/chat/document/optimize', async (req, res) => {
     const { optimizeModule, estimateCompleteness } = await import('@ai-frontend-engineering-agent/agent-runtime');
 
     console.log(`🔧 [${sessionId}] Optimizing module "${module}" with instruction: ${instruction.slice(0, 50)}...`);
+
+    // Save old value to history before overwriting
+    const history = (currentDoc._optimizeHistory as Array<Record<string, unknown>>) ?? [];
+    history.push({
+      module,
+      instruction,
+      previousValue: currentModuleValue,
+      timestamp: Date.now(),
+    });
+    currentDoc._optimizeHistory = history;
+
     const optimizedValue = await optimizeModule(llmConfig, module, currentModuleValue, instruction, currentDoc);
 
     // Only update the specified module

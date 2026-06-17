@@ -15,6 +15,7 @@ import {
   Sparkles,
   Pencil,
   X,
+  Clock,
   LayoutTemplate,
 } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectPopover } from '@heroui/react/select';
@@ -299,14 +300,18 @@ function ModuleSection({
   value,
   onOptimize,
   optimizingModule,
+  history = [],
 }: {
   config: ModuleConfig;
   value: unknown;
   onOptimize: (module: string, instruction: string) => void;
   optimizingModule: string | null;
+  history?: Array<{ module: string; instruction: string; timestamp: number; previousValue: unknown }>;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const isOptimizing = optimizingModule === config.key;
+  const moduleHistory = history.filter(h => h.module === config.key);
 
   const renderContent = () => {
     if (!value || (Array.isArray(value) && value.length === 0)) {
@@ -377,7 +382,16 @@ function ModuleSection({
 
   return (
     <>
-      <div className="border border-gray-200 rounded-xl p-3 shadow-sm bg-white hover:shadow-md transition-shadow">
+      <div className={`border border-gray-200 rounded-xl p-3 shadow-sm bg-white hover:shadow-md transition-shadow relative ${isOptimizing ? 'overflow-hidden' : ''}`}>
+        {/* Loading overlay */}
+        {isOptimizing && (
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
+            <div className="flex items-center gap-2 text-blue-600">
+              <Spinner size="sm" />
+              <span className="text-xs font-medium">优化中...</span>
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-2">
           <span className="font-semibold text-sm text-gray-800">
             {config.icon} {config.label}
@@ -385,14 +399,51 @@ function ModuleSection({
               ({Array.isArray(value) ? (value as unknown[]).length : value ? 1 : 0})
             </span>
           </span>
-          <button
-            onClick={() => setModalOpen(true)}
-            disabled={isOptimizing}
-            className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition disabled:opacity-40"
-            title={`优化${config.label}`}
-          >
-            {isOptimizing ? <Spinner size="sm" /> : <Sparkles size={14} />}
-          </button>
+          <div className="flex gap-0.5">
+            {/* History button */}
+            {moduleHistory.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setHistoryOpen(!historyOpen)}
+                  className="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition"
+                  title="查看历史"
+                >
+                  <Clock size={14} />
+                </button>
+                {historyOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-72 rounded-xl bg-white border border-gray-200 shadow-xl overflow-hidden">
+                      <div className="px-3 py-2 text-[10px] text-gray-400 uppercase tracking-wider font-medium bg-gray-50 border-b">
+                        优化历史 ({moduleHistory.length})
+                      </div>
+                      <div className="max-h-60 overflow-auto">
+                        {moduleHistory.slice().reverse().map((h, i) => (
+                          <div key={i} className="px-3 py-2 border-b border-gray-100 last:border-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(h.timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-600">{h.instruction}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {/* Optimize button */}
+            <button
+              onClick={() => setModalOpen(true)}
+              disabled={isOptimizing}
+              className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-500 transition disabled:opacity-40"
+              title={`优化${config.label}`}
+            >
+              {isOptimizing ? <Spinner size="sm" /> : <Sparkles size={14} />}
+            </button>
+          </div>
         </div>
         {renderContent()}
       </div>
@@ -618,6 +669,7 @@ export function DocumentPanel({
             value={(d as Record<string, unknown>)[config.key]}
             onOptimize={onOptimize}
             optimizingModule={optimizingModule}
+            history={(d._optimizeHistory as Array<{ module: string; instruction: string; timestamp: number; previousValue: unknown }>) ?? []}
           />
         ))}
 
