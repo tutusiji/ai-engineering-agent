@@ -16,8 +16,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabList, Tab, TabPanel } from '@heroui/react/tabs';
-import { Badge } from '@heroui/react/badge';
-import { Zap, Image, Code, FileText, ChevronDown, Check, Cpu } from 'lucide-react';
+import { Zap, Image, Code, ChevronDown, Check, Cpu } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
@@ -315,34 +314,24 @@ export default function App() {
                     </div>
                   </Tab>
                   <Tab id="design">
-                    {designHtml ? (
-                      <Badge content="!" color="default" size="sm">
-                        <div className="flex items-center gap-1.5">
-                          <Image className="w-4 h-4" />
-                          <span>前端预览</span>
-                        </div>
-                      </Badge>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <Image className="w-4 h-4" />
-                        <span>前端预览</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Image className="w-4 h-4" />
+                      <span>前端预览</span>
+                      {designHtml && (
+                        <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                      )}
+                    </div>
                   </Tab>
                   <Tab id="code">
-                    {generatedFiles.length > 0 ? (
-                      <Badge content={String(generatedFiles.length)} color="success" size="sm">
-                        <div className="flex items-center gap-1.5">
-                          <Code className="w-4 h-4" />
-                          <span>代码</span>
-                        </div>
-                      </Badge>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <Code className="w-4 h-4" />
-                        <span>代码</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Code className="w-4 h-4" />
+                      <span>代码</span>
+                      {generatedFiles.length > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 leading-none">
+                          {generatedFiles.length}
+                        </span>
+                      )}
+                    </div>
                   </Tab>
 
                 </TabList>
