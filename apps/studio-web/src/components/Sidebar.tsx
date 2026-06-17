@@ -123,7 +123,7 @@ export function Sidebar({
               <div
                 key={s.id}
                 onClick={() => onSelectSession(s.id)}
-                className={`px-3 py-2.5 mb-2 rounded-xl cursor-pointer transition-all border shadow-sm ${
+                className={`relative px-3 py-2.5 mb-2 rounded-xl cursor-pointer transition-all border shadow-sm ${
                   activeSessionId === s.id
                     ? 'bg-blue-50 border-blue-400 shadow-blue-100'
                     : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
@@ -220,25 +220,29 @@ export function Sidebar({
                   </span>
                 </div>
 
-                {/* Delete confirmation popover */}
-                {confirmDeleteId === s.id && (
-                  <div className="mt-2 p-2 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2">
-                    <span className="text-xs text-red-600 flex-1">确认删除该会话?</span>
+              </div>
+
+              {/* Delete confirmation — floating popover */}
+              {confirmDeleteId === s.id && (
+                <>
+                  <div className="fixed inset-0 z-50" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} />
+                  <div className="absolute left-1/2 -translate-x-1/2 -bottom-2 z-50 px-3 py-2 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2">
+                    <span className="text-xs text-gray-700 whitespace-nowrap">确认删除?</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); setConfirmDeleteId(null); }}
-                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
                     >
                       删除
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
-                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition cursor-pointer"
                     >
                       取消
                     </button>
                   </div>
-                )}
-              </div>
+                </>
+              )}
             ))}
 
             {sessions.length === 0 && (
