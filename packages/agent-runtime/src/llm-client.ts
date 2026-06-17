@@ -106,8 +106,8 @@ export async function chatCompletion(
  * Priority (first match wins):
  *   LLM_BASE_URL + LLM_API_KEY   (generic override)
  *   KIMI_API_KEY                  (Kimi / Moonshot)
- *   XIAOMI_API_KEY                (Xiaomi MiMo)
  *   DEEPSEEK_API_KEY              (DeepSeek V4 Pro)
+ *   XIAOMI_API_KEY                (Xiaomi MiMo)
  *   RIGHTCODE_API_KEY             (Right.codes / OpenAI-compatible)
  *   OPENROUTER_API_KEY            (OpenRouter)
  */
@@ -131,21 +131,21 @@ export function loadLlmConfigFromEnv(): LlmConfig {
     };
   }
 
-  // Xiaomi MiMo
-  if (process.env.XIAOMI_API_KEY) {
-    return {
-      baseUrl: process.env.XIAOMI_BASE_URL ?? 'https://api.xiaomimimo.com/v1',
-      apiKey: process.env.XIAOMI_API_KEY,
-      model: process.env.XIAOMI_MODEL ?? 'mimo-v2.5-pro',
-    };
-  }
-
   // DeepSeek
   if (process.env.DEEPSEEK_API_KEY) {
     return {
       baseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
       apiKey: process.env.DEEPSEEK_API_KEY,
       model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-pro',
+    };
+  }
+
+  // Xiaomi MiMo
+  if (process.env.XIAOMI_API_KEY) {
+    return {
+      baseUrl: process.env.XIAOMI_BASE_URL ?? 'https://api.xiaomimimo.com/v1',
+      apiKey: process.env.XIAOMI_API_KEY,
+      model: process.env.XIAOMI_MODEL ?? 'mimo-v2.5-pro',
     };
   }
 

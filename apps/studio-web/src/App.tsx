@@ -175,7 +175,7 @@ export default function App() {
         setActiveChatTab('design');
         // Reload version list
         await loadDesignVersions(activeSessionId);
-        console.log('前端预览生成成功');
+        console.log('UI预览生成成功');
       } else {
         console.error(data.error || '生成失败');
       }
@@ -316,7 +316,7 @@ export default function App() {
                   <Tab id="design">
                     <div className="flex items-center gap-1.5">
                       <Image className="w-4 h-4" />
-                      <span>前端预览</span>
+                      <span>UI预览</span>
                       {designHtml && (
                         <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
                       )}

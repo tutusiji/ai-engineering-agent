@@ -250,9 +250,9 @@ function applyModelPreset(modelId: string): boolean {
 }
 
 // Default Studio startup model: prefer right.codes, fall back to DeepSeek V4 Pro.
-const DEFAULT_MODEL_PRESET_ID = MODEL_PRESETS.rightcode
-  ? 'rightcode'
-  : (MODEL_PRESETS['deepseek-v4-pro'] ? 'deepseek-v4-pro' : undefined);
+const DEFAULT_MODEL_PRESET_ID = MODEL_PRESETS['deepseek-v4-pro']
+  ? 'deepseek-v4-pro'
+  : (MODEL_PRESETS.rightcode ? 'rightcode' : undefined);
 
 if (DEFAULT_MODEL_PRESET_ID) {
   applyModelPreset(DEFAULT_MODEL_PRESET_ID);
