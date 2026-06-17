@@ -15,12 +15,32 @@ on:
         default: 'main'
 
 jobs:
-  deploy:
-    name: 🚀 Deploy to huoshan
+  build-and-deploy:
+    name: 🚀 Build & Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || 'main' }}
+
+      - name: 📦 Setup Node & pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 📦 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔨 Build frontend
+        run: pnpm --filter @ai-frontend-engineering-agent/studio-web build
+
       - name: 🔑 Setup SSH
         uses: shimataro/ssh-key-action@v2
         with:
@@ -34,38 +54,43 @@ jobs:
               ServerAliveInterval 15
               ServerAliveCountMax 4
 
-      - name: 📥 Pull & Build
+      - name: 📤 Deploy to server
         run: |
-          ssh deploy-server 'bash -s' << 'DEPLOY_EOF'
+          BRANCH="${{ github.event.inputs.branch || 'main' }}"
+
+          echo "📤 Syncing frontend dist..."
+          rsync -avz --delete \
+            apps/studio-web/dist/ \
+            deploy-server:/root/projects/ai-frontend-engineering-agent/apps/studio-web/dist/
+
+          echo "📥 Updating server code..."
+          ssh deploy-server "bash -s" << 'SERVER_SCRIPT'
             set -e
             cd /root/projects/ai-frontend-engineering-agent
 
-            echo "📥 Fetching latest code..."
+            # Clean any leftover local changes
+            git checkout -- .
+            git clean -fd
+
+            # Pull latest code
             git fetch origin
             git checkout ${{ github.event.inputs.branch || 'main' }}
             git reset --hard origin/${{ github.event.inputs.branch || 'main' }}
 
-            echo "📦 Checking dependencies..."
-            pnpm install --frozen-lockfile || pnpm install
+            # Install backend deps only (frontend dist already synced)
+            pnpm install --frozen-lockfile --filter !@ai-frontend-engineering-agent/studio-web
 
-            echo "🔨 Building frontend..."
-            pnpm --filter @ai-frontend-engineering-agent/studio-web build
-            echo "BUILD_OK"
-          DEPLOY_EOF
-
-      - name: 🔄 Restart PM2
-        run: |
-          ssh deploy-server 'bash -s' << 'RESTART_EOF'
-            set -e
-            cd /root/projects/ai-frontend-engineering-agent
             echo "🔄 Restarting via PM2..."
-            pm2 reload ecosystem.config.cjs --update-env || pm2 restart ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
+            pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || \
+            pm2 restart ecosystem.config.cjs --update-env 2>/dev/null || \
+            pm2 start ecosystem.config.cjs
+
             sleep 3
             echo "✅ Deploy complete!"
             pm2 status
-          RESTART_EOF
+          SERVER_SCRIPT
 
-      - name: 🔔 Notify
+      - name: 🔔 Summary
         if: always()
         run: |
           echo "## 🚀 Deploy Result" >> $GITHUB_STEP_SUMMARY
