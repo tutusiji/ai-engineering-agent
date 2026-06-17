@@ -309,7 +309,7 @@ export default function App() {
                   <button
                     key={key}
                     onClick={() => setActiveChatTab(key)}
-                    className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-[1px]
+                    className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-[1px]
                       ${activeChatTab === key
                         ? 'text-blue-600 border-blue-600'
                         : 'text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300'
