@@ -768,21 +768,32 @@ app.post('/api/generate/design', async (req, res) => {
       const htmlFile = files?.find(f => f.path?.endsWith('.html'));
 
       // Persist artifacts
-      const runId = `preview-${generateId()}`;
+      const runId = `design-${generateId()}`;
       if (files) {
         for (const file of files) {
           artifactStore.save(runId, file.path, file.content);
         }
       }
 
-      // Save design HTML to session document for persistence
+      // Save design version to session document
       if (htmlFile?.content && session) {
         const doc = (session.document ?? {}) as Record<string, unknown>;
+        const versions = (doc._designVersions as Array<Record<string, unknown>>) ?? [];
+        const versionId = `v${versions.length + 1}`;
+        const now = Date.now();
+        const version = {
+          id: versionId,
+          html: htmlFile.content,
+          model: llmConfig.model,
+          createdAt: now,
+          label: `${llmConfig.model} · ${new Date(now).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
+        };
+        versions.push(version);
         await sessionStore.update(sessionId, {
           ...session,
-          document: { ...doc, _designHtml: htmlFile.content, _designRunId: runId },
+          document: { ...doc, _designVersions: versions, _activeDesignId: versionId },
         });
-        console.log(`💾 [${sessionId}] Design HTML saved to session`);
+        console.log(`💾 [${sessionId}] Design version ${versionId} saved to session`);
       }
 
       res.json({
@@ -798,6 +809,35 @@ app.post('/api/generate/design', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
+});
+
+// ─── Design Versions ─────────────────────────────────────────────────
+
+// List design versions for a session
+app.get('/api/sessions/:id/designs', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const doc = (session.document ?? {}) as Record<string, unknown>;
+  const versions = (doc._designVersions as Array<Record<string, unknown>>) ?? [];
+  const activeId = doc._activeDesignId as string | undefined;
+  res.json({ versions, activeId: activeId ?? versions[versions.length - 1]?.id ?? null });
+});
+
+// Set active design version
+app.post('/api/sessions/:id/designs/active', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const { designId } = req.body as { designId?: string };
+  const doc = (session.document ?? {}) as Record<string, unknown>;
+  const versions = (doc._designVersions as Array<Record<string, unknown>>) ?? [];
+  if (!versions.some(v => v.id === designId)) {
+    return res.status(400).json({ error: `Version ${designId} not found` });
+  }
+  await sessionStore.update(req.params.id, {
+    ...session,
+    document: { ...doc, _activeDesignId: designId },
+  });
+  res.json({ ok: true, activeDesignId: designId });
 });
 
 // Generate code

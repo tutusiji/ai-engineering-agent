@@ -50,6 +50,8 @@ export default function App() {
   const [activeNav, setActiveNav] = useState<NavKey>('chat');
   const [activeChatTab, setActiveChatTab] = useState<ChatTab>('chat');
   const [designHtml, setDesignHtml] = useState<string | null>(null);
+  const [designVersions, setDesignVersions] = useState<Array<{ id: string; label: string; model: string; createdAt: number }>>([]);
+  const [activeDesignId, setActiveDesignId] = useState<string | null>(null);
   const [generatedFiles, setGeneratedFiles] = useState<Array<{ path: string; kind: string; content?: string }>>([]);
   const [designLoading, setDesignLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
@@ -92,12 +94,56 @@ export default function App() {
 
   const chat = useChat(activeSessionId, profileId, docHook.updateFromSSE);
 
+  // Load design versions for a session
+  const loadDesignVersions = useCallback(async (sid: string) => {
+    try {
+      const res = await fetch(`${API}/sessions/${sid}/designs`);
+      const data = await res.json();
+      setDesignVersions(data.versions ?? []);
+      const activeId = data.activeId;
+      setActiveDesignId(activeId);
+      if (activeId) {
+        const active = data.versions?.find((v: { id: string; html: string }) => v.id === activeId);
+        if (active) setDesignHtml(active.html);
+        else setDesignHtml(null);
+      } else {
+        setDesignHtml(null);
+      }
+    } catch {
+      setDesignVersions([]);
+      setDesignHtml(null);
+    }
+  }, []);
+
+  // Switch design version
+  const switchDesignVersion = async (designId: string) => {
+    if (!activeSessionId) return;
+    const version = designVersions.find(v => v.id === designId);
+    if (!version) return;
+    // Fetch full version HTML
+    try {
+      const res = await fetch(`${API}/sessions/${activeSessionId}/designs/active`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ designId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setActiveDesignId(designId);
+        // Find HTML from versions list (we need to store it)
+        await loadDesignVersions(activeSessionId);
+      }
+    } catch { /* ignore */ }
+  };
+
   // Load session data when switching sessions
   useEffect(() => {
     if (activeSessionId) {
       setDesignHtml(null);
+      setDesignVersions([]);
       setGeneratedFiles([]);
       chat.loadSession(activeSessionId);
+      loadDesignVersions(activeSessionId);
     }
   }, [activeSessionId]);
 
@@ -105,11 +151,6 @@ export default function App() {
   useEffect(() => {
     if (chat.document) {
       docHook.loadDocument(chat.document);
-      // Restore persisted design HTML
-      const doc = chat.document as Record<string, unknown>;
-      if (doc._designHtml && typeof doc._designHtml === 'string') {
-        setDesignHtml(doc._designHtml);
-      }
     }
   }, [chat.document]);
 
@@ -133,6 +174,8 @@ export default function App() {
       if (data.ok && data.htmlContent) {
         setDesignHtml(data.htmlContent);
         setActiveChatTab('design');
+        // Reload version list
+        await loadDesignVersions(activeSessionId);
         console.log('前端预览生成成功');
       } else {
         console.error(data.error || '生成失败');
@@ -321,7 +364,10 @@ export default function App() {
                     html={designHtml}
                     completeness={completeness}
                     loading={designLoading}
+                    versions={designVersions}
+                    activeDesignId={activeDesignId}
                     onGenerate={handleGenerateDesign}
+                    onSwitchVersion={switchDesignVersion}
                   />
                 </TabPanel>
                 <TabPanel id="code" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
