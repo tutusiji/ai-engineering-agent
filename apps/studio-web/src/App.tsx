@@ -15,7 +15,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Tabs, Tab, TabPanel } from '@heroui/react/tabs';
 import { Zap, Image, Code, ChevronDown, Check, Cpu } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
@@ -322,19 +321,9 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Tab content */}
-              <Tabs
-                selectedKey={activeChatTab}
-                onSelectionChange={(key) => setActiveChatTab(key as ChatTab)}
-                className="flex-1 flex flex-col overflow-hidden min-h-0"
-              >
-                <div className="hidden">
-                  <Tab id="chat" />
-                  <Tab id="design" />
-                  <Tab id="code" />
-                </div>
-
-                <TabPanel id="chat" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
+              {/* Tab panels */}
+              <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                {activeChatTab === 'chat' && (
                   <ChatPanel
                     messages={chat.messages}
                     document={docHook.document}
@@ -345,8 +334,8 @@ export default function App() {
                     onSend={chat.send}
                     onStop={chat.stop}
                   />
-                </TabPanel>
-                <TabPanel id="design" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
+                )}
+                {activeChatTab === 'design' && (
                   <DesignPanel
                     html={designHtml}
                     completeness={completeness}
@@ -356,12 +345,11 @@ export default function App() {
                     onGenerate={handleGenerateDesign}
                     onSwitchVersion={switchDesignVersion}
                   />
-                </TabPanel>
-                <TabPanel id="code" className="!p-0 !mt-0 flex-1 flex flex-col overflow-hidden min-h-0">
+                )}
+                {activeChatTab === 'code' && (
                   <CodePanel files={generatedFiles} />
-                </TabPanel>
-
-              </Tabs>
+                )}
+              </div>
             </div>
           )}
 
