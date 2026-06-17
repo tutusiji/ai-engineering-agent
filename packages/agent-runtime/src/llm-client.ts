@@ -103,11 +103,13 @@ export async function chatCompletion(
 /**
  * Build LlmConfig from environment variables.
  *
- * Priority:
- *   LLM_BASE_URL + LLM_API_KEY + LLM_MODEL  (generic override)
- *   KIMI_API_KEY                              (Kimi / Moonshot)
- *   XIAOMI_BASE_URL + XIAOMI_API_KEY         (Xiaomi MiMo)
- *   OPENROUTER_API_KEY                        (OpenRouter)
+ * Priority (first match wins):
+ *   LLM_BASE_URL + LLM_API_KEY   (generic override)
+ *   KIMI_API_KEY                  (Kimi / Moonshot)
+ *   XIAOMI_API_KEY                (Xiaomi MiMo)
+ *   DEEPSEEK_API_KEY              (DeepSeek V4 Pro)
+ *   RIGHTCODE_API_KEY             (Right.codes / OpenAI-compatible)
+ *   OPENROUTER_API_KEY            (OpenRouter)
  */
 export function loadLlmConfigFromEnv(): LlmConfig {
   // Generic override — highest priority
@@ -138,6 +140,24 @@ export function loadLlmConfigFromEnv(): LlmConfig {
     };
   }
 
+  // DeepSeek
+  if (process.env.DEEPSEEK_API_KEY) {
+    return {
+      baseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-pro',
+    };
+  }
+
+  // Right.codes (OpenAI-compatible)
+  if (process.env.RIGHTCODE_API_KEY) {
+    return {
+      baseUrl: 'https://right.codes/codex/v1',
+      apiKey: process.env.RIGHTCODE_API_KEY,
+      model: process.env.RIGHTCODE_MODEL ?? 'gpt-5.5',
+    };
+  }
+
   // OpenRouter
   if (process.env.OPENROUTER_API_KEY) {
     return {
@@ -148,7 +168,7 @@ export function loadLlmConfigFromEnv(): LlmConfig {
   }
 
   throw new Error(
-    'No LLM credentials found. Set LLM_BASE_URL + LLM_API_KEY, ' +
-    'or KIMI_API_KEY, or XIAOMI_API_KEY, or OPENROUTER_API_KEY in your environment.',
+    'No LLM credentials found. Set DEEPSEEK_API_KEY, RIGHTCODE_API_KEY, KIMI_API_KEY, ' +
+    'or OPENROUTER_API_KEY in your environment.',
   );
 }

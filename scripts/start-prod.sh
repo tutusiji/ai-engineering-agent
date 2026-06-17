@@ -6,14 +6,10 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Load app env first (project-local settings such as KIMI_API_KEY, STUDIO_API_PORT),
-# then Hermes env as a fallback for shared provider credentials.
+# Load project .env — all config lives here, no external dependencies
 set -a
 if [ -f "$PROJECT_ROOT/.env" ]; then
   source "$PROJECT_ROOT/.env"
-fi
-if [ -f ~/.hermes/.env ]; then
-  source ~/.hermes/.env
 fi
 set +a
 

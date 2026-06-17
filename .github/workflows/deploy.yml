@@ -46,11 +46,14 @@ jobs:
             echo "📦 Checking dependencies..."
             pnpm install --frozen-lockfile || pnpm install
 
-            echo "🔄 Restarting service..."
-            systemctl restart studio4399
+            echo "🔨 Building frontend..."
+            pnpm --filter @ai-frontend-engineering-agent/studio-web build
+
+            echo "🔄 Restarting via PM2..."
+            pm2 restart ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
 
             echo "✅ Deploy complete!"
-            systemctl status studio4399 --no-pager -l | head -15
+            pm2 status
           DEPLOY_EOF
 
       - name: 🔔 Notify
