@@ -669,7 +669,7 @@ export function DocumentPanel({
             value={(d as Record<string, unknown>)[config.key]}
             onOptimize={onOptimize}
             optimizingModule={optimizingModule}
-            history={(d._optimizeHistory as Array<{ module: string; instruction: string; timestamp: number; previousValue: unknown }>) ?? []}
+            history={((d as Record<string, unknown>)._optimizeHistory as Array<{ module: string; instruction: string; timestamp: number; previousValue: unknown }>) ?? []}
           />
         ))}
 
