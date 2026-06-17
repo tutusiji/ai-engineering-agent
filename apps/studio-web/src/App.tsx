@@ -22,7 +22,6 @@ import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
 import { Sidebar } from './components/Sidebar';
 import { ChatPanel } from './components/ChatPanel';
-import { DocumentPanel } from './components/DocumentPanel';
 import { DesignPanel } from './components/DesignPanel';
 import { CodePanel } from './components/CodePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
@@ -317,20 +316,12 @@ export default function App() {
                     <div className="flex items-center gap-1.5">
                       <Image className="w-4 h-4" />
                       <span>UI预览</span>
-                      {designHtml && (
-                        <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                      )}
                     </div>
                   </Tab>
                   <Tab id="code">
                     <div className="flex items-center gap-1.5">
                       <Code className="w-4 h-4" />
                       <span>代码</span>
-                      {generatedFiles.length > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/20 text-emerald-400 leading-none">
-                          {generatedFiles.length}
-                        </span>
-                      )}
                     </div>
                   </Tab>
 
@@ -376,23 +367,6 @@ export default function App() {
           )}
         </main>
 
-        {/* Right sidebar — Document panel (only in chat mode) */}
-        {activeNav === 'chat' && (
-          <aside className="w-[360px] shrink-0 bg-white border-l border-divider overflow-auto h-full">
-            <DocumentPanel
-              document={docHook.document}
-              sessionId={activeSessionId}
-              generating={docHook.generating}
-              optimizingModule={docHook.optimizingModule}
-              onGenerate={docHook.generate}
-              onOptimize={docHook.optimize}
-              onSend={chat.send}
-              loading={chat.loading}
-              profileId={profileId}
-              onProfileChange={setProfileId}
-            />
-          </aside>
-        )}
       </div>
     </div>
   );
