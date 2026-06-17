@@ -18,6 +18,7 @@ export interface Session {
   messages: ChatMessage[];
   document?: Record<string, unknown>;
   completeness: number;
+  pinned: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -32,6 +33,7 @@ function rowToSession(row: Record<string, unknown>): Session {
     messages: (typeof row.messages === 'string' ? JSON.parse(row.messages as string) : row.messages) as ChatMessage[],
     document: row.document ? (typeof row.document === 'string' ? JSON.parse(row.document as string) : row.document as Record<string, unknown>) : undefined,
     completeness: row.completeness as number,
+    pinned: Boolean(row.pinned),
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
@@ -55,7 +57,7 @@ export class SessionStore {
   }
 
   async list(): Promise<Session[]> {
-    const rows = await queryAll('SELECT * FROM sessions ORDER BY updated_at DESC');
+    const rows = await queryAll('SELECT * FROM sessions ORDER BY pinned DESC, updated_at DESC');
     return rows.map(rowToSession);
   }
 
@@ -87,6 +89,10 @@ export class SessionStore {
     if (patch.completeness !== undefined) {
       sets.push(`completeness = $${paramIdx++}`);
       values.push(patch.completeness);
+    }
+    if (patch.pinned !== undefined) {
+      sets.push(`pinned = $${paramIdx++}`);
+      values.push(patch.pinned);
     }
 
     sets.push(`updated_at = $${paramIdx++}`);

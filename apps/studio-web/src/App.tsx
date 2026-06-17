@@ -41,6 +41,7 @@ export default function App() {
     createSession,
     deleteSession,
     renameSession,
+    togglePin,
     refresh: refreshSessions,
   } = useSessions();
 
@@ -291,6 +292,7 @@ export default function App() {
             onCreateSession={handleCreateSession}
             onDeleteSession={deleteSession}
             onRenameSession={renameSession}
+            onTogglePin={togglePin}
             onNavigate={setActiveNav}
           />
         </aside>

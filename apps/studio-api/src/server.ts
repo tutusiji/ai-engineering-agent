@@ -336,6 +336,7 @@ app.get('/api/sessions', async (_req, res) => {
     profileId: s.profileId,
     messageCount: s.messages.length,
     completeness: s.completeness,
+    pinned: s.pinned,
     featureName: (s.document as Record<string, unknown>)?.featureName as string ?? null,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
@@ -374,6 +375,15 @@ app.patch('/api/sessions/:id', async (req, res) => {
   if (req.body.profileId) patch.profileId = req.body.profileId;
   await sessionStore.update(req.params.id, patch);
   res.json({ ok: true });
+});
+
+// Pin/unpin session
+app.post('/api/sessions/:id/pin', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const pinned = !session.pinned;
+  await sessionStore.update(req.params.id, { pinned });
+  res.json({ ok: true, pinned });
 });
 
 // ─── Chat endpoints ─────────────────────────────────────────────────────

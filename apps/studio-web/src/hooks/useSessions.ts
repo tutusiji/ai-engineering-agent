@@ -12,6 +12,7 @@ export interface Session {
   profileId: string;
   messageCount: number;
   completeness: number;
+  pinned: boolean;
   featureName: string | null;
   createdAt: number;
   updatedAt: number;
@@ -72,6 +73,11 @@ export function useSessions() {
     await refresh();
   }, [refresh]);
 
+  const togglePin = useCallback(async (id: string) => {
+    await fetch(`${API}/sessions/${id}/pin`, { method: 'POST' });
+    await refresh();
+  }, [refresh]);
+
   const activeSession = sessions.find(s => s.id === activeSessionId) ?? null;
 
   return {
@@ -82,6 +88,7 @@ export function useSessions() {
     createSession,
     deleteSession,
     renameSession,
+    togglePin,
     loading,
     refresh,
   };

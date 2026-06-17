@@ -14,6 +14,7 @@ import {
   Plus,
   Trash2,
   Pencil,
+  Pin,
   Check,
   X,
   MessageSquare,
@@ -33,6 +34,7 @@ interface SidebarProps {
   onCreateSession: () => void;
   onDeleteSession: (id: string) => void;
   onRenameSession: (id: string, name: string) => void;
+  onTogglePin: (id: string) => void;
   onNavigate: (key: NavKey) => void;
 }
 
@@ -44,6 +46,7 @@ export function Sidebar({
   onCreateSession,
   onDeleteSession,
   onRenameSession,
+  onTogglePin,
   onNavigate,
 }: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -154,8 +157,24 @@ export function Sidebar({
                     </div>
                   ) : (
                     <>
-                      <Text className="text-[13px] font-semibold flex-1 truncate">{s.name}</Text>
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        {s.pinned && <Pin size={11} className="text-blue-500 shrink-0 fill-blue-500" />}
+                        <Text className="text-[13px] font-semibold truncate">{s.name}</Text>
+                      </div>
                       <div className="flex gap-0.5">
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <Button
+                              isIconOnly
+                              variant="ghost"
+                              size="sm"
+                              onPress={(e) => { e.stopPropagation(); onTogglePin(s.id); }}
+                            >
+                              <Pin size={11} className={s.pinned ? 'text-blue-500 fill-blue-500' : 'text-gray-400'} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{s.pinned ? '取消置顶' : '置顶'}</TooltipContent>
+                        </Tooltip>
                         <Tooltip>
                           <TooltipTrigger>
                             <Button
