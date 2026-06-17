@@ -22,6 +22,7 @@ import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
 import { Sidebar } from './components/Sidebar';
 import { ChatPanel } from './components/ChatPanel';
+import { DocumentPanel } from './components/DocumentPanel';
 import { DesignPanel } from './components/DesignPanel';
 import { CodePanel } from './components/CodePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
@@ -366,6 +367,24 @@ export default function App() {
             <RunHistory />
           )}
         </main>
+
+        {/* Right sidebar — Document panel (only in chat mode) */}
+        {activeNav === 'chat' && (
+          <aside className="w-[360px] shrink-0 bg-white border-l border-divider overflow-auto h-full">
+            <DocumentPanel
+              document={docHook.document}
+              sessionId={activeSessionId}
+              generating={docHook.generating}
+              optimizingModule={docHook.optimizingModule}
+              onGenerate={docHook.generate}
+              onOptimize={docHook.optimize}
+              onSend={chat.send}
+              loading={chat.loading}
+              profileId={profileId}
+              onProfileChange={setProfileId}
+            />
+          </aside>
+        )}
 
       </div>
     </div>

@@ -570,34 +570,6 @@ export function DocumentPanel({
         </div>
       </div>
 
-      {/* Profile selector */}
-      {onProfileChange && (
-        <div className="flex items-center gap-2">
-          <LayoutTemplate size={14} className="text-default-400 shrink-0" />
-          <Select
-            aria-label="Profile"
-            selectedKey={profileId}
-            onSelectionChange={(key) => {
-              if (key) onProfileChange(String(key));
-            }}
-            className="flex-1"
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectPopover>
-              <ListBox>
-                <ListBox.Item key="vue3-admin" id="vue3-admin">Vue3 Admin</ListBox.Item>
-                <ListBox.Item key="react-admin" id="react-admin">React Admin</ListBox.Item>
-                <ListBox.Item key="pc-spa" id="pc-spa">PC SPA</ListBox.Item>
-                <ListBox.Item key="h5-spa" id="h5-spa">H5 SPA</ListBox.Item>
-                <ListBox.Item key="wechat-miniapp" id="wechat-miniapp">微信小程序</ListBox.Item>
-              </ListBox>
-            </SelectPopover>
-          </Select>
-        </div>
-      )}
-
       {/* Completeness progress */}
       <div>
         <ProgressBar
