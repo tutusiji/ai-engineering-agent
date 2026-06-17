@@ -11,7 +11,7 @@ import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 const { Pool } = pg;
 
-const DEFAULT_CONNECTION_STRING = 'postgresql://studio:studio2026@localhost:5432/studio';
+const DEFAULT_CONNECTION_STRING = process.env.DATABASE_URL ?? 'postgresql://studio:studio2026@localhost:5432/studio';
 const DEFAULT_ARTIFACT_DIR = join(homedir(), '.ai-studio', 'data', 'artifacts');
 
 let pool: pg.Pool | null = null;
@@ -24,7 +24,7 @@ export interface StoreOptions {
 export function initPool(options: StoreOptions = {}): pg.Pool {
   if (pool) return pool;
   pool = new Pool({
-    connectionString: options.connectionString ?? DEFAULT_CONNECTION_STRING,
+    connectionString: options.connectionString ?? process.env.DATABASE_URL ?? DEFAULT_CONNECTION_STRING,
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,

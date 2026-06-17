@@ -1,0 +1,64 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: false
+        default: 'main'
+
+jobs:
+  deploy:
+    name: 🚀 Deploy to huoshan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 🔑 Setup SSH
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          config: |
+            Host deploy-server
+              HostName ${{ secrets.SSH_HOST }}
+              User ${{ secrets.SSH_USER }}
+              Port ${{ secrets.SSH_PORT || 22 }}
+
+      - name: 📥 Pull & Deploy
+        run: |
+          ssh deploy-server << 'DEPLOY_EOF'
+            set -e
+            cd /root/projects/ai-frontend-engineering-agent
+
+            echo "📥 Fetching latest code..."
+            git fetch origin
+            git checkout ${{ github.event.inputs.branch || 'main' }}
+            git reset --hard origin/${{ github.event.inputs.branch || 'main' }}
+
+            echo "📦 Checking dependencies..."
+            pnpm install --frozen-lockfile || pnpm install
+
+            echo "🔄 Restarting service..."
+            systemctl restart studio4399
+
+            echo "✅ Deploy complete!"
+            systemctl status studio4399 --no-pager -l | head -15
+          DEPLOY_EOF
+
+      - name: 🔔 Notify
+        if: always()
+        run: |
+          echo "## 🚀 Deploy Result" >> $GITHUB_STEP_SUMMARY
+          echo "| Key | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.event.inputs.branch || 'main' }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${GITHUB_SHA:0:7}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status }} |" >> $GITHUB_STEP_SUMMARY

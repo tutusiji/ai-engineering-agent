@@ -1,0 +1,152 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+        default: auto
+      prerelease:
+        description: 'Mark as pre-release?'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: 📦 Create Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: 🔖 Determine Version
+        id: version
+        run: |
+          # Get latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Strip leading 'v'
+          VERSION="${LATEST_TAG#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          # Get commits since last tag
+          COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s")
+
+          # Determine bump based on conventional commits
+          BUMP="patch"
+          if echo "$COMMITS" | grep -qE "^(feat|feat!):"; then
+            BUMP="minor"
+          fi
+          if echo "$COMMITS" | grep -qE "BREAKING CHANGE|!: "; then
+            BUMP="major"
+          fi
+
+          # Manual override
+          INPUT="${{ github.event.inputs.version_bump }}"
+          if [ "$INPUT" != "auto" ] && [ -n "$INPUT" ]; then
+            BUMP="$INPUT"
+          fi
+
+          # Calculate new version
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor)
+              MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch)
+              PATCH=$((PATCH + 1)) ;;
+          esac
+
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION (bump: $BUMP)"
+          echo "tag=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+          echo "previous=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+      - name: 📝 Generate Changelog
+        id: changelog
+        run: |
+          PREVIOUS="${{ steps.version.outputs.previous }}"
+          echo "## 🏷️ ${{ steps.version.outputs.tag }}" > /tmp/changelog.md
+          echo "" >> /tmp/changelog.md
+          echo "**Bump:** \`${{ steps.version.outputs.bump }}\`" >> /tmp/changelog.md
+          echo "" >> /tmp/changelog.md
+
+          # Features
+          FEATS=$(git log ${PREVIOUS}..HEAD --pretty=format:"- %s (%h)" --grep="^feat" 2>/dev/null || true)
+          if [ -n "$FEATS" ]; then
+            echo "### ✨ Features" >> /tmp/changelog.md
+            echo "$FEATS" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          # Fixes
+          FIXES=$(git log ${PREVIOUS}..HEAD --pretty=format:"- %s (%h)" --grep="^fix" 2>/dev/null || true)
+          if [ -n "$FIXES" ]; then
+            echo "### 🐛 Fixes" >> /tmp/changelog.md
+            echo "$FIXES" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          # Other
+          OTHER=$(git log ${PREVIOUS}..HEAD --pretty=format:"- %s (%h)" --grep="^chore\|^docs\|^refactor\|^style\|^perf\|^ci\|^test\|^build" 2>/dev/null || true)
+          if [ -n "$OTHER" ]; then
+            echo "### 🔧 Other Changes" >> /tmp/changelog.md
+            echo "$OTHER" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          # Fallback
+          if [ -z "$FEATS" ] && [ -z "$FIXES" ] && [ -z "$OTHER" ]; then
+            ALL=$(git log ${PREVIOUS}..HEAD --pretty=format:"- %s (%h)" 2>/dev/null || echo "- Initial commit")
+            echo "### 📋 All Changes" >> /tmp/changelog.md
+            echo "$ALL" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+          fi
+
+          cat /tmp/changelog.md
+          echo "body<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
+          cat /tmp/changelog.md >> $GITHUB_OUTPUT
+          echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
+
+      - name: 🏷️ Create Tag & Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          body: ${{ steps.changelog.outputs.body }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          generate_release_notes: false
+          make_latest: true
+
+      - name: 🔔 Summary
+        run: |
+          echo "## 📦 Release ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Bump | \`${{ steps.version.outputs.bump }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Previous | \`${{ steps.version.outputs.previous }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| New Tag | \`${{ steps.version.outputs.tag }}\` |" >> $GITHUB_STEP_SUMMARY

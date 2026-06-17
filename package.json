@@ -9,7 +9,7 @@
     "workflow:mock": "tsx packages/workflow-core/src/mock-runner.ts",
     "workflow:llm": "tsx packages/workflow-core/src/llm-runner.ts",
     "requirement": "tsx packages/workflow-core/src/interactive-runner.ts",
-    "studio:api": "tsx apps/studio-api/src/server.ts",
+    "studio:api": "bash -c 'set -a; [ -f .env ] && source .env; set +a; tsx apps/studio-api/src/server.ts'",
     "studio:web": "cd apps/studio-web && pnpm dev",
     "studio": "pnpm studio:api & pnpm studio:web",
     "studio:build": "pnpm --filter @ai-frontend-engineering-agent/studio-web build",

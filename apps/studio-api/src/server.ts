@@ -193,8 +193,9 @@ function loadRightCodePreset(): ModelPreset | null {
     const hermesConfigPath = path.join(process.env.HOME ?? '/root', '.hermes', 'config.yaml');
     if (existsSync(hermesConfigPath)) {
       const parsed = parseYaml(readFileSync(hermesConfigPath, 'utf-8')) as HermesConfig;
-      baseUrl = parsed.model?.base_url ?? parsed.providers?.rightcode?.base_url ?? baseUrl;
-      model = parsed.model?.default ?? model;
+      // Only use rightcode-specific config. Global model.base_url belongs to Hermes' own provider.
+      baseUrl = parsed.providers?.rightcode?.base_url ?? baseUrl;
+      model = parsed.providers?.rightcode?.default ?? model;
     }
   } catch (error) {
     console.warn('⚠️ Failed to read Hermes right.codes config:', error);
