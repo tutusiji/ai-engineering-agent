@@ -6,7 +6,6 @@ import { useState } from 'react';
 import { Button } from '@heroui/react/button';
 import { Input } from '@heroui/react/input';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@heroui/react/tooltip';
-import { Chip } from '@heroui/react/chip';
 import { ProgressBar } from '@heroui/react/progress-bar';
 import { Separator } from '@heroui/react/separator';
 import { Text } from '@heroui/react/text';
@@ -216,9 +215,9 @@ export function Sidebar({
                     color={s.completeness >= 80 ? 'success' : 'default'}
                     aria-label="Session completeness"
                   />
-                  <Chip size="sm" variant="solid" color="default" className="text-[10px] h-4 px-1">
+                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full leading-none">
                     {s.messageCount}
-                  </Chip>
+                  </span>
                 </div>
               </div>
             ))}
