@@ -51,15 +51,15 @@ export function MetricsProgress({ projectId }: Props) {
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
         <Text className="font-semibold text-lg">生成进度</Text>
-        <Chip size="sm" color={progress === 100 ? 'success' : 'primary'}>{progress}%</Chip>
+        <Chip size="sm" color={progress === 100 ? 'success' : 'default'}>{progress}%</Chip>
       </div>
-      <ProgressBar value={progress} className="mb-6" color={progress === 100 ? 'success' : 'primary'} />
+      <ProgressBar value={progress} className="mb-6" color={progress === 100 ? 'success' : 'default'} />
       <div className="space-y-2">
         {stages.map(s => (
           <div key={s.stage} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800">
             <StageIcon status={s.status} />
             <span className="flex-1 text-sm font-medium">{STAGE_LABELS[s.stage] ?? s.stage}</span>
-            {s.summary && <Chip size="sm" variant="flat">{s.summary}</Chip>}
+            {s.summary && <span className="px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{s.summary}</span>}
             {s.duration && <span className="text-xs text-gray-400">{(s.duration / 1000).toFixed(1)}s</span>}
           </div>
         ))}

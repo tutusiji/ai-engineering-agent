@@ -6,12 +6,18 @@ import type { ProjectMetric } from '../hooks/useMetrics';
 interface Props { projects: ProjectMetric[]; selectedId: string | null; onSelect: (id: string) => void; }
 
 function StatusChip({ status }: { status: string }) {
-  switch (status) {
-    case 'completed': return <Chip size="sm" color="success" startContent={<CheckCircle2 className="w-3 h-3" />}>完成</Chip>;
-    case 'failed': return <Chip size="sm" color="danger" startContent={<XCircle className="w-3 h-3" />}>失败</Chip>;
-    case 'running': return <Chip size="sm" color="primary" startContent={<Loader2 className="w-3 h-3 animate-spin" />}>运行中</Chip>;
-    default: return <Chip size="sm">{status}</Chip>;
-  }
+  const colors: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+    completed: { bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', icon: <CheckCircle2 className="w-3 h-3" /> },
+    failed: { bg: 'bg-red-100 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', icon: <XCircle className="w-3 h-3" /> },
+    running: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-400', icon: <Loader2 className="w-3 h-3 animate-spin" /> },
+  };
+  const c = colors[status];
+  if (!c) return <Chip size="sm">{status}</Chip>;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
+      {c.icon}{status === 'completed' ? '完成' : status === 'failed' ? '失败' : '运行中'}
+    </span>
+  );
 }
 
 export function MetricsHistory({ projects, selectedId, onSelect }: Props) {
