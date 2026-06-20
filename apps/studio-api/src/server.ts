@@ -57,6 +57,7 @@ import { getCompatibleLibraries } from '@ai-frontend-engineering-agent/agent-run
 import { generateImage, IMAGE_MODELS } from '@ai-frontend-engineering-agent/agent-runtime';
 import { SessionStore, RunStore, ArtifactStore, MetricsStore, initPool } from '@ai-frontend-engineering-agent/persistence';
 import type { Session, ChatMessage } from '@ai-frontend-engineering-agent/persistence';
+import { buildSessionArtifacts, buildArtifactZip, sendArtifactResponse } from './artifact-service.js';
 
 // Workflow execution
 import { WorkflowExecutor } from '@ai-frontend-engineering-agent/workflow-core';
@@ -812,7 +813,7 @@ app.post('/api/generate/design', async (req, res) => {
         versions.push(version);
         await sessionStore.update(sessionId, {
           ...session,
-          document: { ...doc, _designVersions: versions, _activeDesignId: versionId },
+          document: { ...doc, _designVersions: versions, _activeDesignId: versionId, _activeDesignHtml: htmlFile.content },
         });
         console.log(`💾 [${sessionId}] Design version ${versionId} saved to session`);
       }
@@ -1256,6 +1257,48 @@ app.get('/api/runs/:id/artifacts/*path', async (req, res) => {
 
   res.setHeader('Content-Type', contentTypes[ext ?? ''] ?? 'text/plain');
   res.send(content);
+});
+
+// ─── Session Artifact endpoints ─────────────────────────────────────────
+
+// GET /api/sessions/:id/artifacts
+app.get('/api/sessions/:id/artifacts', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const doc = (session.document ?? {}) as Record<string, unknown>;
+  const designHtml = (doc._activeDesignHtml as string | null) ?? null;
+  const artifacts = buildSessionArtifacts(session, req.params.id, artifactStore, designHtml);
+  res.json({ artifacts });
+});
+
+// GET /api/sessions/:id/artifacts/download
+app.get('/api/sessions/:id/artifacts/download', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const { id, ids } = req.query as { id?: string; ids?: string };
+  const requestedIds = ids ? ids.split(',').filter(Boolean) : id ? [id] : [];
+  if (requestedIds.length === 0) {
+    return res.status(400).json({ error: 'id or ids required' });
+  }
+
+  const doc = (session.document ?? {}) as Record<string, unknown>;
+  const designHtml = (doc._activeDesignHtml as string | null) ?? null;
+
+  try {
+    if (requestedIds.length === 1) {
+      await sendArtifactResponse(res, session, artifactStore, designHtml, requestedIds[0]);
+      return;
+    }
+
+    const buffer = await buildArtifactZip(session, artifactStore, designHtml, requestedIds);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="session-${req.params.id}-artifacts.zip"`);
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 // ─── Metrics / DataView endpoints ────────────────────────────────────────
