@@ -36,3 +36,30 @@ export interface ValidationReport {
   passed: boolean;
   issues: ValidationIssue[];
 }
+
+export type ArtifactCategory =
+  | 'requirement'
+  | 'architecture'
+  | 'design'
+  | 'code'
+  | 'intermediate';
+
+export type ArtifactSource = 'session-state' | 'artifact-run';
+
+export interface ArtifactItem {
+  id: string;
+  category: ArtifactCategory;
+  label: string;
+  size?: number;
+  updatedAt: number;
+  source: ArtifactSource;
+  downloadUrl?: string;
+  content?: string;
+}
+
+export interface SessionArtifactRun {
+  runId: string;
+  type: 'design' | 'code' | 'workflow';
+  createdAt: number;
+  label?: string;
+}
