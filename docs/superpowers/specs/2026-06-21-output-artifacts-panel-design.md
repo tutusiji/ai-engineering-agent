@@ -139,6 +139,8 @@ interface UseArtifactsInput {
 }
 ```
 
+> 注：`generatedFiles`（`/generate/code` 返回的文件列表）当前后端实现可能尚未完整。产物面板对此做防御性处理：无文件时不展示代码包，接口就绪后自动出现。
+
 输出：
 
 ```ts
@@ -244,7 +246,7 @@ await sessionStore.addArtifactRun(sessionId, {
 
 ### Zip 打包实现
 
-- 后端使用 `jszip` 进行打包。
+- 后端使用 `jszip` 进行打包，需要在 `apps/studio-api/package.json` 中新增依赖。
 - `design` / `code` 类型：从 `ArtifactStore` 读取该 `runId` 下所有文件，写入 zip。
 - `session-state` 类型：把文本内容作为文件写入 zip。
 - 产物元数据中的 `size` 在保存时预计算，避免实时读取。
@@ -317,7 +319,7 @@ ArtifactsPanel 渲染产物列表
 6. 前端：在 `App.tsx` 中集成并调整右侧边栏布局。
 7. 补充测试与验收。
 
-## 未解决问题
+## 已确认细节
 
-- 架构设计 `.md` 是否需要独立生成端点，还是首期与需求文档合并展示，待实现阶段确认。
-- 产物列表排序规则（按时间倒序还是按 category 固定顺序），默认按 category 固定顺序 + 同 category 按时间倒序。
+- **架构设计 `.md`：** 首期与需求文档合并展示，统一归类为 `requirement`。后续如需独立生成，再扩展 `architecture` category 与对应后端端点。
+- **排序规则：** 列表按 category 固定顺序排列（`requirement` → `architecture` → `design` → `code` → `intermediate`），同一 category 内按 `updatedAt` 倒序排列。
