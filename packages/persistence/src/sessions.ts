@@ -3,6 +3,7 @@
  */
 
 import { query, queryOne, queryAll } from './store.js';
+import type { SessionArtifactRun } from '@ai-frontend-engineering-agent/shared-types';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -134,5 +135,15 @@ export class SessionStore {
       [id, JSON.stringify(document), completeness, now]
     );
     return row ? rowToSession(row) : undefined;
+  }
+
+  async addArtifactRun(id: string, run: SessionArtifactRun): Promise<Session | undefined> {
+    const session = await this.get(id);
+    if (!session) return undefined;
+    const doc = session.document ?? {};
+    const runs = (doc._artifactRuns as SessionArtifactRun[] | undefined) ?? [];
+    runs.push(run);
+    doc._artifactRuns = runs;
+    return this.updateDocument(id, doc, session.completeness);
   }
 }
