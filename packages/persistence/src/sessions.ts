@@ -48,7 +48,7 @@ export class SessionStore {
        VALUES ($1, $2, '[]'::jsonb, 0, $3, $3)`,
       [id, sessionName, now]
     );
-    return { id, name: sessionName, messages: [], completeness: 0, createdAt: now, updatedAt: now };
+    return { id, name: sessionName, messages: [], completeness: 0, pinned: false, createdAt: now, updatedAt: now };
   }
 
   async get(id: string): Promise<Session | undefined> {
