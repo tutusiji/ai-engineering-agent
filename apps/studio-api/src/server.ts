@@ -818,6 +818,15 @@ app.post('/api/generate/design', async (req, res) => {
         console.log(`💾 [${sessionId}] Design version ${versionId} saved to session`);
       }
 
+      // Record artifact run for downloads
+      if (runId) {
+        await sessionStore.addArtifactRun(sessionId, {
+          runId,
+          type: 'design',
+          createdAt: Date.now(),
+        });
+      }
+
       res.json({
         ok: true,
         files: result.output.generatedFiles,
@@ -900,6 +909,15 @@ app.post('/api/generate/code', async (req, res) => {
         for (const file of files) {
           artifactStore.save(runId, file.path, file.content);
         }
+      }
+
+      // Record artifact run for downloads
+      if (runId) {
+        await sessionStore.addArtifactRun(sessionId, {
+          runId,
+          type: 'code',
+          createdAt: Date.now(),
+        });
       }
 
       res.json({
