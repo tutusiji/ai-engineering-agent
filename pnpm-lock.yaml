@@ -88,6 +88,9 @@ importers:
 
   apps/studio-web:
     dependencies:
+      '@ai-frontend-engineering-agent/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
       '@heroui/react':
         specifier: ^3.0.3
         version: 3.0.3(@react-spectrum/provider@3.11.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.2.4)

@@ -19,9 +19,11 @@ import { Zap, Image, Code, ChevronDown, Check, Cpu } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
+import { useArtifacts } from './hooks/useArtifacts';
 import { Sidebar } from './components/Sidebar';
 import { ChatPanel } from './components/ChatPanel';
 import { DocumentPanel } from './components/DocumentPanel';
+import { ArtifactsPanel } from './components/ArtifactsPanel';
 import { DesignPanel } from './components/DesignPanel';
 import { CodePanel } from './components/CodePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
@@ -92,6 +94,13 @@ export default function App() {
   const docHook = useDocument(activeSessionId);
 
   const chat = useChat(activeSessionId, profileId, docHook.updateFromSSE);
+
+  const artifacts = useArtifacts({
+    sessionId: activeSessionId,
+    document: docHook.document,
+    designHtml,
+    generatedFiles,
+  });
 
   // Load design versions for a session
   const loadDesignVersions = useCallback(async (sid: string) => {
@@ -364,21 +373,29 @@ export default function App() {
           )}
         </main>
 
-        {/* Right sidebar — Document panel (only in chat mode) */}
+        {/* Right sidebar — Artifacts + Document panel (only in chat mode) */}
         {activeNav === 'chat' && (
-          <aside className="w-[360px] shrink-0 bg-white border-l border-divider overflow-auto h-full">
-            <DocumentPanel
-              document={docHook.document}
-              sessionId={activeSessionId}
-              generating={docHook.generating}
-              optimizingModule={docHook.optimizingModule}
-              onGenerate={docHook.generate}
-              onOptimize={docHook.optimize}
-              onSend={chat.send}
-              loading={chat.loading}
-              profileId={profileId}
-              onProfileChange={setProfileId}
+          <aside className="w-[360px] shrink-0 bg-white border-l border-divider flex flex-col h-full overflow-hidden">
+            <ArtifactsPanel
+              artifacts={artifacts.artifacts}
+              loading={artifacts.loading}
+              onDownloadOne={artifacts.downloadOne}
+              onDownloadAll={artifacts.downloadAll}
             />
+            <div className="flex-1 overflow-auto min-h-0">
+              <DocumentPanel
+                document={docHook.document}
+                sessionId={activeSessionId}
+                generating={docHook.generating}
+                optimizingModule={docHook.optimizingModule}
+                onGenerate={docHook.generate}
+                onOptimize={docHook.optimize}
+                onSend={chat.send}
+                loading={chat.loading}
+                profileId={profileId}
+                onProfileChange={setProfileId}
+              />
+            </div>
           </aside>
         )}
 
