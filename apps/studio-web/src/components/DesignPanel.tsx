@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import { Image, Sparkles, Loader2, History, Check, ChevronDown } from 'lucide-react';
+import { Image, Sparkles, Loader2, History, Check, ChevronDown, Download } from 'lucide-react';
 
 interface DesignVersion {
   id: string;
@@ -26,6 +26,17 @@ interface DesignPanelProps {
 export function DesignPanel({ html, completeness, loading, versions, activeDesignId, onGenerate, onSwitchVersion }: DesignPanelProps) {
   const canGenerate = completeness >= 80;
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleDownloadHtml = () => {
+    if (!html) return;
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'preview.html';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (!html && versions.length === 0) {
     return (
@@ -129,6 +140,16 @@ export function DesignPanel({ html, completeness, loading, versions, activeDesig
           >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             重新生成
+          </button>
+          <button
+            onClick={handleDownloadHtml}
+            disabled={!html}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border text-gray-700 text-xs font-medium
+              hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="下载当前预览 HTML"
+          >
+            <Download size={12} />
+            下载 HTML
           </button>
         </div>
       )}
