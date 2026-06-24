@@ -151,7 +151,7 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
   return (
     <div
       ref={modalRef}
-      className="fixed z-50 w-[480px] max-h-[80vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col select-none"
+      className="fixed z-50 w-[480px] max-h-[80vh] bg-white dark:bg-gray-800 rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden flex flex-col select-none"
       style={{
         left: position.x,
         top: position.y,
@@ -160,15 +160,15 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
     >
       {/* Header — 可拖动区域 */}
       <div
-        className="flex items-center justify-between px-5 py-4 border-b border-gray-100 cursor-grab active:cursor-grabbing"
+        className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700 cursor-grab active:cursor-grabbing"
         onMouseDown={handleMouseDown}
       >
         <div className="flex items-center gap-2 pointer-events-none">
           <Pencil size={18} className="text-blue-500" />
-          <span className="font-semibold text-gray-800">优化 {moduleConfig.label}</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-200">优化 {moduleConfig.label}</span>
         </div>
-        <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 transition">
-          <X size={18} className="text-gray-400" />
+        <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+          <X size={18} className="text-gray-400 dark:text-gray-500" />
         </button>
       </div>
 
@@ -176,28 +176,28 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
       <div className="flex-1 overflow-auto p-5 flex flex-col gap-4">
         {/* Current value preview */}
         <div>
-          <p className="text-xs text-gray-400 mb-1.5 uppercase tracking-wider font-medium">当前内容</p>
-          <div className="bg-gray-50 rounded-lg p-3 max-h-40 overflow-auto text-sm text-gray-600 border border-gray-100">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider font-medium">当前内容</p>
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 max-h-40 overflow-auto text-sm text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700">
             {currentValue ? (
               <pre className="whitespace-pre-wrap break-words text-xs">
                 {typeof currentValue === 'string' ? currentValue : JSON.stringify(currentValue, null, 2)}
               </pre>
             ) : (
-              <span className="text-gray-300 italic">暂无内容</span>
+              <span className="text-gray-300 dark:text-gray-600 italic">暂无内容</span>
             )}
           </div>
         </div>
 
         {/* Instruction input */}
         <div>
-          <p className="text-xs text-gray-400 mb-1.5 uppercase tracking-wider font-medium">优化指令</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider font-medium">优化指令</p>
           <textarea
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             placeholder={`描述你想要的修改，例如：\n- 补充目标用户画像\n- 增加删除功能\n- 细化字段定义`}
             rows={4}
-            className="w-full resize-none rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm
-              outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition"
+            className="w-full resize-none rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-200
+              outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 dark:focus:ring-blue-900 transition"
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -205,12 +205,12 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
               }
             }}
           />
-          <p className="text-[10px] text-gray-300 mt-1">Ctrl+Enter 提交</p>
+          <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-1">Ctrl+Enter 提交</p>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 bg-gray-50/50">
+      <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/80">
         <Button variant="ghost" size="sm" onPress={onClose}>取消</Button>
         <Button
           variant="primary"
@@ -607,63 +607,63 @@ export function DocumentPanel({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Fixed header area */}
+      {/* Fixed header area — 操作按钮区 */}
       <div className="p-4 pb-2 shrink-0 flex flex-col gap-3">
-        {/* Header actions */}
-        <div className="flex items-center justify-end">
-        <div className="flex gap-1 shrink-0">
+        {/* 主要操作：生成结构化文档 */}
+        <Button
+          variant="primary"
+          size="sm"
+          className="w-full"
+          onPress={onGenerate}
+          isDisabled={generating}
+        >
+          {generating ? <Spinner size="sm" className="mr-1" /> : <Sparkles size={14} className="mr-1" />}
+          {generating ? '生成中...' : '生成结构化文档'}
+        </Button>
+
+        {/* 次要操作：重新生成 + 导出 Markdown */}
+        <div className="flex items-center gap-1">
           <button
             onClick={onGenerate}
             disabled={generating}
-            className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 hover:text-blue-600 disabled:opacity-40 transition"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-50 dark:hover:bg-blue-950 text-blue-500 hover:text-blue-600 disabled:opacity-40 transition"
             title="重新生成文档"
           >
-            {generating ? <Spinner size="sm" /> : <RefreshCw size={16} className={generating ? 'animate-spin' : ''} />}
+            {generating ? <Spinner size="sm" /> : <RefreshCw size={13} className={generating ? 'animate-spin' : ''} />}
+            <span>重新生成</span>
           </button>
           <button
             onClick={handleExportMd}
-            className="p-1.5 rounded-lg hover:bg-default-100 text-default-500 hover:text-default-700 transition"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition"
             title="导出 Markdown"
           >
-            <Download size={16} />
+            <Download size={13} />
+            <span>导出 MD</span>
           </button>
         </div>
-      </div>
 
-      {/* Completeness progress */}
-      <div>
-        <ProgressBar
-          value={d.completeness}
-          color={d.completeness >= 80 ? 'success' : d.completeness >= 50 ? 'warning' : 'default'}
-          className="mb-1"
-          size="sm"
-          valueLabel={`${d.completeness}%`}
-        />
-        {d.completeness >= 80 && d.completeness < 95 && (
-          <div className="mt-2 p-2 rounded-lg bg-success-50 border border-success-200 flex items-start gap-2">
-            <CheckCircle size={14} className="text-success-500 mt-0.5 shrink-0" />
-            <span className="text-xs text-success-700">需求已足够完整，可以生成可预览前端页面了</span>
-          </div>
-        )}
-        {d.completeness >= 95 && (
-          <div className="mt-2 p-2 rounded-lg bg-success-50 border border-success-200 flex items-start gap-2">
-            <CheckCircle size={14} className="text-success-500 mt-0.5 shrink-0" />
-            <span className="text-xs text-success-700">需求非常完整，可以直接生成代码</span>
-          </div>
-        )}
-      </div>
-
-      {/* Generate button */}
-      <Button
-        variant="primary"
-        size="sm"
-        className="w-full"
-        onPress={onGenerate}
-        isDisabled={generating}
-      >
-        {generating ? <Spinner size="sm" className="mr-1" /> : <Sparkles size={14} className="mr-1" />}
-        {generating ? '生成中...' : '生成结构化文档'}
-      </Button>
+        {/* 完整度进度条 */}
+        <div>
+          <ProgressBar
+            value={d.completeness}
+            color={d.completeness >= 80 ? 'success' : d.completeness >= 50 ? 'warning' : 'default'}
+            className="mb-1"
+            size="sm"
+            valueLabel={`${d.completeness}%`}
+          />
+          {d.completeness >= 80 && d.completeness < 95 && (
+            <div className="mt-2 p-2 rounded-lg bg-success-50 border border-success-200 flex items-start gap-2">
+              <CheckCircle size={14} className="text-success-500 mt-0.5 shrink-0" />
+              <span className="text-xs text-success-700">需求已足够完整，可以生成可预览前端页面了</span>
+            </div>
+          )}
+          {d.completeness >= 95 && (
+            <div className="mt-2 p-2 rounded-lg bg-success-50 border border-success-200 flex items-start gap-2">
+              <CheckCircle size={14} className="text-success-500 mt-0.5 shrink-0" />
+              <span className="text-xs text-success-700">需求非常完整，可以直接生成代码</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Scrollable module sections */}

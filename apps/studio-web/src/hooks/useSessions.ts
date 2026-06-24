@@ -64,11 +64,11 @@ export function useSessions() {
     await refresh();
   }, [activeSessionId, refresh]);
 
-  const renameSession = useCallback(async (id: string, name: string) => {
+  const editSession = useCallback(async (id: string, name: string, featureName?: string) => {
     await fetch(`${API}/sessions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, ...(featureName !== undefined ? { featureName } : {}) }),
     });
     await refresh();
   }, [refresh]);
@@ -87,7 +87,7 @@ export function useSessions() {
     setActiveSessionId,
     createSession,
     deleteSession,
-    renameSession,
+    editSession,
     togglePin,
     loading,
     refresh,

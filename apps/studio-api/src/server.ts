@@ -385,7 +385,7 @@ function loadRightCodePreset(): ModelPreset | null {
   return {
     baseUrl,
     model,
-    label: `right.codes (${model})`,
+    label: model,
     apiKey,
   };
 }
@@ -549,13 +549,19 @@ app.delete('/api/sessions/:id', async (req, res) => {
   res.json({ ok: existed });
 });
 
-// Update session
+// Update session (name, profileId, featureName)
 app.patch('/api/sessions/:id', async (req, res) => {
   const session = await sessionStore.get(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found' });
   const patch: Partial<Session> = {};
-  if (req.body.name) patch.name = req.body.name;
+  if (req.body.name !== undefined) patch.name = req.body.name;
   if (req.body.profileId) patch.profileId = req.body.profileId;
+  // featureName 存储在 document JSONB 中，需要合并到 document 字段
+  if (req.body.featureName !== undefined) {
+    const doc = (session.document ?? {}) as Record<string, unknown>;
+    doc.featureName = req.body.featureName;
+    patch.document = doc;
+  }
   await sessionStore.update(req.params.id, patch);
   res.json({ ok: true });
 });

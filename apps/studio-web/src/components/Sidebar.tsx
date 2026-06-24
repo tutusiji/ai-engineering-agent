@@ -15,10 +15,8 @@ import {
   Pencil,
   Pin,
   MoreHorizontal,
-  Check,
   X,
   MessageSquare,
-  Zap,
   History,
   LayoutGrid,
 } from 'lucide-react';
@@ -33,7 +31,7 @@ interface SidebarProps {
   onSelectSession: (id: string) => void;
   onCreateSession: () => void;
   onDeleteSession: (id: string) => void;
-  onRenameSession: (id: string, name: string) => void;
+  onEditSession: (id: string, name: string, featureName?: string) => void;
   onTogglePin: (id: string) => void;
   onNavigate: (key: NavKey) => void;
 }
@@ -45,25 +43,35 @@ export function Sidebar({
   onSelectSession,
   onCreateSession,
   onDeleteSession,
-  onRenameSession,
+  onEditSession,
   onTogglePin,
   onNavigate,
 }: SidebarProps) {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  // 编辑弹窗状态
+  const [editSession, setEditSession] = useState<Session | null>(null);
   const [editName, setEditName] = useState('');
+  const [editFeatureName, setEditFeatureName] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const startEdit = (s: Session) => {
-    setEditingId(s.id);
+  /** 打开编辑弹窗 */
+  const openEditModal = (s: Session) => {
+    setEditSession(s);
     setEditName(s.name);
+    setEditFeatureName(s.featureName ?? '');
   };
 
+  /** 关闭编辑弹窗 */
+  const closeEditModal = () => {
+    setEditSession(null);
+  };
+
+  /** 确认编辑 */
   const confirmEdit = () => {
-    if (editingId && editName.trim()) {
-      onRenameSession(editingId, editName.trim());
+    if (editSession && editName.trim()) {
+      onEditSession(editSession.id, editName.trim(), editFeatureName.trim() || undefined);
     }
-    setEditingId(null);
+    closeEditModal();
   };
 
   const handleDelete = (id: string) => {
@@ -130,81 +138,51 @@ export function Sidebar({
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  {editingId === s.id ? (
-                    <div className="flex items-center gap-1 flex-1">
-                      <Input
-                        className="text-sm flex-1"
-                        value={editName}
-                        onChange={(e) => setEditName((e.target as HTMLInputElement).value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') confirmEdit();
-                        }}
-                        onBlur={confirmEdit}
-                        onClick={(e) => e.stopPropagation()}
-                        autoFocus
-                      />
-                      <button
-                        className="text-green-500 cursor-pointer hover:text-green-600"
-                        onClick={(e) => { e.stopPropagation(); confirmEdit(); }}
-                      >
-                        <Check size={14} />
-                      </button>
-                      <button
-                        className="text-gray-400 cursor-pointer hover:text-gray-600"
-                        onClick={(e) => { e.stopPropagation(); setEditingId(null); }}
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                        {s.pinned && <Pin size={12} className="text-blue-500 shrink-0 fill-blue-500" />}
-                        <Text className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 truncate">{s.name}</Text>
-                      </div>
-                      {/* Three-dot menu */}
-                      <div className="relative">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === s.id ? null : s.id); }}
-                          className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition cursor-pointer"
-                        >
-                          <MoreHorizontal size={14} />
-                        </button>
-                        {menuOpenId === s.id && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} />
-                            <div className="absolute right-0 top-full mt-1 z-50 w-32 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-xl py-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onTogglePin(s.id); setMenuOpenId(null); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
-                              >
-                                <Pin size={12} className={s.pinned ? 'text-blue-500 fill-blue-500' : ''} />
-                                {s.pinned ? '取消置顶' : '置顶'}
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); startEdit(s); setMenuOpenId(null); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
-                              >
-                                <Pencil size={12} />
-                                重命名
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition cursor-pointer"
-                              >
-                                <Trash2 size={12} />
-                                删除
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    {s.pinned && <Pin size={12} className="text-blue-500 shrink-0 fill-blue-500" />}
+                    <Text className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 break-words">{s.name}</Text>
+                  </div>
+                  {/* Three-dot menu */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === s.id ? null : s.id); }}
+                      className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition cursor-pointer"
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
+                    {menuOpenId === s.id && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} />
+                        <div className="absolute right-0 top-full mt-1 z-50 w-32 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-xl py-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onTogglePin(s.id); setMenuOpenId(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
+                          >
+                            <Pin size={12} className={s.pinned ? 'text-blue-500 fill-blue-500' : ''} />
+                            {s.pinned ? '取消置顶' : '置顶'}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditModal(s); setMenuOpenId(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
+                          >
+                            <Pencil size={12} />
+                            编辑
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition cursor-pointer"
+                          >
+                            <Trash2 size={12} />
+                            删除
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {s.featureName && (
-                  <Text className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{s.featureName}</Text>
+                  <Text className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 break-words">{s.featureName}</Text>
                 )}
 
                 <div className="flex items-center gap-2 mt-1.5">
@@ -257,6 +235,81 @@ export function Sidebar({
             )}
           </div>
         </>
+      )}
+
+      {/* ─── 编辑会话弹窗（无遮罩）─── */}
+      {editSession !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+          {/* 弹窗 */}
+          <div className="w-[380px] max-w-[90vw] rounded-2xl bg-white dark:bg-gray-800 shadow-[0_8px_40px_rgba(0,0,0,0.15),0_0_0_1px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)] overflow-hidden pointer-events-auto">
+            {/* 标题栏 */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
+              <h4 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                编辑会话
+              </h4>
+              <button
+                onClick={closeEditModal}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* 表单内容 */}
+            <div className="px-5 py-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  会话名称
+                </label>
+                <Input
+                  className="text-sm"
+                  placeholder="输入会话名称"
+                  value={editName}
+                  onChange={(e) => setEditName((e.target as HTMLInputElement).value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmEdit();
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  描述
+                </label>
+                <textarea
+                  className="w-full resize-none rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 dark:focus:ring-blue-900 transition"
+                  placeholder="简要描述会话内容（可选）"
+                  rows={3}
+                  maxLength={100}
+                  value={editFeatureName}
+                  onChange={(e) => setEditFeatureName(e.target.value)}
+                />
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 text-right">
+                  {editFeatureName.length}/100
+                </p>
+              </div>
+            </div>
+
+            {/* 底部按钮 */}
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/80">
+              <Button
+                variant="ghost"
+                size="sm"
+                onPress={closeEditModal}
+              >
+                取消
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onPress={confirmEdit}
+                isDisabled={!editName.trim()}
+              >
+                保存
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

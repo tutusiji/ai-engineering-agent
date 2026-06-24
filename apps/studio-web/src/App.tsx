@@ -44,7 +44,7 @@ export default function App() {
     setActiveSessionId,
     createSession,
     deleteSession,
-    renameSession,
+    editSession,
     togglePin,
     refresh: refreshSessions,
   } = useSessions();
@@ -411,7 +411,6 @@ export default function App() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{m.label}</div>
-                        <div className="text-[10px] opacity-50 truncate">{m.model}</div>
                       </div>
                     </button>
                   ))}
@@ -436,7 +435,7 @@ export default function App() {
             }}
             onCreateSession={handleCreateSession}
             onDeleteSession={deleteSession}
-            onRenameSession={renameSession}
+            onEditSession={editSession}
             onTogglePin={togglePin}
             onNavigate={setActiveNav}
           />
@@ -528,18 +527,17 @@ export default function App() {
         {/* Right sidebar — Artifacts + Document panel (only in chat mode) */}
         {activeNav === 'chat' && (
           <aside className="w-[360px] shrink-0 bg-white dark:bg-gray-900 border-l border-divider dark:border-gray-800 flex flex-col h-full overflow-hidden">
-            {/* 当前会话名称 — 醒目显示 */}
+            {/* 当前会话标题 — 独立卡片式区域，与下方输出产物明确分隔 */}
             {activeSession && (
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
-                  <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">
-                    当前会话
-                  </span>
-                </div>
-                <h3 className="mt-1 text-base font-bold text-gray-800 dark:text-gray-100 truncate">
-                  {activeSession.name}
+              <div className="px-4 py-4 shrink-0 bg-gradient-to-b from-blue-50/70 via-blue-50/20 to-white dark:from-blue-950/30 dark:via-blue-950/10 dark:to-gray-900 border-b-2 border-gray-200 dark:border-gray-700">
+                <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight break-words">
+                  📋 {activeSession.name}
                 </h3>
+                {activeSession.featureName && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 break-words">
+                    {activeSession.featureName}
+                  </p>
+                )}
               </div>
             )}
             <ArtifactsPanel

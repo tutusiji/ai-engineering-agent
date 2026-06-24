@@ -41,7 +41,7 @@ export function ArtifactsPanel({ artifacts, loading, onDownloadOne, onDownloadAl
   const categories = Object.keys(grouped) as ArtifactCategory[];
 
   return (
-    <div className="shrink-0 bg-white border-b border-gray-200 flex flex-col" style={{ maxHeight: 220 }}>
+    <div className="shrink-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex flex-col" style={{ maxHeight: 220 }}>
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
         <h5 className="text-base font-bold text-gray-800 dark:text-gray-200">输出产物</h5>
         <button
@@ -75,7 +75,7 @@ export function ArtifactsPanel({ artifacts, loading, onDownloadOne, onDownloadAl
                   >
                     <Icon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-700 truncate">{item.label}</p>
+                      <p className="text-xs text-gray-700 dark:text-gray-300 break-words">{item.label}</p>
                       {item.size !== undefined && (
                         <p className="text-[10px] text-gray-400">{formatSize(item.size)}</p>
                       )}
