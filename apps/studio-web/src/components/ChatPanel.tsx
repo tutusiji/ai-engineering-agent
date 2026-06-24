@@ -553,8 +553,7 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
   return (
     <div className="p-4">
       {/* Header with action buttons */}
-      <div className="flex items-center justify-between mb-3">
-        <h5 className="text-lg font-semibold">📋 {d.featureName || '未命名功能'}</h5>
+      <div className="flex items-center justify-end mb-3">
         <div className="flex gap-1">
           <button
             onClick={onRegenerate}

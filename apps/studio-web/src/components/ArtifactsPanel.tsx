@@ -43,7 +43,7 @@ export function ArtifactsPanel({ artifacts, loading, onDownloadOne, onDownloadAl
   return (
     <div className="shrink-0 bg-white border-b border-gray-200 flex flex-col" style={{ maxHeight: 220 }}>
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100">
-        <h5 className="text-sm font-semibold text-gray-800">输出产物</h5>
+        <h5 className="text-base font-bold text-gray-800 dark:text-gray-200">输出产物</h5>
         <button
           onClick={onDownloadAll}
           disabled={loading || artifacts.length === 0}
