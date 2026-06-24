@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import express from 'express';
-import { SessionStore, ArtifactStore, initPool, closePool } from '@ai-frontend-engineering-agent/persistence';
+import { SessionStore, ArtifactStore, initPool, closePool } from '@ai-engineering-agent/persistence';
 import { buildSessionArtifacts, sendArtifactResponse } from '../artifact-service.js';
 
 describe('session artifact endpoints', () => {

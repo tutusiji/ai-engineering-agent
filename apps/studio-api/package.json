@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/studio-api",
+  "name": "@ai-engineering-agent/studio-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,15 +9,15 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@ai-frontend-engineering-agent/agent-runtime": "workspace:*",
-    "@ai-frontend-engineering-agent/contract-schema": "workspace:*",
-    "@ai-frontend-engineering-agent/persistence": "workspace:*",
-    "@ai-frontend-engineering-agent/plugin-sdk": "workspace:*",
-    "@ai-frontend-engineering-agent/policy-engine": "workspace:*",
-    "@ai-frontend-engineering-agent/shared-types": "workspace:*",
-    "@ai-frontend-engineering-agent/skill-sdk": "workspace:*",
-    "@ai-frontend-engineering-agent/validation-core": "workspace:*",
-    "@ai-frontend-engineering-agent/workflow-core": "workspace:*",
+    "@ai-engineering-agent/agent-runtime": "workspace:*",
+    "@ai-engineering-agent/contract-schema": "workspace:*",
+    "@ai-engineering-agent/persistence": "workspace:*",
+    "@ai-engineering-agent/plugin-sdk": "workspace:*",
+    "@ai-engineering-agent/policy-engine": "workspace:*",
+    "@ai-engineering-agent/shared-types": "workspace:*",
+    "@ai-engineering-agent/skill-sdk": "workspace:*",
+    "@ai-engineering-agent/validation-core": "workspace:*",
+    "@ai-engineering-agent/workflow-core": "workspace:*",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "jszip": "^3.10.1"

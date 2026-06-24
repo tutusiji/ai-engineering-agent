@@ -14,9 +14,11 @@ export const backendCodingSkill: SkillDefinition = {
     const dataModel = input.dataModel as JsonObject | undefined;
     const entities: JsonObject[] = (dataModel?.entities as JsonObject[] | undefined) ?? [];
     const backend = ctx.resolvedTargetProfile?.backend as JsonObject | undefined;
-    const framework = String(backend?.framework ?? 'nestjs');
-    const language = String(backend?.language ?? 'typescript');
-    const orm = String(backend?.orm ?? 'prisma');
+    const archTech = (ctx.architectureDesign as JsonObject | undefined)?.techStack as JsonObject | undefined;
+    const archBackend = archTech?.backend as JsonObject | undefined;
+    const framework = String(archBackend?.framework ?? backend?.framework ?? 'nestjs');
+    const language = String(archBackend?.language ?? backend?.language ?? 'typescript');
+    const orm = String(archBackend?.orm ?? backend?.orm ?? 'prisma');
 
     const frameworkGuidance: Record<string, string> = {
       nestjs: `NestJS + TypeScript 代码规范：
@@ -25,16 +27,45 @@ export const backendCodingSkill: SkillDefinition = {
 - DTO 使用 class-validator 装饰器
 - 返回统一格式 { code: 0, data: ..., message: 'ok' }
 - 每个实体对应一个 module (controller + service + module)`,
+
+      express: `Express + TypeScript 代码规范：
+- 使用 express.Router() 组织路由
+- 中间件模式处理认证、日志
+- 使用 Prisma 或 TypeORM 访问数据库
+- 返回统一格式 { code: 0, data: ..., message: 'ok' }
+- 项目结构: src/routes/, src/middleware/, src/services/, src/models/`,
+
       fastapi: `FastAPI + Python 代码规范：
 - 使用 @app.get/post/put/delete 装饰器
-- 使用 SQLAlchemy 或 SQLModel
-- Pydantic models 用于请求/响应
-- 返回统一格式 { "code": 0, "data": ..., "message": "ok" }`,
+- Pydantic models 用于请求/响应 (BaseModel)
+- 使用 SQLAlchemy 或 SQLModel 访问数据库
+- 依赖注入使用 Depends()
+- 返回统一格式 { "code": 0, "data": ..., "message": "ok" }
+- 项目结构: app/routers/, app/models/, app/schemas/, app/services/, app/db.py`,
+
       gin: `Gin + Go 代码规范：
 - 使用 gin.Context，c.JSON() 返回
 - 使用 GORM 访问数据库
 - 结构体 tag: json, gorm
-- 返回统一格式 {"code": 0, "data": ..., "message": "ok"}`,
+- 中间件使用 c.Next()
+- 返回统一格式 {"code": 0, "data": ..., "message": "ok"}
+- 项目结构: cmd/, internal/handler/, internal/service/, internal/model/, internal/middleware/`,
+
+      'spring-boot': `Spring Boot + Java 代码规范：
+- 使用 @RestController, @GetMapping, @PostMapping 注解
+- 使用 Spring Data JPA 访问数据库
+- DTO 使用 Lombok @Data
+- 返回统一格式 { "code": 0, "data": ..., "message": "ok" }
+- 项目结构: src/main/java/.../controller/, service/, model/, repository/, dto/
+- 使用 @Valid 进行请求验证`,
+
+      'actix-web': `Actix-Web + Rust 代码规范：
+- 使用 #[get("/")], #[post("/")] 属性宏
+- 使用 sqlx 或 Diesel 访问数据库
+- Serde 序列化/反序列化 (Serialize, Deserialize)
+- 返回统一格式 { "code": 0, "data": ..., "message": "ok" }
+- 项目结构: src/handlers/, src/models/, src/services/, src/db.rs
+- 使用 actix_web::web::Data 共享数据库连接池`,
     };
 
     const guidance = frameworkGuidance[framework] ?? frameworkGuidance.nestjs;

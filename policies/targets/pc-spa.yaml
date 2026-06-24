@@ -1,4 +1,5 @@
 id: pc-spa
+status: legacy
 platform: pc-spa
 framework: unknown
 uiLibrary: custom

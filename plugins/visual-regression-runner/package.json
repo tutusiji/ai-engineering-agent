@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/visual-regression-runner",
+  "name": "@ai-engineering-agent/visual-regression-runner",
   "version": "0.1.0",
   "private": true,
   "type": "module",

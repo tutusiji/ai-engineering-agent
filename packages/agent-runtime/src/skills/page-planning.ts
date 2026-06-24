@@ -20,11 +20,14 @@ export const pagePlanningSkill: SkillDefinition = {
   },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
-    const targetProfileId = ctx.targetProfile?.id ?? 'vue3-admin';
+    const archTech = (ctx.architectureDesign as JsonObject | undefined)?.techStack as JsonObject | undefined;
+    const archFrontend = archTech?.frontend as JsonObject | undefined;
+    const framework = String(archFrontend?.framework ?? ctx.targetProfile?.framework ?? 'vue3');
+    const targetProfileId = ctx.targetProfile?.id ?? framework;
     const profilePolicy = await loadProfilePolicy(ctx, targetProfileId);
 
     return {
-      system: `你是一个前端页面规划专家。根据需求规格和目标 profile，规划每个页面的具体结构。
+      system: `你是一个全栈页面规划专家。根据需求规格和目标 profile，规划每个页面的具体结构（包括前端路由和后端 API 端点需求）。
 
 当前目标 profile: ${targetProfileId}
 支持的页面模式: ${profilePolicy}
@@ -59,7 +62,7 @@ ${JSON.stringify(input, null, 2)}`,
 
   async normalize(raw: JsonObject): Promise<JsonObject> {
     return {
-      targetProfile: String(raw.targetProfile ?? 'vue3-admin'),
+      targetProfile: String(raw.targetProfile ?? 'architecture-driven'),
       pages: Array.isArray(raw.pages)
         ? raw.pages.map((page: unknown) => {
             const p = page as Record<string, unknown>;

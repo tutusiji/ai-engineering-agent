@@ -30,31 +30,31 @@ importers:
 
   apps/studio-api:
     dependencies:
-      '@ai-frontend-engineering-agent/agent-runtime':
+      '@ai-engineering-agent/agent-runtime':
         specifier: workspace:*
         version: link:../../packages/agent-runtime
-      '@ai-frontend-engineering-agent/contract-schema':
+      '@ai-engineering-agent/contract-schema':
         specifier: workspace:*
         version: link:../../packages/contract-schema
-      '@ai-frontend-engineering-agent/persistence':
+      '@ai-engineering-agent/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
-      '@ai-frontend-engineering-agent/plugin-sdk':
+      '@ai-engineering-agent/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      '@ai-frontend-engineering-agent/policy-engine':
+      '@ai-engineering-agent/policy-engine':
         specifier: workspace:*
         version: link:../../packages/policy-engine
-      '@ai-frontend-engineering-agent/shared-types':
+      '@ai-engineering-agent/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
-      '@ai-frontend-engineering-agent/skill-sdk':
+      '@ai-engineering-agent/skill-sdk':
         specifier: workspace:*
         version: link:../../packages/skill-sdk
-      '@ai-frontend-engineering-agent/validation-core':
+      '@ai-engineering-agent/validation-core':
         specifier: workspace:*
         version: link:../../packages/validation-core
-      '@ai-frontend-engineering-agent/workflow-core':
+      '@ai-engineering-agent/workflow-core':
         specifier: workspace:*
         version: link:../../packages/workflow-core
       cors:
@@ -88,7 +88,7 @@ importers:
 
   apps/studio-web:
     dependencies:
-      '@ai-frontend-engineering-agent/shared-types':
+      '@ai-engineering-agent/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
       '@heroui/react':
@@ -158,10 +158,10 @@ importers:
 
   packages/agent-runtime:
     dependencies:
-      '@ai-frontend-engineering-agent/shared-types':
+      '@ai-engineering-agent/shared-types':
         specifier: workspace:*
         version: link:../shared-types
-      '@ai-frontend-engineering-agent/skill-sdk':
+      '@ai-engineering-agent/skill-sdk':
         specifier: workspace:*
         version: link:../skill-sdk
 
@@ -169,7 +169,7 @@ importers:
 
   packages/persistence:
     dependencies:
-      '@ai-frontend-engineering-agent/shared-types':
+      '@ai-engineering-agent/shared-types':
         specifier: workspace:*
         version: link:../shared-types
       pg:

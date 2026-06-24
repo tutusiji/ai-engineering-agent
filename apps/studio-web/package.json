@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/studio-web",
+  "name": "@ai-engineering-agent/studio-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@ai-frontend-engineering-agent/shared-types": "workspace:*",
+    "@ai-engineering-agent/shared-types": "workspace:*",
     "@heroui/react": "^3.0.3",
     "@heroui/styles": "^3.0.3",
     "@types/prismjs": "^1.26.6",

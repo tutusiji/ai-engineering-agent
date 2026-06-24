@@ -21,6 +21,7 @@ export interface TargetProfileRef {
   id: string;
   platform?: string;
   framework?: string;
+  uiLibrary?: string;
 }
 
 // 统一验证问题结构，方便规则检查、E2E、视觉回归共用同一套报告格式。

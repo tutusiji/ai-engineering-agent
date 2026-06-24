@@ -24,7 +24,7 @@ export const requirementAnalysisSkill: SkillDefinition = {
     const targetProfileId = ctx.targetProfile?.id ?? '未指定';
 
     return {
-      system: `你是一个前端需求分析专家。你的任务是把用户的自然语言描述转换成结构化的需求规格。
+      system: `你是一个全栈需求分析专家。你的任务是把用户的自然语言描述转换成结构化的全栈需求规格（包含前端、后端、数据库、部署等维度）。
 
 你必须输出一个合法的 JSON 对象，格式如下：
 {
@@ -56,7 +56,7 @@ export const requirementAnalysisSkill: SkillDefinition = {
 - pages 至少要包含用户提到的页面
 - actions 要具体，比如"新增用户"而不是"操作"
 - fields 的 type 要尽可能精确
-- 如果用户没有提到某些信息，根据前端管理后台的常见模式合理推断
+- 如果用户没有提到某些信息，根据全栈 Web 应用的常见模式合理推断
 - 只输出 JSON，不要有其他文字`,
 
       user: `目标 profile: ${targetProfileId}

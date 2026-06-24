@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/contract-schema",
+  "name": "@ai-engineering-agent/contract-schema",
   "version": "0.1.0",
   "private": true,
   "type": "module",

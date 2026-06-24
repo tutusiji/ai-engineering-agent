@@ -21,8 +21,10 @@ export const apiDesignSkill: SkillDefinition = {
     const entities: JsonObject[] = Array.isArray(input.entities) ? (input.entities as JsonObject[]) : [];
     const dataModel = input.dataModel as JsonObject | undefined;
     const dataEntities: JsonObject[] = (dataModel?.entities as JsonObject[] | undefined) ?? entities;
-    const backendProfile = ctx.resolvedTargetProfile?.backend as JsonObject | undefined;
-    const backendFramework = String(backendProfile?.framework ?? 'nestjs');
+    const archTech = (ctx.architectureDesign as JsonObject | undefined)?.techStack as JsonObject | undefined;
+    const archBackend = archTech?.backend as JsonObject | undefined;
+    const profileBackend = ctx.resolvedTargetProfile?.backend as JsonObject | undefined;
+    const backendFramework = String(archBackend?.framework ?? profileBackend?.framework ?? 'nestjs');
 
     return {
       system: `你是一个 API 设计专家。请根据页面需求和实体模型设计 RESTful API 契约。

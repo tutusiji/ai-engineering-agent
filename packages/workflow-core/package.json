@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/workflow-core",
+  "name": "@ai-engineering-agent/workflow-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",

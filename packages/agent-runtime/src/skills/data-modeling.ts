@@ -20,8 +20,10 @@ export const dataModelingSkill: SkillDefinition = {
     const featureName = String(input.featureName ?? '未知功能');
     const pages: JsonObject[] = Array.isArray(input.pages) ? (input.pages as JsonObject[]) : [];
     const entities: JsonObject[] = Array.isArray(input.entities) ? (input.entities as JsonObject[]) : [];
-    const backendProfile = ctx.resolvedTargetProfile?.backend as JsonObject | undefined;
-    const backendFramework = String(backendProfile?.framework ?? 'nestjs');
+    const archTech = (ctx.architectureDesign as JsonObject | undefined)?.techStack as JsonObject | undefined;
+    const archBackend = archTech?.backend as JsonObject | undefined;
+    const profileBackend = ctx.resolvedTargetProfile?.backend as JsonObject | undefined;
+    const backendFramework = String(archBackend?.framework ?? profileBackend?.framework ?? 'nestjs');
 
     return {
       system: `你是一个数据库架构专家。请根据需求规格输出结构化的数据模型。

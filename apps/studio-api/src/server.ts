@@ -19,7 +19,8 @@
  *     GET  /api/chat/:sessionId           — get session state
  *
  *   Generation:
- *     POST /api/generate/design           — generate previewable frontend page
+ *     POST /api/generate/architecture     — generate architecture design doc
+ *     POST /api/generate/design           — generate interactive preview page
  *     POST /api/generate/code             — generate code files
  *
  *   Workflows:
@@ -43,26 +44,26 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
-import { FileSchemaRegistry } from '@ai-frontend-engineering-agent/contract-schema';
-import { FilePolicyRegistry } from '@ai-frontend-engineering-agent/policy-engine';
+import { FileSchemaRegistry } from '@ai-engineering-agent/contract-schema';
+import { FilePolicyRegistry } from '@ai-engineering-agent/policy-engine';
 import {
   getSkill,
   runSkillThroughLlm,
   loadLlmConfigFromEnv,
   type LlmConfig,
-} from '@ai-frontend-engineering-agent/agent-runtime';
-import type { SkillContext } from '@ai-frontend-engineering-agent/skill-sdk';
-import type { JsonObject } from '@ai-frontend-engineering-agent/shared-types';
-import { getCompatibleLibraries } from '@ai-frontend-engineering-agent/agent-runtime';
-import { generateImage, IMAGE_MODELS } from '@ai-frontend-engineering-agent/agent-runtime';
-import { SessionStore, RunStore, ArtifactStore, MetricsStore, initPool } from '@ai-frontend-engineering-agent/persistence';
-import type { Session, ChatMessage } from '@ai-frontend-engineering-agent/persistence';
+} from '@ai-engineering-agent/agent-runtime';
+import type { SkillContext } from '@ai-engineering-agent/skill-sdk';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import { getCompatibleLibraries } from '@ai-engineering-agent/agent-runtime';
+import { generateImage, IMAGE_MODELS } from '@ai-engineering-agent/agent-runtime';
+import { SessionStore, RunStore, ArtifactStore, MetricsStore, initPool } from '@ai-engineering-agent/persistence';
+import type { Session, ChatMessage } from '@ai-engineering-agent/persistence';
 import { buildSessionArtifacts, buildArtifactZip, sendArtifactResponse } from './artifact-service.js';
 
 // Workflow execution
-import { WorkflowExecutor } from '@ai-frontend-engineering-agent/workflow-core';
-import { loadWorkflowRegistry } from '@ai-frontend-engineering-agent/workflow-core';
-import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from '@ai-frontend-engineering-agent/workflow-core';
+import { WorkflowExecutor } from '@ai-engineering-agent/workflow-core';
+import { loadWorkflowRegistry } from '@ai-engineering-agent/workflow-core';
+import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from '@ai-engineering-agent/workflow-core';
 
 // ─── Config ─────────────────────────────────────────────────────────────
 
@@ -98,15 +99,28 @@ await metricsStore.ensureTable();
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
+/** Extract active architecture design from session document for downstream skills */
+function getActiveArchitecture(session: { document?: Record<string, unknown> | null } | null): JsonObject | undefined {
+  if (!session?.document) return undefined;
+  const doc = session.document;
+  const archVersions = doc._architectureVersions as Array<Record<string, unknown>> | undefined;
+  const activeArchId = doc._activeArchitectureId as string | undefined;
+  const activeArch = archVersions?.find(v => v.id === activeArchId) ?? archVersions?.[archVersions.length - 1];
+  return (activeArch?.architecture as JsonObject) ?? undefined;
+}
+
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function createSkillContext(profileId: string): SkillContext {
+function createSkillContext(profileId?: string, architectureDesign?: JsonObject): SkillContext {
+  const resolved = profileId ? policies.getTargetProfile(profileId) : undefined;
   return {
     runId: `web-${Date.now()}`,
     nodeId: 'web-api',
-    targetProfile: { id: profileId },
+    targetProfile: profileId ? { id: profileId } : undefined,
+    resolvedTargetProfile: resolved as JsonObject ?? undefined,
+    architectureDesign,
     schemas: schemas as unknown as SkillContext['schemas'],
     policies: policies as unknown as SkillContext['policies'],
     artifacts: [],
@@ -116,6 +130,170 @@ function createSkillContext(profileId: string): SkillContext {
       error: (msg) => console.error(`[ERROR] ${msg}`),
     },
   };
+}
+
+/**
+ * Convert an architecture design JSON document to a readable Markdown file.
+ * Saved alongside the JSON artifact so users can preview it in the artifacts panel.
+ */
+function buildArchitectureMarkdown(arch: Record<string, unknown>): string {
+  const lines: string[] = [];
+
+  lines.push(`# ${arch.projectName ?? '架构设计方案'}`);
+  lines.push('');
+  lines.push(`> 生成时间: ${new Date().toISOString()}`);
+  lines.push('');
+
+  if (arch.overview) {
+    lines.push('## 项目概述');
+    lines.push('');
+    lines.push(String(arch.overview));
+    lines.push('');
+  }
+
+  // System Architecture
+  const sysArch = arch.systemArchitecture as Record<string, unknown> | undefined;
+  if (sysArch) {
+    lines.push('## 系统架构');
+    lines.push('');
+    if (sysArch.diagram) lines.push(String(sysArch.diagram));
+    lines.push('');
+    const layers = sysArch.layers as Array<Record<string, unknown>> | undefined;
+    if (layers) {
+      for (const layer of layers) {
+        lines.push(`### ${layer.name ?? ''}`);
+        lines.push(`- 描述: ${layer.description ?? ''}`);
+        lines.push(`- 技术: ${(layer.technologies as string[])?.join(', ') ?? ''}`);
+        lines.push('');
+      }
+    }
+  }
+
+  // Tech Stack
+  const techStack = arch.techStack as Record<string, unknown> | undefined;
+  if (techStack) {
+    lines.push('## 技术栈');
+    lines.push('');
+    for (const [key, val] of Object.entries(techStack)) {
+      if (typeof val === 'object' && val !== null) {
+        lines.push(`### ${key}`);
+        for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+          lines.push(`- **${k}**: ${v}`);
+        }
+        lines.push('');
+      }
+    }
+  }
+
+  // Module Breakdown
+  const modules = arch.moduleBreakdown as Array<Record<string, unknown>> | undefined;
+  if (modules?.length) {
+    lines.push('## 模块划分');
+    lines.push('');
+    lines.push('| 模块 | 类型 | 描述 | 依赖 |');
+    lines.push('|------|------|------|------|');
+    for (const m of modules) {
+      const deps = (m.dependsOn as string[])?.join(', ') ?? '-';
+      lines.push(`| ${m.name ?? ''} | ${m.type ?? ''} | ${m.description ?? ''} | ${deps} |`);
+    }
+    lines.push('');
+  }
+
+  // Data Flow
+  const dataFlow = arch.dataFlow as Record<string, unknown> | undefined;
+  if (dataFlow) {
+    lines.push('## 数据流设计');
+    lines.push('');
+    if (dataFlow.description) lines.push(String(dataFlow.description));
+    const flows = dataFlow.flows as Array<Record<string, unknown>> | undefined;
+    if (flows) {
+      for (const flow of flows) {
+        lines.push(`### ${flow.name ?? ''}`);
+        const steps = flow.steps as string[] | undefined;
+        if (steps) for (const s of steps) lines.push(`1. ${s}`);
+        lines.push('');
+      }
+    }
+  }
+
+  // API Design
+  const apiDesign = arch.apiDesignPrinciples as Record<string, unknown> | undefined;
+  if (apiDesign) {
+    lines.push('## API 设计原则');
+    lines.push('');
+    for (const [k, v] of Object.entries(apiDesign)) {
+      lines.push(`- **${k}**: ${v}`);
+    }
+    lines.push('');
+  }
+
+  // Database Design
+  const dbDesign = arch.databaseDesign as Record<string, unknown> | undefined;
+  if (dbDesign) {
+    lines.push('## 数据库设计');
+    lines.push('');
+    if (dbDesign.strategy) lines.push(`策略: ${dbDesign.strategy}`);
+    const dbEntities = dbDesign.entities as Array<Record<string, unknown>> | undefined;
+    if (dbEntities) {
+      for (const e of dbEntities) {
+        lines.push(`- **${e.name ?? ''}**: ${e.description ?? ''}`);
+      }
+    }
+    lines.push('');
+  }
+
+  // Security
+  const security = arch.securityConsiderations as string[] | undefined;
+  if (security?.length) {
+    lines.push('## 安全考虑');
+    lines.push('');
+    for (const s of security) lines.push(`- ${s}`);
+    lines.push('');
+  }
+
+  // Deployment
+  const deploy = arch.deploymentArchitecture as Record<string, unknown> | undefined;
+  if (deploy) {
+    lines.push('## 部署架构');
+    lines.push('');
+    if (deploy.description) lines.push(String(deploy.description));
+    const comps = deploy.components as Array<Record<string, unknown>> | undefined;
+    if (comps) {
+      for (const c of comps) {
+        lines.push(`- **${c.name ?? ''}** (port ${c.port ?? '-'}): ${c.role ?? ''}`);
+      }
+    }
+    lines.push('');
+  }
+
+  // Development Phases
+  const phases = arch.developmentPhases as Array<Record<string, unknown>> | undefined;
+  if (phases?.length) {
+    lines.push('## 开发阶段');
+    lines.push('');
+    for (const p of phases) {
+      lines.push(`### ${p.phase ?? ''} — ${p.name ?? ''}`);
+      lines.push(`目标: ${p.goal ?? ''}`);
+      const deliverables = p.deliverables as string[] | undefined;
+      if (deliverables) for (const d of deliverables) lines.push(`- ${d}`);
+      lines.push('');
+    }
+  }
+
+  // Risks
+  const risks = arch.risksAndMitigations as Array<Record<string, unknown>> | undefined;
+  if (risks?.length) {
+    lines.push('## 风险与缓解');
+    lines.push('');
+    lines.push('| 风险 | 影响 | 缓解措施 |');
+    lines.push('|------|------|----------|');
+    for (const r of risks) {
+      lines.push(`| ${r.risk ?? ''} | ${r.impact ?? ''} | ${r.mitigation ?? ''} |`);
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
 }
 
 // ─── Load workflows ─────────────────────────────────────────────────────
@@ -300,11 +478,15 @@ app.get('/api/profiles', async (req, res) => {
     const profileIds = await policies.listTargetProfiles();
     const frontendFilter = req.query.frontend as string | undefined;
     const backendFilter = req.query.backend as string | undefined;
+    const includeLegacy = req.query.includeLegacy === 'true';
 
     const profiles = [];
     for (const id of profileIds) {
       const p = await policies.getTargetProfile(id);
       if (!p) continue;
+
+      // Filter legacy profiles by default (architecture-driven mode)
+      if (!includeLegacy && (p as Record<string, unknown>).status === 'legacy') continue;
 
       if (frontendFilter && p.framework !== frontendFilter) continue;
       if (backendFilter && (p as Record<string, unknown>).backend) {
@@ -347,7 +529,7 @@ app.get('/api/sessions', async (_req, res) => {
 
 // Create session
 app.post('/api/sessions', async (req, res) => {
-  const { profileId = 'vue3-admin', name } = req.body;
+  const { profileId, name } = req.body;
   const id = `session-${generateId()}`;
   const session = await sessionStore.create(id, name);
   if (profileId) await sessionStore.update(id, { profileId });
@@ -392,7 +574,7 @@ app.post('/api/sessions/:id/pin', async (req, res) => {
 // Non-streaming chat
 app.post('/api/chat', async (req, res) => {
   try {
-    const { sessionId = 'default', profileId = 'vue3-admin', userMessage, mode = 'gather' } = req.body;
+    const { sessionId = 'default', profileId, userMessage, mode = 'gather' } = req.body;
 
     if (!userMessage) {
       return res.status(400).json({ error: 'userMessage is required' });
@@ -402,7 +584,7 @@ app.post('/api/chat', async (req, res) => {
     let session = await sessionStore.get(sessionId);
     if (!session) {
       session = await sessionStore.create(sessionId);
-      await sessionStore.update(sessionId, { profileId });
+      if (profileId) await sessionStore.update(sessionId, { profileId });
     }
 
     await sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
@@ -446,7 +628,7 @@ app.post('/api/chat', async (req, res) => {
 
 // Streaming chat (SSE)
 app.post('/api/chat/stream', async (req, res) => {
-  const { sessionId = 'default', profileId = 'vue3-admin', userMessage, mode = 'gather' } = req.body;
+  const { sessionId = 'default', profileId, userMessage, mode = 'gather' } = req.body;
 
   if (!userMessage) {
     return res.status(400).json({ error: 'userMessage is required' });
@@ -456,7 +638,7 @@ app.post('/api/chat/stream', async (req, res) => {
   let session = await sessionStore.get(sessionId);
   if (!session) {
     session = await sessionStore.create(sessionId);
-    await sessionStore.update(sessionId, { profileId });
+    if (profileId) await sessionStore.update(sessionId, { profileId });
   }
 
   await sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
@@ -602,7 +784,7 @@ app.post('/api/chat/stream', async (req, res) => {
     // Extract structured info synchronously — send document update via SSE before closing
     session = (await sessionStore.get(sessionId))!;
     try {
-      const { extractRequirementInfo, mergeDocument } = await import('@ai-frontend-engineering-agent/agent-runtime');
+      const { extractRequirementInfo, mergeDocument } = await import('@ai-engineering-agent/agent-runtime');
 
       const currentDoc = session.document ?? {};
       const allMessages = session.messages ?? [];
@@ -685,7 +867,7 @@ app.post('/api/chat/document/generate', async (req, res) => {
       })
       .join('\n');
 
-    const { generateFullDocument, mergeDocumentDeep } = await import('@ai-frontend-engineering-agent/agent-runtime');
+    const { generateFullDocument, mergeDocumentDeep } = await import('@ai-engineering-agent/agent-runtime');
 
     console.log(`📄 [${sessionId}] Generating full document from ${recentMsgs.length} messages...`);
     const newDoc = await generateFullDocument(llmConfig, conversationText, currentDoc);
@@ -718,7 +900,7 @@ app.post('/api/chat/document/optimize', async (req, res) => {
     const currentDoc = (session.document ?? {}) as Record<string, unknown>;
     const currentModuleValue = currentDoc[module];
 
-    const { optimizeModule, estimateCompleteness } = await import('@ai-frontend-engineering-agent/agent-runtime');
+    const { optimizeModule, estimateCompleteness } = await import('@ai-engineering-agent/agent-runtime');
 
     console.log(`🔧 [${sessionId}] Optimizing module "${module}" with instruction: ${instruction.slice(0, 50)}...`);
 
@@ -753,11 +935,90 @@ app.post('/api/chat/document/optimize', async (req, res) => {
 
 // ─── Generation endpoints ───────────────────────────────────────────────
 
-// Generate previewable frontend page
+// Generate architecture design document
+app.post('/api/generate/architecture', async (req, res) => {
+  try {
+    const { sessionId = 'default', profileId } = req.body;
+    console.log(`🏗️ [${sessionId}] Starting architecture design generation...`);
+    const session = await sessionStore.get(sessionId);
+
+    if (!session?.document) {
+      console.log(`❌ [${sessionId}] No requirement document found`);
+      return res.status(400).json({ error: 'No requirement document. Complete the chat first.' });
+    }
+
+    const skill = getSkill('architecture-planning');
+    if (!skill) {
+      console.log(`❌ [${sessionId}] architecture-planning skill not found`);
+      return res.status(500).json({ error: 'architecture-planning skill not found' });
+    }
+
+    const ctx = createSkillContext(profileId);
+    const input: JsonObject = { ...(session.document as JsonObject) };
+
+    console.log(`📤 [${sessionId}] Calling LLM for architecture design...`);
+    const result = await runSkillThroughLlm(skill, ctx, input, llmConfig);
+    console.log(`📥 [${sessionId}] LLM response received:`, result.ok ? 'success' : 'failed');
+
+    if (result.ok && result.output) {
+      const archDoc = result.output as Record<string, unknown>;
+
+      // Persist as artifact
+      const runId = `arch-${generateId()}`;
+      const archJson = JSON.stringify(archDoc, null, 2);
+      artifactStore.save(runId, 'artifacts/architecture-design.json', archJson);
+
+      // Also save a markdown version for better readability
+      const archMd = buildArchitectureMarkdown(archDoc);
+      artifactStore.save(runId, 'artifacts/architecture-design.md', archMd);
+
+      // Record artifact run
+      await sessionStore.addArtifactRun(sessionId, {
+        runId,
+        type: 'design',
+        createdAt: Date.now(),
+        label: '架构设计方案',
+      });
+
+      // Save to session document
+      const doc = (session.document ?? {}) as Record<string, unknown>;
+      const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+      const versionId = `arch-v${archVersions.length + 1}`;
+      const now = Date.now();
+      archVersions.push({
+        id: versionId,
+        architecture: archDoc,
+        model: llmConfig.model,
+        createdAt: now,
+        label: `${llmConfig.model} · ${new Date(now).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
+      });
+      await sessionStore.update(sessionId, {
+        ...session,
+        document: { ...doc, _architectureVersions: archVersions, _activeArchitectureId: versionId },
+      });
+
+      console.log(`💾 [${sessionId}] Architecture design ${versionId} saved to session`);
+
+      res.json({
+        ok: true,
+        architecture: archDoc,
+        markdown: archMd,
+        usage: result.usage,
+        artifactRunId: runId,
+      });
+    } else {
+      res.json({ ok: false, error: result.error });
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+// Generate previewable fullstack page
 app.post('/api/generate/design', async (req, res) => {
   try {
-    const { sessionId = 'default', profileId = 'vue3-admin' } = req.body;
-    console.log(`🧩 [${sessionId}] Starting frontend preview generation...`);
+    const { sessionId = 'default', profileId } = req.body;
+    console.log(`🧩 [${sessionId}] Starting fullstack preview generation...`);
     const session = await sessionStore.get(sessionId);
 
     if (!session?.document) {
@@ -771,13 +1032,14 @@ app.post('/api/generate/design', async (req, res) => {
       return res.status(500).json({ error: 'design-generation skill not found' });
     }
 
-    const ctx = createSkillContext(profileId);
+    const archData = getActiveArchitecture(session);
+    const ctx = createSkillContext(profileId, archData);
     const input: JsonObject = {
       ...(session.document as JsonObject),
       phaseId: 'P1',
     };
 
-    console.log(`📤 [${sessionId}] Calling LLM for frontend preview generation...`);
+    console.log(`📤 [${sessionId}] Calling LLM for fullstack preview generation...`);
     const result = await runSkillThroughLlm(skill, ctx, input, llmConfig);
     console.log(`📥 [${sessionId}] LLM response received:`, result.ok ? 'success' : 'failed');
     if (!result.ok) {
@@ -874,7 +1136,7 @@ app.post('/api/sessions/:id/designs/active', async (req, res) => {
 // Generate code
 app.post('/api/generate/code', async (req, res) => {
   try {
-    const { sessionId = 'default', profileId = 'vue3-admin', phaseId = 'P1' } = req.body;
+    const { sessionId = 'default', profileId, phaseId = 'P1' } = req.body;
     const session = await sessionStore.get(sessionId);
 
     if (!session?.document) {
@@ -886,7 +1148,8 @@ app.post('/api/generate/code', async (req, res) => {
       return res.status(500).json({ error: 'code-generation skill not found' });
     }
 
-    const ctx = createSkillContext(profileId);
+    const archData = getActiveArchitecture(session);
+    const ctx = createSkillContext(profileId, archData);
     const doc = session.document as Record<string, unknown>;
     const phases = Array.isArray(doc.phases) ? doc.phases : [];
     const currentPhase = phases.find((p: unknown) => (p as Record<string, unknown>)?.id === phaseId) as Record<string, unknown> | undefined;
@@ -944,7 +1207,7 @@ app.get('/api/workflows', (_req, res) => {
 
 // Run workflow (real execution)
 app.post('/api/workflows/:id/run', async (req, res) => {
-  const { profileId = 'vue3-admin', sessionId, params = {} } = req.body;
+  const { profileId, sessionId, params = {} } = req.body;
   const runId = `run-${generateId()}`;
   const workflowId = req.params.id;
 
@@ -997,7 +1260,17 @@ app.post('/api/workflows/:id/run', async (req, res) => {
             return { ok: false, error: `Skill not found: ${skillName}` };
           }
 
-          const ctx = createSkillContext(profileId);
+          // Resolve profileId dynamically: prior node output > workflow state context > request default
+          const dynamicProfileId = (input.profileId as string)
+            ?? state.context.targetProfile?.id
+            ?? profileId;
+
+          // Detect architecture design data from accumulated input (after architecture_planning runs)
+          const archDesign = (input.techStack || input.projectName)
+            ? input as JsonObject
+            : undefined;
+
+          const ctx = createSkillContext(dynamicProfileId, archDesign);
           const result = await runSkillThroughLlm(skill, ctx, input, llmConfig);
 
           if (result.ok) {
@@ -1029,7 +1302,7 @@ app.post('/api/workflows/:id/run', async (req, res) => {
           try {
             switch (node.id) {
               case 'project-scanner': {
-                const { scanProject } = await import('@ai-frontend-engineering-agent/plugin-sdk');
+                const { scanProject } = await import('@ai-engineering-agent/plugin-sdk');
                 // Dynamic import of actual plugin
                 const scanner = await import('../../../plugins/project-scanner/src/index.js');
                 const scanResult = scanner.scanProject(state.context.targetProject ?? '.');
@@ -1393,6 +1666,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`    POST /api/chat`);
   console.log(`    POST /api/chat/stream`);
   console.log(`    GET  /api/chat/:sessionId`);
+  console.log(`    POST /api/generate/architecture`);
   console.log(`    POST /api/generate/design`);
   console.log(`    POST /api/generate/code`);
   console.log(`    GET  /api/workflows`);

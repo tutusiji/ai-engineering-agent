@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/page-generator",
+  "name": "@ai-engineering-agent/page-generator",
   "version": "0.1.0",
   "private": true,
   "type": "module",

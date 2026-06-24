@@ -37,6 +37,8 @@ export interface TargetProfileDefinition extends TargetProfileRef {
   backend?: BackendProfile;
   database?: DatabaseProfile;
   deployment?: DeploymentProfile;
+  /** 状态标记: active | legacy | example */
+  status?: string;
 }
 
 export class FilePolicyRegistry {

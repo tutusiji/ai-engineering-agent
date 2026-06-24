@@ -1,4 +1,5 @@
 id: h5-spa
+status: legacy
 platform: h5-spa
 framework: unknown
 uiLibrary: custom

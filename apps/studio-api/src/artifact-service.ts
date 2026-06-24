@@ -1,8 +1,8 @@
 import type { Response } from 'express';
 import JSZip from 'jszip';
-import type { ArtifactItem, SessionArtifactRun } from '@ai-frontend-engineering-agent/shared-types';
-import type { ArtifactStore } from '@ai-frontend-engineering-agent/persistence';
-import type { Session } from '@ai-frontend-engineering-agent/persistence';
+import type { ArtifactItem, SessionArtifactRun } from '@ai-engineering-agent/shared-types';
+import type { ArtifactStore } from '@ai-engineering-agent/persistence';
+import type { Session } from '@ai-engineering-agent/persistence';
 
 const CATEGORY_ORDER: Record<string, number> = {
   requirement: 0,
@@ -48,12 +48,40 @@ export function buildSessionArtifacts(
     });
   }
 
+  // Session-state: architecture design
+  const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+  const activeArchId = doc._activeArchitectureId as string | undefined;
+  const activeArch = archVersions.find(v => v.id === activeArchId) ?? archVersions[archVersions.length - 1];
+  if (activeArch?.architecture) {
+    const archDoc = activeArch.architecture as Record<string, unknown>;
+    const archMd = buildArchitectureMdServer(archDoc);
+    const archJson = JSON.stringify(archDoc, null, 2);
+    artifacts.push({
+      id: 'arch-md',
+      category: 'architecture',
+      label: '架构设计方案.md',
+      size: Buffer.byteLength(archMd, 'utf-8'),
+      updatedAt: (activeArch.createdAt as number) ?? now,
+      source: 'session-state',
+      content: archMd,
+    });
+    artifacts.push({
+      id: 'arch-json',
+      category: 'architecture',
+      label: '架构设计方案.json',
+      size: Buffer.byteLength(archJson, 'utf-8'),
+      updatedAt: (activeArch.createdAt as number) ?? now,
+      source: 'session-state',
+      content: archJson,
+    });
+  }
+
   // Session-state: design html
   if (designHtml) {
     artifacts.push({
       id: 'design-html',
       category: 'design',
-      label: 'UI预览.html',
+      label: '可交互预览.html',
       size: Buffer.byteLength(designHtml, 'utf-8'),
       updatedAt: session.updatedAt ?? now,
       source: 'session-state',
@@ -101,9 +129,23 @@ async function addArtifactToZip(
     zip.file('需求文档.md', md);
     return;
   }
+  if (id === 'arch-md' || id === 'arch-json') {
+    const doc = session.document ?? {};
+    const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+    const activeArchId = doc._activeArchitectureId as string | undefined;
+    const activeArch = archVersions.find(v => v.id === activeArchId) ?? archVersions[archVersions.length - 1];
+    if (!activeArch?.architecture) throw new Error('architecture not available');
+    const archDoc = activeArch.architecture as Record<string, unknown>;
+    if (id === 'arch-md') {
+      zip.file('架构设计方案.md', buildArchitectureMdServer(archDoc));
+    } else {
+      zip.file('架构设计方案.json', JSON.stringify(archDoc, null, 2));
+    }
+    return;
+  }
   if (id === 'design-html') {
     if (!designHtml) throw new Error('design-html not available');
-    zip.file('UI预览.html', designHtml);
+    zip.file('可交互预览.html', designHtml);
     return;
   }
 
@@ -132,6 +174,41 @@ export async function buildArtifactZip(
   return zip.generateAsync({ type: 'nodebuffer' });
 }
 
+function buildArchitectureMdServer(arch: Record<string, unknown>): string {
+  const lines: string[] = [];
+  lines.push(`# ${arch.projectName ?? '架构设计方案'}`);
+  lines.push('', `> 生成时间: ${new Date().toISOString()}`, '');
+  if (arch.overview) lines.push('## 概述', '', String(arch.overview), '');
+  const techStack = arch.techStack as Record<string, unknown> | undefined;
+  if (techStack) {
+    lines.push('## 技术栈', '');
+    for (const [key, val] of Object.entries(techStack)) {
+      if (typeof val === 'object' && val !== null) {
+        lines.push(`### ${key}`);
+        for (const [k, v] of Object.entries(val as Record<string, unknown>)) lines.push(`- **${k}**: ${v}`);
+        lines.push('');
+      }
+    }
+  }
+  const modules = arch.moduleBreakdown as Array<Record<string, unknown>> | undefined;
+  if (modules?.length) {
+    lines.push('## 模块划分', '');
+    for (const m of modules) lines.push(`- **${m.name ?? ''}** [${m.type ?? ''}]: ${m.description ?? ''}`);
+    lines.push('');
+  }
+  const phases = arch.developmentPhases as Array<Record<string, unknown>> | undefined;
+  if (phases?.length) {
+    lines.push('## 开发阶段', '');
+    for (const p of phases) {
+      lines.push(`### ${p.phase ?? ''} — ${p.name ?? ''}`, String(p.goal ?? ''));
+      const deliverables = p.deliverables as string[] | undefined;
+      if (deliverables) for (const d of deliverables) lines.push(`- ${d}`);
+      lines.push('');
+    }
+  }
+  return lines.join('\n');
+}
+
 export async function sendArtifactResponse(
   res: Response,
   session: Session,
@@ -146,10 +223,35 @@ export async function sendArtifactResponse(
     res.send(md);
     return;
   }
+  if (id === 'arch-md') {
+    const doc = session.document ?? {};
+    const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+    const activeArchId = doc._activeArchitectureId as string | undefined;
+    const activeArch = archVersions.find(v => v.id === activeArchId) ?? archVersions[archVersions.length - 1];
+    if (!activeArch?.architecture) throw new Error('architecture not available');
+    const archDoc = activeArch.architecture as Record<string, unknown>;
+    const archMd = buildArchitectureMdServer(archDoc);
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="架构设计方案.md"');
+    res.send(archMd);
+    return;
+  }
+  if (id === 'arch-json') {
+    const doc = session.document ?? {};
+    const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+    const activeArchId = doc._activeArchitectureId as string | undefined;
+    const activeArch = archVersions.find(v => v.id === activeArchId) ?? archVersions[archVersions.length - 1];
+    if (!activeArch?.architecture) throw new Error('architecture not available');
+    const archDoc = activeArch.architecture as Record<string, unknown>;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="架构设计方案.json"');
+    res.send(JSON.stringify(archDoc, null, 2));
+    return;
+  }
   if (id === 'design-html') {
     if (!designHtml) throw new Error('design-html not available');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="UI预览.html"');
+    res.setHeader('Content-Disposition', 'attachment; filename="可交互预览.html"');
     res.send(designHtml);
     return;
   }

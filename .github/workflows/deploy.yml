@@ -37,7 +37,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🔨 Build frontend
-        run: pnpm --filter @ai-frontend-engineering-agent/studio-web build
+        run: pnpm --filter @ai-engineering-agent/studio-web build
 
       - name: 🔑 Setup SSH
         uses: shimataro/ssh-key-action@v2
@@ -59,12 +59,12 @@ jobs:
           echo "📤 Syncing frontend dist..."
           rsync -avz --delete \
             apps/studio-web/dist/ \
-            deploy-server:/root/projects/ai-frontend-engineering-agent/apps/studio-web/dist/
+            deploy-server:/root/projects/ai-engineering-agent/apps/studio-web/dist/
 
           echo "📥 Updating server code..."
           ssh deploy-server "bash -s" << 'SERVER_SCRIPT'
             set -e
-            cd /root/projects/ai-frontend-engineering-agent
+            cd /root/projects/ai-engineering-agent
 
             # Clean any leftover local changes
             git checkout -- .
@@ -76,7 +76,7 @@ jobs:
             git reset --hard origin/${{ github.event.inputs.branch || 'main' }}
 
             # Install backend deps only (frontend dist already synced)
-            pnpm install --frozen-lockfile --filter !@ai-frontend-engineering-agent/studio-web
+            pnpm install --frozen-lockfile --filter !@ai-engineering-agent/studio-web
 
             echo "🔄 Restarting via PM2..."
             pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || \

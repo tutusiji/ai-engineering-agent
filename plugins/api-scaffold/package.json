@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/plugin-api-scaffold",
+  "name": "@ai-engineering-agent/plugin-api-scaffold",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",

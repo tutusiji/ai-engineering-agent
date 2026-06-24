@@ -16,7 +16,9 @@ export const uiLibrarySelectionSkill: SkillDefinition = {
   defaultModel: { model: 'auto', temperature: 0.2 },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
-    const framework = String(input.framework ?? ctx.targetProfile?.framework ?? 'vue3');
+    const archTech = (ctx.architectureDesign as JsonObject | undefined)?.techStack as JsonObject | undefined;
+    const archFrontend = archTech?.frontend as JsonObject | undefined;
+    const framework = String(input.framework ?? archFrontend?.framework ?? ctx.targetProfile?.framework ?? 'vue3');
     const userPreference = String(input.userPreference ?? '');
     const projectType = String(input.projectType ?? '管理后台');
 

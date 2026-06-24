@@ -1,7 +1,7 @@
 id: from-idea-to-app
 name: From Idea To Application
-version: 0.2.0
-description: 新项目专用工作流 — 从想法到完整应用，支持交互式需求对话
+version: 0.3.0
+description: 新项目专用工作流 — 从想法到完整应用，先出架构方案再编码
 
 input:
   schema: idea-input
@@ -18,7 +18,7 @@ input:
     - name: mode
       type: string
       required: false
-      enum: [gather, refine, score, design, code]
+      enum: [gather, refine, score, design, architecture, code]
 
 nodes:
   - id: interactive_requirement
@@ -29,22 +29,33 @@ nodes:
 
   - id: target_profile_selection
     type: agent
-    name: 目标 Profile 选择
+    name: 全栈 Profile 选择
     skill: target-profile-selection
     dependsOn:
       - interactive_requirement
     outputSchema: target-profile-selection
 
-  - id: design_generation
+  # ─── Phase: 架构设计 ───
+  - id: architecture_planning
     type: agent
-    name: 设计稿生成
-    skill: design-generation
+    name: 架构方案设计
+    skill: architecture-planning
     dependsOn:
       - target_profile_selection
+    outputSchema: architecture-design
+
+  # ─── Phase: 可交互预览 ───
+  - id: design_generation
+    type: agent
+    name: 可交互预览生成
+    skill: design-generation
+    dependsOn:
+      - architecture_planning
     when:
       allPassed: true
     outputSchema: generation-report
 
+  # ─── Phase: 代码生成（在架构方案审批后） ───
   - id: code_generation
     type: agent
     name: 代码生成
@@ -54,9 +65,14 @@ nodes:
     when:
       allPassed: true
     outputSchema: generation-report
-    # 代码生成失败时可以回退到设计稿重新生成
-    retryTarget: design_generation
+    retryTarget: architecture_planning
     maxRetries: 2
 
 output:
   primaryFrom: code_generation
+
+approvalGates:
+  - afterStage: architecture_planning
+    name: 架构方案审批
+    required: true
+    description: 确认架构设计方向后再进入编码阶段

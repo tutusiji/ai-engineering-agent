@@ -1,3 +1,4 @@
+# Shared interaction policies applicable to all target profiles (fullstack and frontend)
 interaction:
   loading:
     required: true

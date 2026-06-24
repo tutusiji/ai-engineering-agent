@@ -39,13 +39,13 @@ export function useSessions() {
 
   useEffect(() => { refresh(); }, []);
 
-  const createSession = useCallback(async (profileId = 'vue3-admin', name?: string) => {
+  const createSession = useCallback(async (profileId?: string, name?: string) => {
     setLoading(true);
     try {
       const res = await fetch(`${API}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId, name }),
+        body: JSON.stringify({ ...(profileId ? { profileId } : {}), name }),
       });
       const data = await res.json();
       await refresh();

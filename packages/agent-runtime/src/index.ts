@@ -21,6 +21,7 @@ import { dataModelingSkill } from './skills/data-modeling';
 import { apiDesignSkill } from './skills/api-design';
 import { backendCodingSkill } from './skills/backend-coding';
 import { deploymentPlanningSkill } from './skills/deployment-planning';
+import { architecturePlanningSkill } from './skills/architecture-planning';
 
 export const skillRegistry: Record<string, SkillDefinition> = {
   // Original workflow skills
@@ -40,6 +41,7 @@ export const skillRegistry: Record<string, SkillDefinition> = {
   'api-design': apiDesignSkill,
   'backend-coding': backendCodingSkill,
   'deployment-planning': deploymentPlanningSkill,
+  'architecture-planning': architecturePlanningSkill,
 };
 
 export function getSkill(name: string): SkillDefinition | undefined {
@@ -61,6 +63,7 @@ export { dataModelingSkill } from './skills/data-modeling';
 export { apiDesignSkill } from './skills/api-design';
 export { backendCodingSkill } from './skills/backend-coding';
 export { deploymentPlanningSkill } from './skills/deployment-planning';
+export { architecturePlanningSkill } from './skills/architecture-planning';
 export { UI_CATALOG, getCompatibleLibraries, getUiLibrary, getLibrarySummary } from './ui-catalog';
 export type { RequirementDocument } from './skills/interactive-requirement';
 export {

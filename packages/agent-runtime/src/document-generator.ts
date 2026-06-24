@@ -41,7 +41,7 @@ export async function generateFullDocument(
   const prompt = [
     {
       role: 'system' as const,
-      content: `你是一个需求文档生成器。根据用户与 AI 的对话历史，生成一份完整的结构化前端需求文档。
+      content: `你是一个需求文档生成器。根据用户与 AI 的对话历史，生成一份完整的结构化全栈需求文档（包含前端、后端、数据库、部署等维度）。
 
 ${currentSummary}
 

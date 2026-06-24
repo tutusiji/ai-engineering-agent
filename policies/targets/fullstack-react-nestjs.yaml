@@ -1,4 +1,5 @@
 id: fullstack-react-nestjs
+status: legacy
 platform: fullstack
 framework: react
 uiLibrary: antd

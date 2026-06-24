@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/plugin-sdk",
+  "name": "@ai-engineering-agent/plugin-sdk",
   "version": "0.1.0",
   "private": true,
   "main": "src/index.ts",

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ArtifactStore } from '@ai-frontend-engineering-agent/persistence';
+import { ArtifactStore } from '@ai-engineering-agent/persistence';
 import { buildSessionArtifacts } from '../artifact-service.js';
 
 describe('buildSessionArtifacts', () => {

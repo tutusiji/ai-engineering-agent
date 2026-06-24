@@ -3,7 +3,7 @@
  */
 
 import { query, queryOne, queryAll } from './store.js';
-import type { SessionArtifactRun } from '@ai-frontend-engineering-agent/shared-types';
+import type { SessionArtifactRun } from '@ai-engineering-agent/shared-types';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';

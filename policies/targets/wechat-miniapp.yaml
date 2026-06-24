@@ -1,4 +1,5 @@
 id: wechat-miniapp
+status: legacy
 platform: miniapp
 framework: native-miniapp
 uiLibrary: native

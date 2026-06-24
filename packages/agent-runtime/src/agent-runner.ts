@@ -119,24 +119,24 @@ export function extractJson(text: string): JsonObject | null {
     if (repairedFenced) return repairedFenced;
   }
 
-  // Try extracting from ```html ... ``` fences (for frontend preview generation)
+  // Try extracting from ```html ... ``` fences (for preview generation)
   const htmlFenced = text.match(/```html\s*\n?([\s\S]*?)```/);
   if (htmlFenced?.[1]) {
     const htmlContent = htmlFenced[1].trim();
     if (htmlContent.length > 100) {
       return {
-        pageName: 'frontend-preview',
-        targetProfile: 'vue3-admin',
+        pageName: 'fullstack-preview',
+        targetProfile: 'fullstack-vue3-nestjs',
         generatedFiles: [{
-          path: 'artifacts/frontend-preview.html',
+          path: 'artifacts/fullstack-preview.html',
           kind: 'page',
           status: 'generated',
           content: htmlContent,
         }],
         patches: [{
-          target: 'artifacts/frontend-preview.html',
+          target: 'artifacts/fullstack-preview.html',
           action: 'create',
-          summary: '前端预览页',
+          summary: '全栈预览页',
         }],
         notes: ['从 HTML 代码块提取预览页'],
       };
@@ -149,18 +149,18 @@ export function extractJson(text: string): JsonObject | null {
     const htmlContent = incompleteHtmlFence[1].trim();
     if (htmlContent.length > 100) {
       return {
-        pageName: 'frontend-preview',
-        targetProfile: 'vue3-admin',
+        pageName: 'fullstack-preview',
+        targetProfile: 'fullstack-vue3-nestjs',
         generatedFiles: [{
-          path: 'artifacts/frontend-preview.html',
+          path: 'artifacts/fullstack-preview.html',
           kind: 'page',
           status: 'generated',
           content: htmlContent,
         }],
         patches: [{
-          target: 'artifacts/frontend-preview.html',
+          target: 'artifacts/fullstack-preview.html',
           action: 'create',
-          summary: '前端预览页（截断）',
+          summary: '全栈预览页（截断）',
         }],
         notes: ['从截断的 HTML 代码块提取预览页'],
       };

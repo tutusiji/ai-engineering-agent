@@ -1,4 +1,5 @@
 id: vue3-admin
+status: legacy
 platform: admin-web
 framework: vue3
 uiLibrary: element-plus

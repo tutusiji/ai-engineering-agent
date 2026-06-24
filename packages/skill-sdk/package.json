@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/skill-sdk",
+  "name": "@ai-engineering-agent/skill-sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",

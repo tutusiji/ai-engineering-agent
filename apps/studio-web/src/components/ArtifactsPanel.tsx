@@ -1,5 +1,5 @@
 import { Package, FileText, Image, Code, Layers, Download, Loader2 } from 'lucide-react';
-import type { ArtifactItem, ArtifactCategory } from '@ai-frontend-engineering-agent/shared-types';
+import type { ArtifactItem, ArtifactCategory } from '@ai-engineering-agent/shared-types';
 
 interface ArtifactsPanelProps {
   artifacts: ArtifactItem[];

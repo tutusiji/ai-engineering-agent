@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/plugin-api-contract-validator",
+  "name": "@ai-engineering-agent/plugin-api-contract-validator",
   "version": "0.1.0",
   "type": "module",
   "main": "src/index.ts",

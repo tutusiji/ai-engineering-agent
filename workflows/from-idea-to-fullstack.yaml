@@ -38,12 +38,19 @@ nodes:
     dependsOn: [requirement_analysis]
     outputSchema: target-profile-selection
 
-  # ─── Phase 2: 设计与建模 ───
+  # ─── Phase 2: 架构设计 ───
+  - id: architecture_planning
+    type: agent
+    name: 架构方案设计
+    skill: architecture-planning
+    dependsOn: [target_profile_selection]
+    outputSchema: architecture-design
+
   - id: data_modeling
     type: agent
     name: 数据建模
     skill: data-modeling
-    dependsOn: [target_profile_selection]
+    dependsOn: [architecture_planning]
     outputSchema: data-model
 
   - id: api_design
@@ -57,7 +64,7 @@ nodes:
     type: agent
     name: 页面规划
     skill: page-planning
-    dependsOn: [target_profile_selection]
+    dependsOn: [architecture_planning]
     outputSchema: page-plan
 
   # ─── Phase 3: 代码生成 ───
@@ -139,6 +146,10 @@ output:
   primaryFrom: docker_gen
 
 approvalGates:
+  - afterStage: architecture_planning
+    name: 架构方案审批
+    required: true
+    description: 确认架构设计方向后再进入详细设计
   - afterStage: data_modeling
     name: 数据模型审批
     required: true

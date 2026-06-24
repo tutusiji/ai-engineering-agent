@@ -1,5 +1,5 @@
 {
-  "name": "ai-frontend-engineering-agent",
+  "name": "ai-engineering-agent",
   "private": true,
   "type": "module",
   "version": "0.1.0",
@@ -12,7 +12,7 @@
     "studio:api": "bash -c 'set -a; [ -f .env ] && source .env; set +a; tsx apps/studio-api/src/server.ts'",
     "studio:web": "cd apps/studio-web && pnpm dev",
     "studio": "pnpm studio:api & pnpm studio:web",
-    "studio:build": "pnpm --filter @ai-frontend-engineering-agent/studio-web build",
+    "studio:build": "pnpm --filter @ai-engineering-agent/studio-web build",
     "studio:preview": "cd apps/studio-web && pnpm preview --port 4400 --host 0.0.0.0",
     "studio:prod": "bash scripts/start-prod.sh all"
   },

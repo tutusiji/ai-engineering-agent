@@ -28,7 +28,7 @@ module.exports = {
       script: '/usr/bin/bash',
       args: [
         '-c',
-        wrapEnv('pnpm --filter @ai-frontend-engineering-agent/studio-api start'),
+        wrapEnv('pnpm --filter @ai-engineering-agent/studio-api start'),
       ],
       interpreter: 'none',
       autorestart: true,

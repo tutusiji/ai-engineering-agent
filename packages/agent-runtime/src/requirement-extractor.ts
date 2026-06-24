@@ -34,7 +34,7 @@ export async function extractRequirementInfo(
   const prompt = [
     {
       role: 'system' as const,
-      content: `你是一个需求信息提取器。从对话中提取新确认的需求信息。
+      content: `你是一个需求信息提取器。从对话中提取新确认的全栈需求信息（包括前端页面、后端API、数据库实体等）。
 
 当前需求文档摘要：
 ${currentDocSummary || '（空文档）'}

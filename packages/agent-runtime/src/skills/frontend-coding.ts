@@ -20,11 +20,13 @@ export const frontendCodingSkill: SkillDefinition = {
   },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
-    const targetProfileId = ctx.targetProfile?.id ?? 'vue3-admin';
-    const framework = ctx.targetProfile?.framework ?? 'vue3';
+    const archTech = (ctx.architectureDesign as JsonObject | undefined)?.techStack as JsonObject | undefined;
+    const archFrontend = archTech?.frontend as JsonObject | undefined;
+    const targetProfileId = ctx.targetProfile?.id ?? 'architecture-driven';
+    const framework = String(archFrontend?.framework ?? ctx.targetProfile?.framework ?? 'vue3');
 
     return {
-      system: `你是一个前端实现方案专家。根据 UIContract 和页面规划，输出详细的实现方案（文件清单和路由变更）。
+      system: `你是一个全栈实现方案专家。根据 UIContract 和页面规划，输出详细的实现方案（包含前端、后端 API、数据库模型的文件清单和路由变更）。
 
 当前目标: ${targetProfileId} (${framework})
 
@@ -73,7 +75,7 @@ ${JSON.stringify(input, null, 2)}`,
 
     return {
       pageName: String(raw.pageName ?? '未命名页面'),
-      targetProfile: String(raw.targetProfile ?? 'vue3-admin'),
+      targetProfile: String(raw.targetProfile ?? 'architecture-driven'),
       files,
       routeChanges: Array.isArray(raw.routeChanges) ? raw.routeChanges : [],
       componentDependencies: Array.isArray(raw.componentDependencies)

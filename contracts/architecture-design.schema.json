@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "architecture-design",
+  "title": "Architecture Design",
+  "description": "全栈架构设计方案 — 在编码之前产出的结构化蓝图文档",
+  "type": "object",
+  "required": ["projectName", "overview", "techStack", "moduleBreakdown"],
+  "properties": {
+    "projectName": {
+      "type": "string",
+      "description": "项目名称"
+    },
+    "overview": {
+      "type": "string",
+      "description": "项目概述（一段话描述整体架构思路）"
+    },
+    "systemArchitecture": {
+      "type": "object",
+      "description": "系统分层架构",
+      "properties": {
+        "diagram": { "type": "string" },
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "technologies": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "techStack": {
+      "type": "object",
+      "description": "技术栈选型 — 架构规划的核心产出，后续所有 skill 的技术决策依据",
+      "required": ["frontend", "backend", "database", "deployment"],
+      "properties": {
+        "frontend": {
+          "type": "object",
+          "required": ["framework", "uiLibrary"],
+          "properties": {
+            "framework": { "type": "string", "description": "前端框架: react | vue3 | svelte | solid | angular" },
+            "uiLibrary": { "type": "string", "description": "UI 组件库: antd | element-plus | shadcn/ui | material-ui | naive-ui | arco-design | radix" },
+            "stateManagement": { "type": "string", "description": "状态管理: zustand | pinia | jotai | redux | mobx" },
+            "router": { "type": "string", "description": "路由: react-router | vue-router | tanstack-router" },
+            "styling": { "type": "string", "description": "样式方案: tailwindcss | css-modules | styled-components | unocss" }
+          }
+        },
+        "backend": {
+          "type": "object",
+          "required": ["framework", "language"],
+          "properties": {
+            "framework": { "type": "string", "description": "后端框架: nestjs | fastapi | gin | express | spring-boot | actix-web" },
+            "language": { "type": "string", "description": "编程语言: typescript | python | go | java | rust" },
+            "orm": { "type": "string", "description": "ORM: prisma | typeorm | sqlalchemy | gorm | jpa | drizzle" },
+            "auth": { "type": "string", "description": "认证方案: jwt | session | oauth2 | clerk" },
+            "apiStyle": { "type": "string", "description": "API 风格: RESTful | GraphQL | tRPC" }
+          }
+        },
+        "database": {
+          "type": "object",
+          "required": ["primary"],
+          "properties": {
+            "primary": { "type": "string", "description": "主数据库: postgresql | mysql | mongodb | sqlite | cockroachdb" },
+            "caching": { "type": "string", "description": "缓存: redis | memcached | none" }
+          }
+        },
+        "deployment": {
+          "type": "object",
+          "required": ["strategy"],
+          "properties": {
+            "strategy": { "type": "string", "description": "部署策略: docker-compose | kubernetes | serverless | static" },
+            "services": {
+              "type": "array",
+              "description": "需要的容器/服务列表",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "moduleBreakdown": {
+      "type": "array",
+      "description": "模块划分",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["frontend", "backend", "shared"] },
+          "description": { "type": "string" },
+          "dependsOn": { "type": "array", "items": { "type": "string" } },
+          "keyFiles": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "dataFlow": {
+      "type": "object",
+      "description": "数据流设计"
+    },
+    "apiDesignPrinciples": {
+      "type": "object",
+      "description": "API 设计原则"
+    },
+    "databaseDesign": {
+      "type": "object",
+      "description": "数据库设计策略"
+    },
+    "securityConsiderations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "deploymentArchitecture": {
+      "type": "object",
+      "description": "部署架构"
+    },
+    "developmentPhases": {
+      "type": "array",
+      "description": "开发阶段规划",
+      "items": {
+        "type": "object",
+        "properties": {
+          "phase": { "type": "string" },
+          "name": { "type": "string" },
+          "goal": { "type": "string" },
+          "deliverables": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "risksAndMitigations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "risk": { "type": "string" },
+          "impact": { "type": "string", "enum": ["high", "medium", "low"] },
+          "mitigation": { "type": "string" }
+        }
+      }
+    },
+    "openDecisions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

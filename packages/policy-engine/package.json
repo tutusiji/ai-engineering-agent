@@ -1,5 +1,5 @@
 {
-  "name": "@ai-frontend-engineering-agent/policy-engine",
+  "name": "@ai-engineering-agent/policy-engine",
   "version": "0.1.0",
   "private": true,
   "type": "module",

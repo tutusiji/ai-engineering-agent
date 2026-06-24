@@ -21,10 +21,12 @@ export const codeGenerationSkill: SkillDefinition = {
   },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
-    const targetProfileId = ctx.targetProfile?.id ?? 'vue3-admin';
-    const framework = ctx.targetProfile?.framework ?? 'vue3';
+    const archTech = (ctx.architectureDesign as JsonObject | undefined)?.techStack as JsonObject | undefined;
+    const archFrontend = archTech?.frontend as JsonObject | undefined;
+    const targetProfileId = ctx.targetProfile?.id ?? 'architecture-driven';
+    const framework = String(archFrontend?.framework ?? ctx.targetProfile?.framework ?? 'vue3');
     const uiLib = input.uiLibrary as Record<string, unknown> | null | undefined;
-    const uiLibraryName = uiLib?.name ?? (ctx.targetProfile as unknown as Record<string, unknown>)?.uiLibrary ?? 'Element Plus';
+    const uiLibraryName = uiLib?.name ?? archFrontend?.uiLibrary ?? ctx.targetProfile?.uiLibrary ?? 'Element Plus';
     const componentMapping = uiLib?.componentMapping as Record<string, string> ?? {};
     const componentMapText = Object.keys(componentMapping).length > 0
       ? Object.entries(componentMapping).map(([k, v]) => `${k}: ${v}`).join(', ')
@@ -33,7 +35,7 @@ export const codeGenerationSkill: SkillDefinition = {
     const pages = Array.isArray(input.pages) ? input.pages : [];
 
     return {
-      system: `你是一个资深前端工程师。你的任务是根据需求文档为指定阶段（${phaseId}）生成可运行的代码文件。
+      system: `你是一个资深全栈工程师。你的任务是根据需求文档为指定阶段（${phaseId}）生成可运行的全栈代码文件（包括前端页面、后端 API、数据库模型等）。
 
 ## 技术栈
 
@@ -75,12 +77,25 @@ export const codeGenerationSkill: SkillDefinition = {
 
 ## 文件组织
 
+### 前端
 - 页面: src/views/{page-name}/index.vue
 - 逻辑: src/views/{page-name}/use-{page-name}-page.ts
-- API: src/api/{page-name}.ts
+- API 调用: src/api/{page-name}.ts
 - 类型: src/types/{page-name}.ts
 - 组件: src/views/{page-name}/components/{ComponentName}.vue
-- 路由: src/router/modules/{page-name}.ts`,
+- 路由: src/router/modules/{page-name}.ts
+
+### 后端
+- 控制器: api/src/modules/{entity}/controller.ts
+- 服务: api/src/modules/{entity}/service.ts
+- 模块: api/src/modules/{entity}/module.ts
+- DTO: api/src/modules/{entity}/dto.ts
+- 数据模型: api/prisma/schema.prisma
+
+### 部署
+- Dockerfile.api, Dockerfile.web
+- docker-compose.yml
+- deploy/nginx/default.conf`,
 
       user: `请为阶段 ${phaseId} 生成代码。
 
@@ -94,7 +109,7 @@ ${JSON.stringify(input, null, 2)}
   async normalize(raw: JsonObject): Promise<JsonObject> {
     return {
       pageName: String(raw.pageName ?? '未命名'),
-      targetProfile: String(raw.targetProfile ?? 'vue3-admin'),
+      targetProfile: String(raw.targetProfile ?? 'architecture-driven'),
       generatedFiles: Array.isArray(raw.generatedFiles)
         ? raw.generatedFiles.map((f: unknown) => {
             const file = f as Record<string, unknown>;

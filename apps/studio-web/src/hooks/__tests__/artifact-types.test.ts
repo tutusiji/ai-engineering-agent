@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { ArtifactItem, SessionArtifactRun } from '@ai-frontend-engineering-agent/shared-types';
+import type { ArtifactItem, SessionArtifactRun } from '@ai-engineering-agent/shared-types';
 
 describe('artifact types compile', () => {
   it('accepts a valid artifact item', () => {

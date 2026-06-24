@@ -15,7 +15,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Zap, Image, Code, ChevronDown, Check, Cpu } from 'lucide-react';
+import { Zap, Image, Code, ChevronDown, Check, Cpu, Layers } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
@@ -25,6 +25,7 @@ import { ChatPanel } from './components/ChatPanel';
 import { DocumentPanel } from './components/DocumentPanel';
 import { ArtifactsPanel } from './components/ArtifactsPanel';
 import { DesignPanel } from './components/DesignPanel';
+import { ArchitecturePanel } from './components/ArchitecturePanel';
 import { CodePanel } from './components/CodePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { RunHistory } from './components/RunHistory';
@@ -32,7 +33,7 @@ import { RunHistory } from './components/RunHistory';
 const API = '/api';
 
 type NavKey = 'chat' | 'workflows' | 'history';
-type ChatTab = 'chat' | 'design' | 'code' | 'document';
+type ChatTab = 'chat' | 'architecture' | 'design' | 'code' | 'document';
 
 export default function App() {
   const {
@@ -47,7 +48,7 @@ export default function App() {
     refresh: refreshSessions,
   } = useSessions();
 
-  const [profileId, setProfileId] = useState('vue3-admin');
+  const [profileId, setProfileId] = useState<string>('');
   const [activeNav, setActiveNav] = useState<NavKey>('chat');
   const [activeChatTab, setActiveChatTab] = useState<ChatTab>('chat');
   const [designHtml, setDesignHtml] = useState<string | null>(null);
@@ -56,6 +57,8 @@ export default function App() {
   const [generatedFiles, setGeneratedFiles] = useState<Array<{ path: string; kind: string; content?: string }>>([]);
   const [designLoading, setDesignLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
+  const [archMarkdown, setArchMarkdown] = useState<string | null>(null);
+  const [archLoading, setArchLoading] = useState(false);
 
   // Model switcher state
   interface ModelOption { id: string; label: string; model: string; active: boolean }
@@ -149,6 +152,7 @@ export default function App() {
     if (activeSessionId) {
       setDesignHtml(null);
       setDesignVersions([]);
+      setArchMarkdown(null);
       setGeneratedFiles([]);
       chat.loadSession(activeSessionId);
       loadDesignVersions(activeSessionId);
@@ -176,7 +180,7 @@ export default function App() {
       const res = await fetch(`${API}/generate/design`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: activeSessionId, profileId }),
+        body: JSON.stringify({ sessionId: activeSessionId, profileId: profileId || undefined }),
       });
       const data = await res.json();
       if (data.ok && data.htmlContent) {
@@ -195,6 +199,30 @@ export default function App() {
     }
   };
 
+  const handleGenerateArchitecture = async () => {
+    if (!activeSessionId) return;
+    setArchLoading(true);
+    try {
+      const res = await fetch(`${API}/generate/architecture`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: activeSessionId, profileId: profileId || undefined }),
+      });
+      const data = await res.json();
+      if (data.ok && data.markdown) {
+        setArchMarkdown(data.markdown);
+        setActiveChatTab('architecture');
+        console.log('架构设计生成成功');
+      } else {
+        console.error(data.error || '架构生成失败');
+      }
+    } catch {
+      console.error('请求失败');
+    } finally {
+      setArchLoading(false);
+    }
+  };
+
   const handleGenerateCode = async () => {
     if (!activeSessionId) return;
     setCodeLoading(true);
@@ -202,7 +230,7 @@ export default function App() {
       const res = await fetch(`${API}/generate/code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: activeSessionId, profileId }),
+        body: JSON.stringify({ sessionId: activeSessionId, profileId: profileId || undefined }),
       });
       const data = await res.json();
       if (data.ok && data.files) {
@@ -314,6 +342,7 @@ export default function App() {
               <div className="flex gap-0 px-4 bg-white border-b border-gray-200 shrink-0">
                 {([
                   ['chat', Zap, '需求对话'],
+                  ['architecture', Layers, '架构'],
                   ['design', Image, 'UI预览'],
                   ['code', Code, '代码'],
                 ] as const).map(([key, Icon, label]) => (
@@ -344,6 +373,14 @@ export default function App() {
                     completeness={completeness}
                     onSend={chat.send}
                     onStop={chat.stop}
+                  />
+                )}
+                {activeChatTab === 'architecture' && (
+                  <ArchitecturePanel
+                    markdown={archMarkdown}
+                    completeness={completeness}
+                    loading={archLoading}
+                    onGenerate={handleGenerateArchitecture}
                   />
                 )}
                 {activeChatTab === 'design' && (

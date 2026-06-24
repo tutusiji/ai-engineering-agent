@@ -1,4 +1,5 @@
 id: fullstack-vue3-nestjs
+status: legacy
 platform: fullstack
 framework: vue3
 uiLibrary: element-plus
