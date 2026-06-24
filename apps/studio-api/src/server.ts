@@ -589,6 +589,49 @@ app.post('/api/chat', async (req, res) => {
 
     await sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
 
+    // Architecture refinement mode — use architecture-planning skill
+    if (mode === 'architecture-refinement') {
+      const archSkill = getSkill('architecture-planning');
+      if (!archSkill) {
+        return res.status(500).json({ error: 'architecture-planning skill not found' });
+      }
+
+      const archData = getActiveArchitecture(session);
+      const archVersions = (session.document as Record<string, unknown>)?._architectureVersions as Array<Record<string, unknown>> | undefined;
+      const activeArchId = (session.document as Record<string, unknown>)?._activeArchitectureId as string | undefined;
+      const activeVersion = archVersions?.find(v => v.id === activeArchId) ?? archVersions?.[archVersions.length - 1];
+      const currentMarkdown = (activeVersion?.markdown as string)
+        ?? (activeVersion?.architecture ? buildArchitectureMarkdown(activeVersion.architecture as Record<string, unknown>) : '');
+
+      const ctx = createSkillContext(profileId);
+      const archInput: JsonObject = {
+        mode: 'refine',
+        userMessage,
+        currentArchitecture: archData ?? (activeVersion?.architecture as JsonObject) ?? null,
+        currentMarkdown,
+      };
+
+      console.log(`🔄 [${sessionId}] Architecture refinement requested: "${userMessage.substring(0, 80)}..."`);
+      const archResult = await runSkillThroughLlm(archSkill, ctx, archInput, llmConfig);
+      console.log(`📥 [${sessionId}] Refinement response:`, archResult.ok ? 'success' : 'failed');
+
+      if (archResult.ok && archResult.output) {
+        const refinedArch = archResult.output as Record<string, unknown>;
+        const refinedMd = buildArchitectureMarkdown(refinedArch);
+
+        return res.json({
+          ok: true,
+          mode: 'architecture-refinement',
+          architecture: refinedArch,
+          markdown: refinedMd,
+          model: llmConfig.model,
+          usage: archResult.usage,
+        });
+      }
+
+      return res.json({ ok: false, error: archResult.error, mode: 'architecture-refinement' });
+    }
+
     const skill = getSkill('interactive-requirement');
     if (!skill) {
       return res.status(500).json({ error: 'interactive-requirement skill not found' });
@@ -980,29 +1023,14 @@ app.post('/api/generate/architecture', async (req, res) => {
         label: '架构设计方案',
       });
 
-      // Save to session document
-      const doc = (session.document ?? {}) as Record<string, unknown>;
-      const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
-      const versionId = `arch-v${archVersions.length + 1}`;
-      const now = Date.now();
-      archVersions.push({
-        id: versionId,
-        architecture: archDoc,
-        model: llmConfig.model,
-        createdAt: now,
-        label: `${llmConfig.model} · ${new Date(now).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
-      });
-      await sessionStore.update(sessionId, {
-        ...session,
-        document: { ...doc, _architectureVersions: archVersions, _activeArchitectureId: versionId },
-      });
-
-      console.log(`💾 [${sessionId}] Architecture design ${versionId} saved to session`);
+      // Return as draft — user must explicitly save to persist
+      console.log(`📝 [${sessionId}] Architecture draft generated (not saved to session)`);
 
       res.json({
         ok: true,
         architecture: archDoc,
         markdown: archMd,
+        model: llmConfig.model,
         usage: result.usage,
         artifactRunId: runId,
       });
@@ -1131,6 +1159,103 @@ app.post('/api/sessions/:id/designs/active', async (req, res) => {
     document: { ...doc, _activeDesignId: designId },
   });
   res.json({ ok: true, activeDesignId: designId });
+});
+
+// ─── Architecture Versions ───────────────────────────────────────────
+
+// List architecture versions for a session
+app.get('/api/sessions/:id/architectures', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const doc = (session.document ?? {}) as Record<string, unknown>;
+  const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+  // Build markdown on-the-fly for old versions that don't have it stored
+  const versions = archVersions.map(v => ({
+    id: v.id,
+    label: v.label,
+    model: v.model,
+    createdAt: v.createdAt,
+    markdown: (v.markdown as string) ?? buildArchitectureMarkdown((v.architecture ?? {}) as Record<string, unknown>),
+    architecture: v.architecture,
+  }));
+  const activeId = doc._activeArchitectureId as string | undefined;
+  const active = versions.find(v => v.id === activeId);
+  res.json({
+    versions: versions.map(v => ({ id: v.id, label: v.label, model: v.model, createdAt: v.createdAt })),
+    activeId: activeId ?? versions[versions.length - 1]?.id ?? null,
+    activeMarkdown: active?.markdown ?? versions[versions.length - 1]?.markdown ?? null,
+    activeArchitecture: active?.architecture ?? versions[versions.length - 1]?.architecture ?? null,
+  });
+});
+
+// Set active architecture version
+app.post('/api/sessions/:id/architectures/active', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const { architectureId } = req.body as { architectureId?: string };
+  const doc = (session.document ?? {}) as Record<string, unknown>;
+  const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+  if (!archVersions.some(v => v.id === architectureId)) {
+    return res.status(400).json({ error: `Architecture version ${architectureId} not found` });
+  }
+  // Load the active version's markdown
+  const active = archVersions.find(v => v.id === architectureId);
+  await sessionStore.update(req.params.id, {
+    ...session,
+    document: { ...doc, _activeArchitectureId: architectureId },
+  });
+  res.json({
+    ok: true,
+    activeArchitectureId: architectureId,
+    markdown: (active?.markdown as string) ?? buildArchitectureMarkdown((active?.architecture ?? {}) as Record<string, unknown>),
+    architecture: active?.architecture,
+  });
+});
+
+// Save architecture draft to session (explicit save)
+app.post('/api/sessions/:id/architectures/save', async (req, res) => {
+  const session = await sessionStore.get(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found' });
+
+  const { architecture, markdown, model } = req.body as { architecture?: JsonObject; markdown?: string; model?: string };
+  if (!architecture || !markdown) {
+    return res.status(400).json({ error: 'architecture and markdown are required' });
+  }
+
+  const doc = (session.document ?? {}) as Record<string, unknown>;
+  const archVersions = (doc._architectureVersions as Array<Record<string, unknown>>) ?? [];
+  const versionId = `arch-v${archVersions.length + 1}`;
+  const now = Date.now();
+  const usedModel = model ?? llmConfig.model;
+
+  const version = {
+    id: versionId,
+    architecture,
+    markdown,
+    model: usedModel,
+    createdAt: now,
+    label: `${usedModel} · ${new Date(now).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
+  };
+
+  archVersions.push(version);
+  await sessionStore.update(req.params.id, {
+    ...session,
+    document: { ...doc, _architectureVersions: archVersions, _activeArchitectureId: versionId },
+  });
+
+  // Persist as artifact for download
+  const runId = `arch-${generateId()}`;
+  artifactStore.save(runId, 'artifacts/architecture-design.json', JSON.stringify(architecture, null, 2));
+  artifactStore.save(runId, 'artifacts/architecture-design.md', markdown);
+  await sessionStore.addArtifactRun(req.params.id, {
+    runId,
+    type: 'design',
+    createdAt: now,
+    label: '架构设计方案',
+  });
+
+  console.log(`💾 [${req.params.id}] Architecture ${versionId} saved to session`);
+  res.json({ ok: true, versionId, version });
 });
 
 // Generate code

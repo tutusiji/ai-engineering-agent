@@ -20,6 +20,50 @@ export const architecturePlanningSkill: SkillDefinition = {
   defaultModel: { model: 'auto', temperature: 0.2, maxTokens: 16384 },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
+    const mode = String(input.mode ?? 'generate');
+    const isRefine = mode === 'refine';
+
+    // ── Refinement mode ──
+    if (isRefine) {
+      const userMessage = String(input.userMessage ?? '');
+      const currentMarkdown = String(input.currentMarkdown ?? '');
+      const currentArchitecture = input.currentArchitecture as JsonObject | undefined;
+
+      return {
+        system: `你是一个资深全栈架构师。你的任务是**修改现有的架构设计方案**，响应用户的反馈意见。
+
+## 当前架构方案
+
+以下是当前的架构设计方案（JSON 格式）:
+
+\`\`\`json
+${JSON.stringify(currentArchitecture ?? {}, null, 2)}
+\`\`\`
+
+当前架构的 Markdown 描述:
+\`\`\`markdown
+${currentMarkdown}
+\`\`\`
+
+## 你的任务
+
+用户对以上架构方案不满意，请根据用户的反馈精确修改架构。要求：
+
+1. **仅修改用户提到的部分** — 保持未涉及的决策不变
+2. **保持技术自洽** — 如果修改了前端框架，同步更新对应的 UI 库、路由、状态管理
+3. **如果修改了数据库**，更新 databaseDesign.entities 和 deploymentArchitecture.components
+4. **在 notes 中说明修改了什么以及为什么**
+5. **输出完整的架构 JSON**（包含所有字段，不是只输出修改的部分）
+
+你必须输出一个合法的 JSON 对象，格式与原始架构完全一致。只输出 JSON，不要其他文字。`,
+
+        user: `用户反馈: ${userMessage}
+
+请输出修改后的完整架构设计方案 JSON。`,
+      };
+    }
+
+    // ── Generate mode (original) ──
     const featureName = String(input.featureName ?? '未命名项目');
     const businessGoal = String(input.businessGoal ?? '');
     const pages: JsonObject[] = Array.isArray(input.pages) ? (input.pages as JsonObject[]) : [];

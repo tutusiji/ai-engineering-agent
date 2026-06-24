@@ -59,6 +59,11 @@ export default function App() {
   const [codeLoading, setCodeLoading] = useState(false);
   const [archMarkdown, setArchMarkdown] = useState<string | null>(null);
   const [archLoading, setArchLoading] = useState(false);
+  const [archVersions, setArchVersions] = useState<Array<{ id: string; label: string; model: string; createdAt: number }>>([]);
+  const [activeArchId, setActiveArchId] = useState<string | null>(null);
+  const [archDraft, setArchDraft] = useState<string | null>(null);
+  const [archDraftMeta, setArchDraftMeta] = useState<{ architecture: unknown; model: string } | null>(null);
+  const [archRefining, setArchRefining] = useState(false);
 
   // Model switcher state
   interface ModelOption { id: string; label: string; model: string; active: boolean }
@@ -126,6 +131,48 @@ export default function App() {
     }
   }, []);
 
+  // Load architecture versions for a session
+  const loadArchitectureVersions = useCallback(async (sid: string) => {
+    try {
+      const res = await fetch(`${API}/sessions/${sid}/architectures`);
+      const data = await res.json();
+      setArchVersions(data.versions ?? []);
+      const activeId = data.activeId;
+      setActiveArchId(activeId);
+      if (activeId && data.activeMarkdown) {
+        setArchMarkdown(data.activeMarkdown);
+        setArchDraft(null);
+        setArchDraftMeta(null);
+      } else {
+        setArchMarkdown(null);
+      }
+    } catch {
+      setArchVersions([]);
+      setArchMarkdown(null);
+    }
+  }, []);
+
+  // Switch architecture version
+  const switchArchitectureVersion = async (archId: string) => {
+    if (!activeSessionId) return;
+    try {
+      const res = await fetch(`${API}/sessions/${activeSessionId}/architectures/active`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ architectureId: archId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setActiveArchId(archId);
+        if (data.markdown) {
+          setArchMarkdown(data.markdown);
+          setArchDraft(null);
+          setArchDraftMeta(null);
+        }
+      }
+    } catch { /* ignore */ }
+  };
+
   // Switch design version
   const switchDesignVersion = async (designId: string) => {
     if (!activeSessionId) return;
@@ -153,9 +200,13 @@ export default function App() {
       setDesignHtml(null);
       setDesignVersions([]);
       setArchMarkdown(null);
+      setArchVersions([]);
+      setArchDraft(null);
+      setArchDraftMeta(null);
       setGeneratedFiles([]);
       chat.loadSession(activeSessionId);
       loadDesignVersions(activeSessionId);
+      loadArchitectureVersions(activeSessionId);
     }
   }, [activeSessionId]);
 
@@ -210,9 +261,12 @@ export default function App() {
       });
       const data = await res.json();
       if (data.ok && data.markdown) {
-        setArchMarkdown(data.markdown);
+        setArchDraft(data.markdown);
+        setArchDraftMeta({ architecture: data.architecture, model: data.model });
+        setArchMarkdown(null);
+        setActiveArchId(null);
         setActiveChatTab('architecture');
-        console.log('架构设计生成成功');
+        console.log('架构设计草稿生成成功');
       } else {
         console.error(data.error || '架构生成失败');
       }
@@ -220,6 +274,62 @@ export default function App() {
       console.error('请求失败');
     } finally {
       setArchLoading(false);
+    }
+  };
+
+  const handleSaveArchitecture = async () => {
+    if (!activeSessionId || !archDraft || !archDraftMeta) return;
+    try {
+      const res = await fetch(`${API}/sessions/${activeSessionId}/architectures/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          architecture: archDraftMeta.architecture,
+          markdown: archDraft,
+          model: archDraftMeta.model,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setArchMarkdown(archDraft);
+        setArchDraft(null);
+        setArchDraftMeta(null);
+        await loadArchitectureVersions(activeSessionId);
+        console.log('架构已保存');
+      }
+    } catch {
+      console.error('保存失败');
+    }
+  };
+
+  const handleArchitectureRefine = async (feedback: string) => {
+    if (!activeSessionId || !feedback.trim()) return;
+    setArchRefining(true);
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: activeSessionId,
+          profileId: profileId || undefined,
+          userMessage: feedback,
+          mode: 'architecture-refinement',
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.markdown) {
+        setArchDraft(data.markdown);
+        setArchDraftMeta({ architecture: data.architecture, model: data.model });
+        setArchMarkdown(null);
+        setActiveArchId(null);
+        console.log('架构精炼完成');
+      } else {
+        console.error(data.error || '精炼失败');
+      }
+    } catch {
+      console.error('请求失败');
+    } finally {
+      setArchRefining(false);
     }
   };
 
@@ -377,10 +487,17 @@ export default function App() {
                 )}
                 {activeChatTab === 'architecture' && (
                   <ArchitecturePanel
-                    markdown={archMarkdown}
+                    markdown={archDraft ?? archMarkdown}
                     completeness={completeness}
                     loading={archLoading}
+                    versions={archVersions}
+                    activeArchId={activeArchId}
+                    isDraft={!!archDraft}
+                    refining={archRefining}
                     onGenerate={handleGenerateArchitecture}
+                    onSwitchVersion={switchArchitectureVersion}
+                    onSave={handleSaveArchitecture}
+                    onSendFeedback={handleArchitectureRefine}
                   />
                 )}
                 {activeChatTab === 'design' && (
