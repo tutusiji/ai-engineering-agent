@@ -581,7 +581,7 @@ export function RunHistory() {
                     {/* 执行阶段 */}
                     {activeDetailTab === 'stages' && (
                       <div className="py-2">
-                        {detailRun.stages.length > 0 ? (
+                        {detailRun.stages && detailRun.stages.length > 0 ? (
                           <div className="relative pl-8">
                             {detailRun.stages.map((stage, i) => {
                               const isLast = i === detailRun.stages.length - 1;
