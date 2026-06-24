@@ -373,11 +373,6 @@ export default function App() {
           AI Engineering Agent
         </h4>
         <div className="flex gap-3 items-center">
-          {activeSession && (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-300 backdrop-blur-sm">
-              {activeSession.name}
-            </span>
-          )}
           {/* 主题切换按钮 */}
           <ThemeToggle />
           {/* Model Switcher */}
@@ -533,6 +528,20 @@ export default function App() {
         {/* Right sidebar — Artifacts + Document panel (only in chat mode) */}
         {activeNav === 'chat' && (
           <aside className="w-[360px] shrink-0 bg-white dark:bg-gray-900 border-l border-divider dark:border-gray-800 flex flex-col h-full overflow-hidden">
+            {/* 当前会话名称 — 醒目显示 */}
+            {activeSession && (
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
+                  <span className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider font-medium">
+                    当前会话
+                  </span>
+                </div>
+                <h3 className="mt-1 text-base font-bold text-gray-800 dark:text-gray-100 truncate">
+                  {activeSession.name}
+                </h3>
+              </div>
+            )}
             <ArtifactsPanel
               artifacts={artifacts.artifacts}
               loading={artifacts.loading}
