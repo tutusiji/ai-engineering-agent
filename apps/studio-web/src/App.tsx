@@ -430,7 +430,7 @@ export default function App() {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-[280px] shrink-0 bg-gray-50 overflow-auto h-full border-r border-divider">
+        <aside className="w-[280px] shrink-0 bg-gray-50 dark:bg-gray-900 overflow-auto h-full border-r border-divider dark:border-gray-800">
           <Sidebar
             sessions={sessions}
             activeSessionId={activeSessionId}
@@ -448,11 +448,11 @@ export default function App() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 flex flex-col bg-white h-full overflow-hidden">
+        <main className="flex-1 flex flex-col bg-white dark:bg-gray-950 h-full overflow-hidden">
           {activeNav === 'chat' && (
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
               {/* Tab bar */}
-              <div className="flex gap-0 px-4 bg-white border-b border-gray-200 shrink-0">
+              <div className="flex gap-0 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0">
                 {([
                   ['chat', Zap, '需求对话'],
                   ['architecture', Layers, '架构'],
@@ -532,7 +532,7 @@ export default function App() {
 
         {/* Right sidebar — Artifacts + Document panel (only in chat mode) */}
         {activeNav === 'chat' && (
-          <aside className="w-[360px] shrink-0 bg-white border-l border-divider flex flex-col h-full overflow-hidden">
+          <aside className="w-[360px] shrink-0 bg-white dark:bg-gray-900 border-l border-divider dark:border-gray-800 flex flex-col h-full overflow-hidden">
             <ArtifactsPanel
               artifacts={artifacts.artifacts}
               loading={artifacts.loading}

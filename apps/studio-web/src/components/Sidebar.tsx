@@ -72,7 +72,7 @@ export function Sidebar({
   };
 
   return (
-    <div className="w-[280px] bg-[#fafafa] border-r border-[#e8e8e8] flex flex-col h-full">
+    <div className="w-[280px] bg-[#fafafa] dark:bg-gray-900 border-r border-[#e8e8e8] dark:border-gray-800 flex flex-col h-full">
       {/* Navigation */}
       <div className="px-3 pt-3">
         <div className="flex flex-col gap-1">

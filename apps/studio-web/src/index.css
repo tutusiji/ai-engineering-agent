@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "@heroui/styles";
 
+/* 启用基于 .dark 类的暗色模式（HeroUI useTheme 在 <html> 上添加 .dark 类） */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Blinking cursor for streaming text */
 @keyframes blink {
   0%, 50% { opacity: 1; }
@@ -170,6 +173,7 @@ html, body, #root {
 
 /* ─── Dark Mode Overrides ─────────────────────────────────────────────── */
 /* HeroUI 的 useTheme hook 会在 <html> 上添加 .dark 或 .light 类 */
+/* Tailwind dark: 变体已通过 @custom-variant dark 启用 */
 
 html.dark body,
 html.dark #root {
@@ -177,30 +181,77 @@ html.dark #root {
   color: #e2e8f0;
 }
 
-/* 侧边栏 */
-html.dark aside.bg-gray-50,
-html.dark [class*="bg-gray-50"] {
-  background-color: #1e293b !important;
-  border-color: #334155 !important;
+/* ── 侧边栏 ── */
+html.dark .w-\[280px\].bg-\[\#fafafa\] {
+  background-color: #111827 !important;
 }
 
-html.dark [class*="bg-\\[\\#fafafa\\]"] {
-  background-color: #1e293b !important;
-  border-color: #334155 !important;
-}
-
-/* 主内容区 */
-html.dark main.bg-white,
-html.dark main [class*="bg-white"] {
-  background-color: #0f172a !important;
+html.dark .border-\[\#e8e8e8\] {
   border-color: #1e293b !important;
 }
 
-html.dark [class*="bg-white"] {
+/* 侧边栏中的会话卡片 */
+html.dark aside [class*="bg-white"] {
   background-color: #1e293b !important;
 }
 
-/* 文本颜色 */
+html.dark aside [class*="border-gray-200"] {
+  border-color: #334155 !important;
+}
+
+html.dark aside [class*="text-gray-800"] {
+  color: #e2e8f0 !important;
+}
+
+/* 侧边栏中 HeroUI button ghost variant 悬停 */
+html.dark aside button[class*="ghost"]:hover {
+  background-color: #1e293b !important;
+}
+
+/* ── 主内容区 ── */
+html.dark main.bg-white,
+html.dark main > [class*="bg-white"] {
+  background-color: #0f172a !important;
+}
+
+/* ── 聊天面板 ── */
+/* 消息区背景 */
+html.dark [class*="bg-default-50"] {
+  background-color: #0f172a !important;
+}
+
+/* 助手气泡 */
+html.dark [class*="rounded-\\[12px_12px_12px_4px\\]"] {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+/* 用户气泡 — inline style 无法用 class 覆盖，用父选择器 */
+html.dark [style*="background: #e8f0fe"],
+html.dark [style*="background:#e8f0fe"] {
+  background: #1e3a5f !important;
+}
+html.dark [style*="color: #1a1a1a"],
+html.dark [style*="color:#1a1a1a"] {
+  color: #e2e8f0 !important;
+}
+
+/* 输入区域 */
+html.dark [class*="border-default-200"] {
+  border-color: #334155 !important;
+}
+
+html.dark textarea[class*="border-default-300"] {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* ── 通用文本颜色 ── */
 html.dark .text-gray-800 { color: #f1f5f9 !important; }
 html.dark .text-gray-700 { color: #e2e8f0 !important; }
 html.dark .text-gray-600 { color: #cbd5e1 !important; }
@@ -208,24 +259,31 @@ html.dark .text-gray-500 { color: #94a3b8 !important; }
 html.dark .text-gray-400 { color: #64748b !important; }
 html.dark .text-gray-300 { color: #475569 !important; }
 
-/* 边框 */
+html.dark .text-\[\#888\] { color: #94a3b8 !important; }
+
+/* ── 通用边框 ── */
 html.dark .border-gray-200 { border-color: #334155 !important; }
 html.dark .border-gray-100 { border-color: #1e293b !important; }
 html.dark .border-gray-300 { border-color: #475569 !important; }
-html.dark .border-divider { border-color: #334155 !important; }
+html.dark .border-divider  { border-color: #334155 !important; }
 
-/* 输入框和卡片背景 */
+/* ── 通用背景色（非侧边栏）── */
 html.dark .bg-gray-50  { background-color: #1e293b !important; }
 html.dark .bg-gray-100 { background-color: #334155 !important; }
 html.dark .bg-gray-200 { background-color: #475569 !important; }
 
-html.dark .hover\:bg-gray-50:hover { background-color: #1e293b !important; }
+html.dark .hover\:bg-gray-50:hover  { background-color: #1e293b !important; }
 html.dark .hover\:bg-gray-100:hover { background-color: #334155 !important; }
 html.dark .hover\:bg-gray-200:hover { background-color: #475569 !important; }
 
-/* 代码块 */
+/* ── 通用白色背景 ── */
+html.dark .bg-white {
+  background-color: #1e293b !important;
+}
+
+/* ── 代码块 ── */
 html.dark .chat-markdown code {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   color: #e2e8f0;
 }
 
@@ -253,9 +311,31 @@ html.dark .chat-markdown hr {
   border-top-color: #334155;
 }
 
-/* 滚动条暗色主题 */
+html.dark .chat-markdown a {
+  color: #60a5fa;
+}
+
+/* ── 滚动条 ── */
 html.dark * {
   scrollbar-color: #475569 transparent;
+}
+
+/* ── 弹窗/模态框 ── */
+html.dark [class*="fixed"][class*="inset-0"] [class*="bg-white"] {
+  background-color: #1e293b !important;
+}
+
+/* ── 表格 ── */
+html.dark thead[class*="bg-gray-50"] {
+  background-color: #1e293b !important;
+}
+
+html.dark tbody[class*="bg-white"] {
+  background-color: #111827 !important;
+}
+
+html.dark tbody [class*="hover:bg-gray"]:hover {
+  background-color: #1e293b !important;
 }
 
 /* ─── Responsive adjustments ───────────────────────────────────────────── */

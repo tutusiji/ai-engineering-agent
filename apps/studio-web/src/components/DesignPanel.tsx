@@ -94,7 +94,7 @@ export function DesignPanel({ html, completeness, loading, versions, activeDesig
     <div className="h-full flex flex-col">
       {/* Version toolbar */}
       {versions.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b shrink-0">
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b dark:border-gray-700 shrink-0">
           <History className="w-4 h-4 text-gray-400" />
           <div className="relative flex-1">
             <button

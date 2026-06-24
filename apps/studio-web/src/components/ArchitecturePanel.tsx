@@ -135,7 +135,7 @@ export function ArchitecturePanel({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50 shrink-0 gap-2">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0 gap-2">
         {/* Left: version indicator + dropdown */}
         <div className="flex items-center gap-2 min-w-0">
           <Layers className="w-4 h-4 text-blue-500 shrink-0" />
@@ -242,7 +242,7 @@ export function ArchitecturePanel({
 
       {/* Markdown content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="bg-white border border-gray-100 rounded-xl p-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 rounded-xl p-6 max-w-4xl mx-auto">
           <div className="chat-markdown prose prose-sm max-w-none">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {markdown}
@@ -252,13 +252,13 @@ export function ArchitecturePanel({
       </div>
 
       {/* Refinement chat input */}
-      <div className="flex items-end gap-2 px-4 py-3 border-t border-gray-200 bg-white shrink-0">
+      <div className="flex items-end gap-2 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shrink-0">
         <textarea
           value={feedbackInput}
           onChange={(e) => setFeedbackInput(e.target.value)}
           placeholder="输入反馈来调整架构设计...（如：将数据库改为 MongoDB，添加 Redis 缓存层）"
           rows={2}
-          className="flex-1 resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm
+          className="flex-1 resize-none rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 dark:text-gray-200 px-3 py-2 text-sm
             outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100
             placeholder:text-gray-400"
           onKeyDown={(e) => {

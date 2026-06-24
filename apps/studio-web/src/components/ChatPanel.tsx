@@ -212,7 +212,7 @@ export function ChatPanel({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Action bar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-default-200 bg-white flex-shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-default-200 bg-white dark:bg-gray-900 flex-shrink-0">
         <Zap size={16} className="text-primary-500 shrink-0" />
         <div className="flex-1 flex items-center gap-2">
           <ProgressBar
@@ -229,7 +229,7 @@ export function ChatPanel({
       {/* Messages — scrollable area */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 bg-default-50 min-h-0"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 bg-default-50 dark:bg-gray-950 min-h-0"
       >
         {messages.length === 0 && !streaming && (
           <div className="text-center py-20 px-10 text-default-400">
@@ -259,7 +259,7 @@ export function ChatPanel({
                 className={`px-4 py-2.5 shadow-sm leading-7 max-w-full overflow-hidden ${
                   msg.role === 'user'
                     ? 'rounded-[16px_16px_4px_16px]'
-                    : 'bg-white text-gray-800 rounded-[12px_12px_12px_4px]'
+                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-[12px_12px_12px_4px]'
                 }`}
                 style={msg.role === 'user' ? { background: '#e8f0fe', color: '#1a1a1a' } : undefined}
               >
@@ -284,7 +284,7 @@ export function ChatPanel({
               >
                 <Bot className="text-white" size={16} />
               </div>
-              <div className="px-4 py-2.5 rounded-[12px_12px_12px_4px] bg-white text-gray-800 shadow-sm leading-7 max-w-full overflow-hidden">
+              <div className="px-4 py-2.5 rounded-[12px_12px_12px_4px] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm leading-7 max-w-full overflow-hidden">
                 <div className="chat-markdown">
                   {(() => {
                     let sc = streamContent;
@@ -315,7 +315,7 @@ export function ChatPanel({
               >
                 <Bot className="text-white" size={16} />
               </div>
-              <div className="px-4 py-2.5 rounded-xl bg-white shadow-sm flex items-center gap-2">
+              <div className="px-4 py-2.5 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex items-center gap-2">
                 <Spinner size="sm" />
                 <span className="text-default-400 text-sm">AI 思考中...</span>
               </div>
@@ -327,13 +327,13 @@ export function ChatPanel({
       </div>
 
       {/* Input — fixed height */}
-      <div className="flex items-end gap-2 px-4 py-3 border-t border-default-200 bg-white shrink-0 min-h-[72px]">
+      <div className="flex items-end gap-2 px-4 py-3 border-t border-default-200 bg-white dark:bg-gray-900 shrink-0 min-h-[72px]">
         <textarea
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="描述你的需求，或回答 AI 的问题..."
           rows={2}
-          className="flex-1 resize-none rounded-xl border border-default-300 bg-white px-3 py-2 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition"
+          className="flex-1 resize-none rounded-xl border border-default-300 bg-white dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600 px-3 py-2 text-sm outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-100 transition"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -496,7 +496,7 @@ function OpenQuestionsSection({
 
       {/* Batch answer area */}
       {expanded && (
-        <div className="flex flex-col gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+        <div className="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
           {questions.map((q, idx) => (
             <div key={idx} className="flex items-start gap-2">
               <span className="text-gray-400 text-xs mt-2 w-4 text-right flex-shrink-0">{idx + 1}.</span>
@@ -507,7 +507,7 @@ function OpenQuestionsSection({
                   onChange={(e) => handleAnswer(idx, e.target.value)}
                   placeholder="你的回答..."
                   rows={1}
-                  className="w-full resize-none rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition"
+                  className="w-full resize-none rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 px-2.5 py-1.5 text-sm text-gray-800 dark:text-gray-200 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition"
                 />
               </div>
             </div>
