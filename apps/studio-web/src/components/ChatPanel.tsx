@@ -258,16 +258,15 @@ export function ChatPanel({
               <div
                 className={`px-4 py-2.5 shadow-sm leading-7 max-w-full overflow-hidden ${
                   msg.role === 'user'
-                    ? 'rounded-[16px_16px_4px_16px]'
-                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-[12px_12px_12px_4px]'
+                    ? 'rounded-[16px_16px_4px_16px] bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-200'
+                    : 'rounded-[12px_12px_12px_4px] bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200'
                 }`}
-                style={msg.role === 'user' ? { background: '#e8f0fe', color: '#1a1a1a' } : undefined}
               >
                 <MessageContent content={msg.content} isUser={msg.role === 'user'} />
               </div>
               {msg.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-default-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <User className="text-default-500" size={16} />
+                <div className="w-8 h-8 rounded-full bg-default-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <User className="text-default-500 dark:text-gray-400" size={16} />
                 </div>
               )}
             </div>

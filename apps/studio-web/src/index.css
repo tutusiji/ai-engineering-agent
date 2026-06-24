@@ -226,16 +226,6 @@ html.dark [class*="rounded-\\[12px_12px_12px_4px\\]"] {
   color: #e2e8f0 !important;
 }
 
-/* 用户气泡 — inline style 无法用 class 覆盖，用父选择器 */
-html.dark [style*="background: #e8f0fe"],
-html.dark [style*="background:#e8f0fe"] {
-  background: #1e3a5f !important;
-}
-html.dark [style*="color: #1a1a1a"],
-html.dark [style*="color:#1a1a1a"] {
-  color: #e2e8f0 !important;
-}
-
 /* 输入区域 */
 html.dark [class*="border-default-200"] {
   border-color: #334155 !important;
