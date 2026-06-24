@@ -29,6 +29,7 @@ import { ArchitecturePanel } from './components/ArchitecturePanel';
 import { CodePanel } from './components/CodePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { RunHistory } from './components/RunHistory';
+import { ThemeToggle } from './components/ThemeToggle';
 
 const API = '/api';
 
@@ -377,6 +378,8 @@ export default function App() {
               {activeSession.name}
             </span>
           )}
+          {/* 主题切换按钮 */}
+          <ThemeToggle />
           {/* Model Switcher */}
           <div className="relative">
             <button

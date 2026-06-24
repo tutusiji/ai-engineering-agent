@@ -168,6 +168,96 @@ html, body, #root {
   font-style: italic;
 }
 
+/* ─── Dark Mode Overrides ─────────────────────────────────────────────── */
+/* HeroUI 的 useTheme hook 会在 <html> 上添加 .dark 或 .light 类 */
+
+html.dark body,
+html.dark #root {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+/* 侧边栏 */
+html.dark aside.bg-gray-50,
+html.dark [class*="bg-gray-50"] {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+html.dark [class*="bg-\\[\\#fafafa\\]"] {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+/* 主内容区 */
+html.dark main.bg-white,
+html.dark main [class*="bg-white"] {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+html.dark [class*="bg-white"] {
+  background-color: #1e293b !important;
+}
+
+/* 文本颜色 */
+html.dark .text-gray-800 { color: #f1f5f9 !important; }
+html.dark .text-gray-700 { color: #e2e8f0 !important; }
+html.dark .text-gray-600 { color: #cbd5e1 !important; }
+html.dark .text-gray-500 { color: #94a3b8 !important; }
+html.dark .text-gray-400 { color: #64748b !important; }
+html.dark .text-gray-300 { color: #475569 !important; }
+
+/* 边框 */
+html.dark .border-gray-200 { border-color: #334155 !important; }
+html.dark .border-gray-100 { border-color: #1e293b !important; }
+html.dark .border-gray-300 { border-color: #475569 !important; }
+html.dark .border-divider { border-color: #334155 !important; }
+
+/* 输入框和卡片背景 */
+html.dark .bg-gray-50  { background-color: #1e293b !important; }
+html.dark .bg-gray-100 { background-color: #334155 !important; }
+html.dark .bg-gray-200 { background-color: #475569 !important; }
+
+html.dark .hover\:bg-gray-50:hover { background-color: #1e293b !important; }
+html.dark .hover\:bg-gray-100:hover { background-color: #334155 !important; }
+html.dark .hover\:bg-gray-200:hover { background-color: #475569 !important; }
+
+/* 代码块 */
+html.dark .chat-markdown code {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+html.dark .chat-markdown pre {
+  background: #0f172a;
+  border: 1px solid #334155;
+}
+
+html.dark .chat-markdown blockquote {
+  background: rgba(59, 130, 246, 0.1);
+  border-left-color: #3b82f6;
+  color: #94a3b8;
+}
+
+html.dark .chat-markdown th {
+  background: #1e293b;
+}
+
+html.dark .chat-markdown th,
+html.dark .chat-markdown td {
+  border-color: #334155;
+}
+
+html.dark .chat-markdown hr {
+  border-top-color: #334155;
+}
+
+/* 滚动条暗色主题 */
+html.dark * {
+  scrollbar-color: #475569 transparent;
+}
+
 /* ─── Responsive adjustments ───────────────────────────────────────────── */
 
 @media (max-width: 768px) {

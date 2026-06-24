@@ -1,32 +1,11 @@
 /**
- * RunHistory — workflow run history with approval and artifact viewing
+ * RunHistory — 工作流运行历史面板
+ *
+ * 提供运行记录列表查看、详情弹窗（含执行阶段时间线、产物文件树、审批记录、执行结果）功能。
+ * 使用纯 HTML + Tailwind + lucide-react，与项目其他面板保持一致。
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Table,
-  TableHeader,
-  TableColumn,
-  TableBody,
-  TableRow,
-  TableCell,
-} from '@heroui/react/table';
-import {
-  Modal,
-  ModalBackdrop,
-  ModalContainer,
-  ModalDialog,
-  ModalHeader,
-  ModalHeading,
-  ModalBody,
-  ModalCloseTrigger,
-} from '@heroui/react/modal';
-import { Tabs, TabList, Tab, TabPanel } from '@heroui/react/tabs';
-import { Button } from '@heroui/react/button';
-import { Chip } from '@heroui/react/chip';
-import { Spinner } from '@heroui/react/spinner';
-import { Text } from '@heroui/react/text';
-import { EmptyState } from '@heroui/react/empty-state';
 import {
   History,
   RefreshCw,
@@ -39,10 +18,17 @@ import {
   Square,
   File,
   Folder,
+  X,
+  AlertCircle,
+  ChevronRight,
+  FileCode,
 } from 'lucide-react';
 
 const API = '/api';
 
+// ─── 类型定义 ─────────────────────────────────────────────────────
+
+/** 运行阶段 */
 interface RunStage {
   id: string;
   name: string;
@@ -54,6 +40,7 @@ interface RunStage {
   error?: string;
 }
 
+/** 审批记录 */
 interface ApprovalRecord {
   action: 'approved' | 'rejected';
   by: string;
@@ -61,6 +48,7 @@ interface ApprovalRecord {
   comment?: string;
 }
 
+/** 运行摘要（列表用） */
 interface RunSummary {
   id: string;
   workflowId: string;
@@ -73,6 +61,7 @@ interface RunSummary {
   artifactCount: number;
 }
 
+/** 运行详情 */
 interface RunDetail {
   id: string;
   workflowId: string;
@@ -88,13 +77,14 @@ interface RunDetail {
   result?: unknown;
 }
 
+/** 产物文件项 */
 interface ArtifactItem {
   path: string;
   size: number;
   modified: string;
 }
 
-// Helper: build a nested tree structure from flat file paths
+/** 文件树节点 */
 interface TreeNode {
   name: string;
   path: string;
@@ -102,6 +92,9 @@ interface TreeNode {
   children: TreeNode[];
 }
 
+// ─── 工具函数 ─────────────────────────────────────────────────────
+
+/** 从扁平路径构建嵌套文件树 */
 function buildTreeFromPaths(paths: string[]): TreeNode[] {
   const root: TreeNode[] = [];
   for (const p of paths) {
@@ -125,7 +118,23 @@ function buildTreeFromPaths(paths: string[]): TreeNode[] {
   return root;
 }
 
-// Custom FileTree component
+/** 格式化耗时 */
+function formatDuration(ms?: number) {
+  if (!ms) return '-';
+  return ms > 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+}
+
+/** 格式化时间 */
+function formatTime(ts: number) {
+  return new Date(ts).toLocaleString('zh-CN', {
+    month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+// ─── 子组件 ───────────────────────────────────────────────────────
+
+/** 文件树组件 */
 function FileTree({
   nodes,
   onSelect,
@@ -139,15 +148,12 @@ function FileTree({
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Auto-expand all on first render
+  // 首次渲染时自动展开所有目录
   useEffect(() => {
     const allFolders = new Set<string>();
     const collect = (ns: TreeNode[]) => {
       for (const n of ns) {
-        if (!n.isFile) {
-          allFolders.add(n.path);
-          collect(n.children);
-        }
+        if (!n.isFile) { allFolders.add(n.path); collect(n.children); }
       }
     };
     collect(nodes);
@@ -168,8 +174,8 @@ function FileTree({
       {nodes.map((node) => (
         <div key={node.path}>
           <div
-            className={`flex items-center gap-1.5 py-1 px-2 rounded-md cursor-pointer text-sm hover:bg-default-100 ${
-              selectedPath === node.path ? 'bg-primary-100 text-primary-700 font-medium' : ''
+            className={`flex items-center gap-1.5 py-1 px-2 rounded-md cursor-pointer text-sm transition-colors hover:bg-gray-100 ${
+              selectedPath === node.path ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-600'
             }`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
             onClick={() => {
@@ -181,13 +187,13 @@ function FileTree({
             }}
           >
             {!node.isFile ? (
-              <span className="text-default-500">
+              <span className="text-xs">
                 {expanded.has(node.path) ? '📂' : '📁'}
               </span>
             ) : (
-              <File size={14} className="text-default-400" />
+              <File size={14} className="text-gray-400 shrink-0" />
             )}
-            <span className="truncate">{node.name}</span>
+            <span className="truncate text-xs">{node.name}</span>
           </div>
           {!node.isFile && expanded.has(node.path) && (
             <FileTree
@@ -203,75 +209,51 @@ function FileTree({
   );
 }
 
-// Custom Timeline component
-function CustomTimeline({ items }: { items: { color: string; dot?: React.ReactNode; children: React.ReactNode }[] }) {
+/** 阶段状态标签 */
+function StageBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; text: string; label: string }> = {
+    pending:    { bg: 'bg-gray-100', text: 'text-gray-600', label: '等待中' },
+    running:    { bg: 'bg-blue-100', text: 'text-blue-700', label: '运行中' },
+    completed:  { bg: 'bg-emerald-100', text: 'text-emerald-700', label: '已完成' },
+    failed:     { bg: 'bg-red-100', text: 'text-red-700', label: '失败' },
+    skipped:    { bg: 'bg-amber-100', text: 'text-amber-700', label: '已跳过' },
+    'waiting-approval': { bg: 'bg-purple-100', text: 'text-purple-700', label: '待审批' },
+  };
+  const s = map[status] ?? { bg: 'bg-gray-100', text: 'text-gray-600', label: status };
   return (
-    <div className="relative pl-6">
-      {items.map((item, idx) => {
-        const borderColor =
-          item.color === 'green'
-            ? 'border-success'
-            : item.color === 'red'
-            ? 'border-danger'
-            : item.color === 'blue'
-            ? 'border-primary'
-            : 'border-default-300';
-        const bgDot =
-          item.color === 'green'
-            ? 'bg-success'
-            : item.color === 'red'
-            ? 'bg-danger'
-            : item.color === 'blue'
-            ? 'bg-primary'
-            : 'bg-default-300';
-        return (
-          <div key={idx} className="relative pb-6 last:pb-0">
-            {/* Vertical line */}
-            {idx < items.length - 1 && (
-              <div className={`absolute left-[-19px] top-4 bottom-0 w-0.5 ${bgDot} opacity-30`} />
-            )}
-            {/* Dot */}
-            <div className={`absolute left-[-23px] top-1.5 w-3 h-3 rounded-full border-2 ${borderColor} bg-background`} />
-            {/* Content */}
-            <div>{item.children}</div>
-          </div>
-        );
-      })}
-    </div>
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${s.bg} ${s.text}`}>
+      {s.label}
+    </span>
   );
 }
 
-// Empty state placeholder (uses HeroUI EmptyState)
-function RunEmptyState({ children }: { children: React.ReactNode }) {
+/** 运行状态标签 */
+function RunStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; text: string; icon: React.ReactNode; label: string }> = {
+    pending:    { bg: 'bg-gray-100', text: 'text-gray-600', icon: <Clock size={10} />, label: '等待中' },
+    running:    { bg: 'bg-blue-100', text: 'text-blue-700', icon: <Loader2 size={10} className="animate-spin" />, label: '运行中' },
+    completed:  { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: <CheckCircle2 size={10} />, label: '已完成' },
+    failed:     { bg: 'bg-red-100', text: 'text-red-700', icon: <XCircle size={10} />, label: '失败' },
+    'waiting-approval': { bg: 'bg-purple-100', text: 'text-purple-700', icon: <Clock size={10} />, label: '待审批' },
+  };
+  const s = map[status] ?? { bg: 'bg-gray-100', text: 'text-gray-600', icon: null, label: status };
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-default-400">
-      <History size={48} className="mb-3 opacity-40" />
-      <Text className="text-default-400">{children}</Text>
-    </div>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${s.bg} ${s.text}`}>
+      {s.icon}
+      {s.label}
+    </span>
   );
 }
 
-// Descriptions replacement: key-value grid
-function DescriptionGrid({
-  items,
-}: {
-  items: { label: string; value: React.ReactNode }[];
-}) {
-  return (
-    <div className="grid grid-cols-3 gap-x-6 gap-y-3 mb-4 p-4 bg-default-50 rounded-lg">
-      {items.map((item) => (
-        <div key={item.label} className="flex flex-col">
-          <Text className="text-xs text-default-400 mb-0.5">{item.label}</Text>
-          <Text className="text-sm font-medium">{item.value}</Text>
-        </div>
-      ))}
-    </div>
-  );
-}
+// ─── 主组件 ───────────────────────────────────────────────────────
 
+/**
+ * 运行历史面板组件
+ */
 export function RunHistory() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [detailRun, setDetailRun] = useState<RunDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [artifacts, setArtifacts] = useState<ArtifactItem[]>([]);
@@ -279,15 +261,22 @@ export function RunHistory() {
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [approvalLoading, setApprovalLoading] = useState(false);
   const [selectedArtifactPath, setSelectedArtifactPath] = useState<string | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<string>('stages');
 
+  /** 刷新运行历史列表 */
   const refresh = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`${API}/runs`);
       const data = await res.json();
-      setRuns(data);
+      if (Array.isArray(data)) {
+        setRuns(data);
+      } else {
+        setError('运行历史数据格式异常');
+      }
     } catch {
-      console.error('加载运行历史失败');
+      setError('加载运行历史失败，请检查服务是否启动');
     } finally {
       setLoading(false);
     }
@@ -297,48 +286,51 @@ export function RunHistory() {
     refresh();
   }, []);
 
+  /** 查看运行详情 */
   const showDetail = async (runId: string) => {
     setDetailLoading(true);
     setArtifacts([]);
     setArtifactContent(null);
     setSelectedArtifactPath(null);
+    setActiveDetailTab('stages');
     try {
       const res = await fetch(`${API}/runs/${runId}`);
       const data = await res.json();
       setDetailRun(data);
 
-      // Load artifacts
+      // 加载产物列表
       const artRes = await fetch(`${API}/runs/${runId}/artifacts`);
       if (artRes.ok) {
         const artData = await artRes.json();
-        setArtifacts(artData);
+        setArtifacts(Array.isArray(artData) ? artData : []);
       }
     } catch {
-      console.error('加载详情失败');
+      setDetailRun(null);
     } finally {
       setDetailLoading(false);
     }
   };
 
-  const loadArtifact = async (runId: string, filePath: string) => {
+  /** 加载产物文件内容 */
+  const loadArtifact = async (path: string) => {
+    if (!detailRun) return;
     setArtifactLoading(true);
     setArtifactContent(null);
-    setSelectedArtifactPath(filePath);
+    setSelectedArtifactPath(path);
     try {
-      const res = await fetch(`${API}/runs/${runId}/artifacts/${filePath}`);
+      const res = await fetch(`${API}/runs/${detailRun.id}/artifacts/${path}`);
       if (res.ok) {
         const content = await res.text();
         setArtifactContent(content);
-      } else {
-        console.error('加载文件失败');
       }
     } catch {
-      console.error('加载文件失败');
+      setArtifactContent('加载文件内容失败');
     } finally {
       setArtifactLoading(false);
     }
   };
 
+  /** 审批操作 */
   const handleApproval = async (action: 'approve' | 'reject') => {
     if (!detailRun) return;
     setApprovalLoading(true);
@@ -349,281 +341,322 @@ export function RunHistory() {
         body: JSON.stringify({ by: 'user' }),
       });
       if (res.ok) {
-        console.log(action === 'approve' ? '已批准' : '已拒绝');
-        // Refresh detail
         showDetail(detailRun.id);
         refresh();
-      } else {
-        const err = await res.json();
-        console.error(err.error ?? '操作失败');
       }
     } catch {
-      console.error('操作失败');
+      // 忽略错误
     } finally {
       setApprovalLoading(false);
     }
   };
 
-  const getStageChipColor = (status: string): 'default' | 'accent' | 'success' | 'danger' | 'warning' => {
-    const map: Record<string, 'default' | 'accent' | 'success' | 'danger' | 'warning'> = {
-      pending: 'default',
-      running: 'accent',
-      completed: 'success',
-      failed: 'danger',
-      skipped: 'warning',
-      'waiting-approval': 'warning',
-    };
-    return map[status] ?? 'default';
-  };
-
-  const getStageIcon = (status: string) => {
-    const iconProps = { size: 14 };
-    const map: Record<string, React.ReactNode> = {
-      pending: <Clock {...iconProps} />,
-      running: <Loader2 {...iconProps} className="animate-spin" />,
-      completed: <CheckCircle2 {...iconProps} />,
-      failed: <XCircle {...iconProps} />,
-      skipped: <Clock {...iconProps} />,
-      'waiting-approval': <Clock {...iconProps} />,
-    };
-    return map[status];
-  };
-
-  const stageTimelineColor = (status: string) => {
-    if (status === 'completed') return 'green';
-    if (status === 'failed') return 'red';
-    if (status === 'running') return 'blue';
-    return 'gray';
-  };
-
-  const formatDuration = (ms?: number) => {
-    if (!ms) return '-';
-    return ms > 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
-  };
-
   const handleArtifactSelect = useCallback(
     (path: string) => {
-      if (detailRun) {
-        loadArtifact(detailRun.id, path);
-      }
+      loadArtifact(path);
     },
     [detailRun]
   );
 
   const artifactTree = buildTreeFromPaths(artifacts.map((a) => a.path));
 
+  /** 判断是否为代码文件（用于语法高亮外观） */
+  const isCodeFile = (path: string) => {
+    const codeExts = ['.ts', '.tsx', '.js', '.jsx', '.json', '.css', '.html', '.yaml', '.yml', '.md', '.py', '.go', '.rs', '.java'];
+    return codeExts.some(ext => path.endsWith(ext));
+  };
+
+  // ── 加载状态 ──
+  if (loading && runs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-20 text-gray-400">
+        <Loader2 size={40} className="animate-spin mb-3 text-blue-500" />
+        <p className="text-sm">正在加载运行历史...</p>
+      </div>
+    );
+  }
+
+  // ── 错误状态 ──
+  if (error && runs.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-20 text-gray-400">
+        <AlertCircle size={40} className="mb-3 text-amber-500" />
+        <p className="text-sm text-gray-600 mb-2">{error}</p>
+        <button
+          onClick={refresh}
+          className="px-4 py-2 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          重试
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-bold flex items-center gap-2">
-          <History size={20} />
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* 页面标题 */}
+      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 shrink-0">
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <History size={20} className="text-blue-500" />
           运行历史
         </h3>
-        <Button
-          variant="outline"
-          onPress={refresh}
-          isDisabled={loading}
+        <button
+          onClick={refresh}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg
+            hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           刷新
-        </Button>
+        </button>
       </div>
 
-      {runs.length === 0 ? (
-        <EmptyState><span className="text-default-400">暂无运行记录</span></EmptyState>
-      ) : (
-        <Table aria-label="运行历史表格" variant="primary">
-          <TableHeader>
-            <TableColumn>ID</TableColumn>
-            <TableColumn>工作流</TableColumn>
-            <TableColumn>状态</TableColumn>
-            <TableColumn>产物</TableColumn>
-            <TableColumn>开始时间</TableColumn>
-            <TableColumn>耗时</TableColumn>
-            <TableColumn>操作</TableColumn>
-          </TableHeader>
-          <TableBody >
-            {runs.map((run) => (
-              <TableRow key={run.id}>
-                <TableCell>
-                  <code className="text-xs bg-default-100 px-1.5 py-0.5 rounded">
-                    {run.id}
-                  </code>
-                </TableCell>
-                <TableCell>
-                  <Chip color="accent" variant="soft" size="sm">
-                    {run.workflowName || run.workflowId}
-                  </Chip>
-                </TableCell>
-                <TableCell>
-<Chip
-                        color={getStageChipColor(run.status)}
-                        variant="soft"
-                        size="sm"
+      {/* 主体内容 */}
+      <div className="flex-1 overflow-auto p-6">
+        {runs.length === 0 ? (
+          /* 空状态 */
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <History size={48} className="mb-3 opacity-30" />
+            <p className="text-sm">暂无运行记录</p>
+            <p className="text-xs mt-1 text-gray-300">运行工作流后，执行记录将显示在此处</p>
+          </div>
+        ) : (
+          /* 运行列表表格 */
+          <div className="overflow-hidden rounded-xl border border-gray-200">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  {['运行 ID', '工作流', '状态', '产物', '开始时间', '耗时', '操作'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {runs.map((run) => (
+                  <tr key={run.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded font-mono text-gray-600 truncate max-w-[120px] block">
+                        {run.id}
+                      </code>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-blue-50 text-blue-700">
+                        {run.workflowName || run.workflowId}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <RunStatusBadge status={run.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {run.artifactCount > 0 ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                          <File size={12} />
+                          {run.artifactCount} 文件
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-500">{formatTime(run.startedAt)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-500 font-mono">{formatDuration(run.duration)}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => showDetail(run.id)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg
+                          hover:bg-blue-100 transition-colors"
                       >
-                        <span className="inline-flex items-center gap-1">{getStageIcon(run.status)} {run.status}</span>
-                      </Chip>
-                </TableCell>
-                <TableCell>
-                  {run.artifactCount > 0 ? (
-                    <Chip color="success" variant="soft" size="sm">
-                      {run.artifactCount} 文件
-                    </Chip>
-                  ) : (
-                    <Text className="text-default-400">-</Text>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Text className="text-sm">{new Date(run.startedAt).toLocaleString()}</Text>
-                </TableCell>
-                <TableCell>
-                  <Text className="text-sm">{formatDuration(run.duration)}</Text>
-                </TableCell>
-                <TableCell>
-<Button
-                        size="sm"
-                        variant="ghost"
-                        onPress={() => showDetail(run.id)}
-                      >
-                        <Eye size={14} className="inline mr-1" /> 详情
-                      </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      )}
+                        <Eye size={12} />
+                        详情
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
-      {/* Detail modal */}
-      <Modal
-        isOpen={!!detailRun}
-        onOpenChange={(open) => {
-          if (!open) setDetailRun(null);
-        }}
-        
-      >
-        <ModalBackdrop />
-        <ModalContainer size="lg">
-          <ModalDialog>
-            <ModalHeader>
-              <ModalHeading>运行详情</ModalHeading>
-              <ModalCloseTrigger />
-            </ModalHeader>
-            <ModalBody>
+      {/* ─── 详情弹窗 ─── */}
+      {detailRun !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* 遮罩 */}
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setDetailRun(null)}
+          />
+
+          {/* 弹窗内容 */}
+          <div className="relative z-10 w-[90vw] max-w-3xl max-h-[85vh] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
+            {/* 弹窗标题栏 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <h4 className="text-base font-semibold text-gray-800">运行详情</h4>
+              <button
+                onClick={() => setDetailRun(null)}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* 弹窗内容 */}
+            <div className="flex-1 overflow-auto">
               {detailLoading ? (
                 <div className="flex justify-center items-center py-20">
-                  <Spinner size="lg" />
+                  <Loader2 size={32} className="animate-spin text-blue-500" />
                 </div>
               ) : detailRun ? (
-                <div>
-                  <DescriptionGrid
-                    items={[
-                      {
-                        label: '工作流',
-                        value: detailRun.workflowName || detailRun.workflowId,
-                      },
-                      {
-                        label: '状态',
-                        value: (
-                          <Chip
-                            color={getStageChipColor(detailRun.status)}
-                            variant="soft"
-                            size="sm"
-                          >
-                            {detailRun.status}
-                          </Chip>
-                        ),
-                      },
-                      {
-                        label: '耗时',
-                        value: formatDuration(detailRun.duration),
-                      },
-                    ]}
-                  />
+                <div className="p-6">
+                  {/* 摘要信息 */}
+                  <div className="grid grid-cols-3 gap-4 mb-6 p-4 rounded-xl bg-gray-50">
+                    {[
+                      ['工作流', detailRun.workflowName || detailRun.workflowId],
+                      ['状态', detailRun.status],
+                      ['耗时', formatDuration(detailRun.duration)],
+                      ['开始时间', formatTime(detailRun.startedAt)],
+                      ['运行 ID', detailRun.id],
+                      ['产物数', `${artifacts.length} 个文件`],
+                    ].map(([label, value]) => (
+                      <div key={label as string} className="flex flex-col">
+                        <span className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</span>
+                        <span className="text-sm font-medium text-gray-700 mt-0.5">{String(value)}</span>
+                      </div>
+                    ))}
+                  </div>
 
-                  {/* Approval buttons */}
+                  {/* 审批按钮 */}
                   {detailRun.status === 'waiting-approval' && (
-                    <div className="flex items-center justify-center gap-3 mb-4 p-3 bg-warning-50 rounded-lg">
-<Button
-                          variant="primary"
-                          isDisabled={approvalLoading}
-                          onPress={() => handleApproval('approve')}
-                        >
-                          <Check size={16} className="inline mr-1" /> 批准
-                        </Button>
-<Button
-                          variant="danger"
-                          isDisabled={approvalLoading}
-                          onPress={() => handleApproval('reject')}
-                        >
-                          <Square size={16} className="inline mr-1" /> 拒绝
-                        </Button>
+                    <div className="flex items-center justify-center gap-3 mb-6 p-4 rounded-xl bg-purple-50 border border-purple-100">
+                      <button
+                        disabled={approvalLoading}
+                        onClick={() => handleApproval('approve')}
+                        className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-emerald-600 rounded-lg
+                          hover:bg-emerald-700 disabled:opacity-40 transition-colors"
+                      >
+                        <Check size={14} />
+                        批准
+                      </button>
+                      <button
+                        disabled={approvalLoading}
+                        onClick={() => handleApproval('reject')}
+                        className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-red-600 rounded-lg
+                          hover:bg-red-700 disabled:opacity-40 transition-colors"
+                      >
+                        <Square size={14} />
+                        拒绝
+                      </button>
                     </div>
                   )}
 
-                  <Tabs aria-label="运行详情标签页" variant="primary">
-                    <TabList>
-                      <Tab id="stages">执行阶段</Tab>
-                      <Tab id="artifacts">产物 ({artifacts.length})</Tab>
-                      <Tab id="approvals">审批记录 ({detailRun.approvalHistory.length})</Tab>
-                      <Tab id="result">执行结果</Tab>
-                    </TabList>
-                    <TabPanel id="stages">
-                      <div className="py-4">
+                  {/* 详情标签页 */}
+                  <div>
+                    {/* Tab 栏 */}
+                    <div className="flex gap-0 border-b border-gray-200 mb-4">
+                      {[
+                        ['stages', '执行阶段'],
+                        ['artifacts', `产物 (${artifacts.length})`],
+                        ['approvals', `审批记录 (${detailRun.approvalHistory.length})`],
+                        ['result', '执行结果'],
+                      ].map(([id, label]) => (
+                        <button
+                          key={id}
+                          onClick={() => setActiveDetailTab(id)}
+                          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-all -mb-[1px] ${
+                            activeDetailTab === id
+                              ? 'text-blue-600 border-blue-600'
+                              : 'text-gray-400 border-transparent hover:text-gray-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* 执行阶段 */}
+                    {activeDetailTab === 'stages' && (
+                      <div className="py-2">
                         {detailRun.stages.length > 0 ? (
-                          <CustomTimeline
-                            items={detailRun.stages.map((stage) => ({
-                              color: stageTimelineColor(stage.status),
-                              children: (
-                                <div>
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <Text className="font-semibold">{stage.name}</Text>
-                                    <Chip
-                                      color={getStageChipColor(stage.status)}
-                                      variant="soft"
-                                      size="sm"
-                                    >
-                                      {stage.status}
-                                    </Chip>
-                                    {stage.nodeType && (
-                                      <Chip variant="soft" size="sm">
-                                        {stage.nodeType}
-                                      </Chip>
+                          <div className="relative pl-8">
+                            {detailRun.stages.map((stage, i) => {
+                              const isLast = i === detailRun.stages.length - 1;
+                              const colorMap: Record<string, string> = {
+                                completed: 'border-emerald-400 bg-emerald-50',
+                                failed: 'border-red-400 bg-red-50',
+                                running: 'border-blue-400 bg-blue-50',
+                                'waiting-approval': 'border-purple-400 bg-purple-50',
+                              };
+                              const lineMap: Record<string, string> = {
+                                completed: 'bg-emerald-200',
+                                failed: 'bg-red-200',
+                                running: 'bg-blue-200',
+                                'waiting-approval': 'bg-purple-200',
+                              };
+                              const dotStyle = colorMap[stage.status] ?? 'border-gray-300 bg-gray-50';
+                              const lineStyle = lineMap[stage.status] ?? 'bg-gray-200';
+
+                              return (
+                                <div key={stage.id} className="relative pb-6 last:pb-0">
+                                  {!isLast && (
+                                    <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${lineStyle}`} />
+                                  )}
+                                  <div className={`absolute left-[-21px] top-1 w-2.5 h-2.5 rounded-full border-2 ${dotStyle}`} />
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-sm font-semibold text-gray-800">{stage.name}</span>
+                                      <StageBadge status={stage.status} />
+                                      {stage.nodeType && (
+                                        <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                                          {stage.nodeType}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {stage.error && (
+                                      <pre className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded-lg whitespace-pre-wrap">
+                                        {stage.error}
+                                      </pre>
                                     )}
                                   </div>
-                                  {stage.error && (
-                                    <pre className="text-xs text-danger mt-1 bg-danger-50 p-2 rounded">
-                                      {stage.error}
-                                    </pre>
-                                  )}
                                 </div>
-                              ),
-                            }))}
-                          />
+                              );
+                            })}
+                          </div>
                         ) : (
-                          <RunEmptyState>无执行阶段数据</RunEmptyState>
+                          <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                            <AlertCircle size={32} className="mb-2 opacity-40" />
+                            <p className="text-sm">无执行阶段数据</p>
+                          </div>
                         )}
                       </div>
-                    </TabPanel>
+                    )}
 
-                    <TabPanel id="artifacts">
-                      <div className="py-4">
+                    {/* 产物 */}
+                    {activeDetailTab === 'artifacts' && (
+                      <div className="py-2">
                         {artifacts.length > 0 ? (
                           <div className="flex gap-4">
-                            <div className="w-60 min-w-[200px] border-r border-default-200 pr-4 overflow-auto max-h-[400px]">
+                            {/* 文件树侧栏 */}
+                            <div className="w-56 min-w-[180px] border-r border-gray-100 pr-3 overflow-auto max-h-[350px]">
                               <FileTree
                                 nodes={artifactTree}
                                 onSelect={handleArtifactSelect}
                                 selectedPath={selectedArtifactPath}
                               />
                             </div>
+                            {/* 文件内容 */}
                             <div className="flex-1 min-h-[300px]">
                               {artifactLoading ? (
                                 <div className="flex justify-center items-center h-[300px]">
-                                  <Spinner size="lg" />
+                                  <Loader2 size={24} className="animate-spin text-blue-500" />
                                 </div>
                               ) : artifactContent ? (
                                 <pre
-                                  className="text-xs p-4 rounded-lg overflow-auto max-h-[400px] whitespace-pre-wrap break-all"
+                                  className="text-xs p-4 rounded-lg overflow-auto max-h-[350px] whitespace-pre-wrap break-all font-mono"
                                   style={{
                                     background: '#1e1e1e',
                                     color: '#d4d4d4',
@@ -632,82 +665,98 @@ export function RunHistory() {
                                   {artifactContent}
                                 </pre>
                               ) : (
-                                <div className="flex flex-col items-center justify-center h-[300px] text-default-400">
-                                  <File size={40} className="mb-2 opacity-40" />
-                                  <Text className="text-default-400">选择文件查看内容</Text>
+                                <div className="flex flex-col items-center justify-center h-[300px] text-gray-400">
+                                  <FileCode size={40} className="mb-2 opacity-30" />
+                                  <p className="text-sm">选择左侧文件查看内容</p>
                                 </div>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <RunEmptyState>暂无产物</RunEmptyState>
+                          <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                            <File size={32} className="mb-2 opacity-40" />
+                            <p className="text-sm">暂无产物</p>
+                          </div>
                         )}
                       </div>
-                    </TabPanel>
+                    )}
 
-                    <TabPanel id="approvals">
-                      <div className="py-4">
+                    {/* 审批记录 */}
+                    {activeDetailTab === 'approvals' && (
+                      <div className="py-2">
                         {detailRun.approvalHistory.length > 0 ? (
-                          <CustomTimeline
-                            items={detailRun.approvalHistory.map((a) => ({
-                              color: a.action === 'approved' ? 'green' : 'red',
-                              children: (
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <Chip
-                                      color={a.action === 'approved' ? 'success' : 'danger'}
-                                      variant="soft"
-                                      size="sm"
-                                    >
-                                      {a.action === 'approved' ? '批准' : '拒绝'}
-                                    </Chip>
-                                    <Text>{a.by}</Text>
-                                    <Text className="text-xs text-default-400">
-                                      {new Date(a.at).toLocaleString()}
-                                    </Text>
-                                  </div>
-                                  {a.comment && (
-                                    <div className="mt-1">
-                                      <Text className="text-sm">{a.comment}</Text>
-                                    </div>
+                          <div className="relative pl-8">
+                            {detailRun.approvalHistory.map((a, i) => {
+                              const isLast = i === detailRun.approvalHistory.length - 1;
+                              const isApproved = a.action === 'approved';
+                              const dotStyle = isApproved ? 'border-emerald-400 bg-emerald-50' : 'border-red-400 bg-red-50';
+                              const lineStyle = isApproved ? 'bg-emerald-200' : 'bg-red-200';
+
+                              return (
+                                <div key={i} className="relative pb-6 last:pb-0">
+                                  {!isLast && (
+                                    <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${lineStyle}`} />
                                   )}
+                                  <div className={`absolute left-[-21px] top-1 w-2.5 h-2.5 rounded-full border-2 ${dotStyle}`} />
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                        isApproved ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                                      }`}>
+                                        {isApproved ? '批准' : '拒绝'}
+                                      </span>
+                                      <span className="text-sm text-gray-700">{a.by}</span>
+                                      <span className="text-xs text-gray-400">{formatTime(a.at)}</span>
+                                    </div>
+                                    {a.comment && (
+                                      <p className="mt-1 text-sm text-gray-600">{a.comment}</p>
+                                    )}
+                                  </div>
                                 </div>
-                              ),
-                            }))}
-                          />
+                              );
+                            })}
+                          </div>
                         ) : (
-                          <RunEmptyState>暂无审批记录</RunEmptyState>
+                          <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                            <Clock size={32} className="mb-2 opacity-40" />
+                            <p className="text-sm">暂无审批记录</p>
+                          </div>
                         )}
                       </div>
-                    </TabPanel>
+                    )}
 
-                    <TabPanel id="result">
-                      <div className="py-4">
+                    {/* 执行结果 */}
+                    {activeDetailTab === 'result' && (
+                      <div className="py-2">
                         {detailRun.result ? (
-                          <pre className="text-xs bg-default-50 p-3 rounded-lg overflow-auto max-h-[400px]">
+                          <pre className="text-xs bg-gray-50 p-4 rounded-lg overflow-auto max-h-[350px] font-mono text-gray-700">
                             {JSON.stringify(detailRun.result, null, 2)}
                           </pre>
                         ) : (
-                          <RunEmptyState>无执行结果</RunEmptyState>
+                          <div className="flex flex-col items-center justify-center py-10 text-gray-400">
+                            <FileCode size={32} className="mb-2 opacity-40" />
+                            <p className="text-sm">无执行结果</p>
+                          </div>
                         )}
                       </div>
-                    </TabPanel>
-                  </Tabs>
+                    )}
+                  </div>
 
+                  {/* 错误信息 */}
                   {detailRun.error && (
-                    <div className="mt-4">
-                      <h5 className="text-sm font-bold text-danger mb-2">错误信息</h5>
-                      <pre className="text-xs bg-danger-50 text-danger p-3 rounded-lg">
+                    <div className="mt-6 p-4 rounded-xl bg-red-50 border border-red-100">
+                      <h5 className="text-sm font-semibold text-red-700 mb-2">错误信息</h5>
+                      <pre className="text-xs text-red-600 whitespace-pre-wrap font-mono">
                         {detailRun.error}
                       </pre>
                     </div>
                   )}
                 </div>
               ) : null}
-            </ModalBody>
-          </ModalDialog>
-        </ModalContainer>
-      </Modal>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
