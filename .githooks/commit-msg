@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# Git commit-msg hook — 强制 git 提交信息使用中文
+#
+# 用法: 自动由 git 在 commit 时调用
+# 安装: git config core.hooksPath .githooks
+
+set -e
+
+COMMIT_MSG_FILE="$1"
+
+# 获取提交信息的第一行（subject）
+SUBJECT=$(head -1 "$COMMIT_MSG_FILE")
+
+# 检查是否包含中文字符 (Unicode 范围: 一-鿿)
+if ! echo "$SUBJECT" | grep -qP '[\x{4e00}-\x{9fff}]'; then
+  echo ""
+  echo "❌ Git 提交信息必须使用中文！"
+  echo ""
+  echo "   当前提交信息: $SUBJECT"
+  echo ""
+  echo "   正确格式示例:"
+  echo "   feat: 新增用户登录功能"
+  echo "   fix: 修复导航栏样式错位"
+  echo "   chore: 更新依赖版本"
+  echo "   docs: 补充架构设计文档"
+  echo ""
+  echo "   允许的类型: feat | fix | docs | style | refactor | perf | test | chore | revert"
+  echo ""
+  exit 1
+fi
+
+# 检查类型前缀是否正确
+TYPE=$(echo "$SUBJECT" | grep -oP '^[a-z]+' || true)
+VALID_TYPES="feat|fix|docs|style|refactor|perf|test|chore|revert"
+
+if ! echo "$TYPE" | grep -qE "^($VALID_TYPES)$"; then
+  echo ""
+  echo "⚠️  提交信息缺少标准类型前缀。"
+  echo ""
+  echo "   当前提交信息: $SUBJECT"
+  echo ""
+  echo "   建议格式: <类型>: <中文描述>"
+  echo "   允许类型: $VALID_TYPES"
+  echo ""
+  echo "   (将你的提交信息修正为上述类型之一即可通过)"
+  echo ""
+fi
+
+exit 0
