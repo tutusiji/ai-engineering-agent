@@ -106,7 +106,7 @@ export function Sidebar({
       {activeNav === 'chat' && (
         <>
           <div className="flex items-center justify-between px-3 pb-2">
-            <Text className="text-xs text-[#888] font-semibold">会话列表</Text>
+            <Text className="text-xs text-[#888] dark:text-gray-400 font-semibold">会话列表</Text>
             <Tooltip>
               <TooltipTrigger>
                 <Button isIconOnly variant="ghost" size="sm" onPress={onCreateSession}>
@@ -125,8 +125,8 @@ export function Sidebar({
                 onClick={() => onSelectSession(s.id)}
                 className={`relative px-3 py-2.5 mb-2 rounded-xl cursor-pointer transition-all border shadow-sm ${
                   activeSessionId === s.id
-                    ? 'bg-blue-50 border-blue-400 shadow-blue-100'
-                    : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
+                    ? 'bg-blue-50 dark:bg-blue-950 border-blue-400 dark:border-blue-600 shadow-blue-100 dark:shadow-blue-900/30'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -160,37 +160,37 @@ export function Sidebar({
                     <>
                       <div className="flex items-center gap-1.5 flex-1 min-w-0">
                         {s.pinned && <Pin size={12} className="text-blue-500 shrink-0 fill-blue-500" />}
-                        <Text className="text-[13px] font-semibold text-gray-800 truncate">{s.name}</Text>
+                        <Text className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 truncate">{s.name}</Text>
                       </div>
                       {/* Three-dot menu */}
                       <div className="relative">
                         <button
                           onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === s.id ? null : s.id); }}
-                          className="p-1 rounded-md hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition cursor-pointer"
+                          className="p-1 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition cursor-pointer"
                         >
                           <MoreHorizontal size={14} />
                         </button>
                         {menuOpenId === s.id && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }} />
-                            <div className="absolute right-0 top-full mt-1 z-50 w-32 rounded-lg bg-white border border-gray-200 shadow-xl py-1">
+                            <div className="absolute right-0 top-full mt-1 z-50 w-32 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-xl py-1">
                               <button
                                 onClick={(e) => { e.stopPropagation(); onTogglePin(s.id); setMenuOpenId(null); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
                               >
                                 <Pin size={12} className={s.pinned ? 'text-blue-500 fill-blue-500' : ''} />
                                 {s.pinned ? '取消置顶' : '置顶'}
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); startEdit(s); setMenuOpenId(null); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
                               >
                                 <Pencil size={12} />
                                 重命名
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition cursor-pointer"
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 transition cursor-pointer"
                               >
                                 <Trash2 size={12} />
                                 删除
@@ -204,7 +204,7 @@ export function Sidebar({
                 </div>
 
                 {s.featureName && (
-                  <Text className="text-[11px] text-gray-500 mt-0.5 truncate">{s.featureName}</Text>
+                  <Text className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">{s.featureName}</Text>
                 )}
 
                 <div className="flex items-center gap-2 mt-1.5">
@@ -215,7 +215,7 @@ export function Sidebar({
                     color={s.completeness >= 80 ? 'success' : 'default'}
                     aria-label="Session completeness"
                   />
-                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded-full leading-none">
+                  <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full leading-none">
                     {s.messageCount}
                   </span>
                 </div>
@@ -223,7 +223,7 @@ export function Sidebar({
                 {/* Delete confirmation bar */}
                 {confirmDeleteId === s.id && (
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="text-[11px] text-gray-500 flex-1">确认删除?</span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-1">确认删除?</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onDeleteSession(s.id); setConfirmDeleteId(null); }}
                       className="px-2 py-0.5 rounded text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 transition cursor-pointer"
@@ -232,7 +232,7 @@ export function Sidebar({
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}
-                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition cursor-pointer"
+                      className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition cursor-pointer"
                     >
                       取消
                     </button>
@@ -242,7 +242,7 @@ export function Sidebar({
             ))}
 
             {sessions.length === 0 && (
-              <div className="text-center py-6 text-gray-400">
+              <div className="text-center py-6 text-gray-400 dark:text-gray-500">
                 <MessageSquare size={32} className="mx-auto mb-2" />
                 <div className="text-xs">暂无会话</div>
                 <Button
