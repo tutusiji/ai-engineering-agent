@@ -609,9 +609,8 @@ export function DocumentPanel({
     <div className="h-full flex flex-col">
       {/* Fixed header area */}
       <div className="p-4 pb-2 shrink-0 flex flex-col gap-3">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-        <h5 className="text-lg font-semibold truncate flex-1">📋 {d.featureName || '未命名功能'}</h5>
+        {/* Header actions */}
+        <div className="flex items-center justify-end">
         <div className="flex gap-1 shrink-0">
           <button
             onClick={onGenerate}
