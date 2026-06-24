@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   ChevronRight,
   AlertCircle,
+  Clock,
 } from 'lucide-react';
 
 const API = '/api';
@@ -27,14 +28,28 @@ interface Workflow {
   stages: string[];
 }
 
-/** 工作流执行记录 */
+/** 工作流执行阶段 */
+interface RunStage {
+  id: string;
+  name: string;
+  nodeType: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting-approval';
+  startedAt?: number;
+  completedAt?: number;
+  error?: string;
+}
+
+/** 工作流执行记录（匹配服务端 runStore 格式） */
 interface WorkflowRun {
   id: string;
   workflowId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  workflowName: string;
+  status: string;
+  stages: RunStage[];
+  error?: string;
   startedAt: number;
-  completedAt: number | null;
-  logs: Array<{ timestamp: number; level: string; message: string }>;
+  completedAt?: number;
+  duration?: number;
 }
 
 /**
@@ -66,6 +81,28 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
       .finally(() => setLoading(false));
   }, []);
 
+  /** 轮询工作流执行状态 */
+  const pollRun = useCallback(async (runId: string) => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API}/runs/${runId}`);
+        const data = await res.json();
+        setCurrentRun(data);
+
+        if (data.status === 'completed' || data.status === 'failed') {
+          setRunning(false);
+          return;
+        }
+
+        setTimeout(poll, 1000);
+      } catch {
+        setRunError('获取运行状态失败');
+        setRunning(false);
+      }
+    };
+    poll();
+  }, []);
+
   /** 执行选中的工作流 */
   const handleRun = useCallback(async () => {
     if (!selectedWorkflow) return;
@@ -91,29 +128,7 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
       setRunError('请求失败，请稍后重试');
       setRunning(false);
     }
-  }, [selectedWorkflow, profileId]);
-
-  /** 轮询工作流执行状态 */
-  const pollRun = useCallback(async (runId: string) => {
-    const poll = async () => {
-      try {
-        const res = await fetch(`${API}/runs/${runId}`);
-        const data = await res.json();
-        setCurrentRun(data);
-
-        if (data.status === 'completed' || data.status === 'failed') {
-          setRunning(false);
-          return;
-        }
-
-        setTimeout(poll, 1000);
-      } catch {
-        setRunError('获取运行状态失败');
-        setRunning(false);
-      }
-    };
-    poll();
-  }, []);
+  }, [selectedWorkflow, profileId, pollRun]);
 
   /** 获取运行状态的图标和颜色 */
   const getStatusBadge = (status: string) => {
@@ -127,11 +142,6 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
       default:
         return { icon: <PlayCircle size={12} />, bg: 'bg-gray-100', text: 'text-gray-600', label: status };
     }
-  };
-
-  /** 格式化时间戳 */
-  const formatTime = (ts: number) => {
-    return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   };
 
   // ── 加载状态 ──
@@ -281,53 +291,74 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
               })()}
             </div>
 
-            {/* 日志时间线 */}
+            {/* 执行阶段时间线 */}
             <div className="relative pl-8">
-              {currentRun.logs.map((log, i) => {
-                const isLast = i === currentRun.logs.length - 1;
-                const isError = log.level === 'error';
-                const isRunning = isLast && currentRun.status === 'running';
+              {currentRun.stages && currentRun.stages.length > 0 ? (
+                currentRun.stages.map((stage, i) => {
+                  const isLast = i === currentRun.stages.length - 1;
+                  const isError = stage.status === 'failed';
+                  const isRunning = stage.status === 'running';
+                  const isCompleted = stage.status === 'completed';
 
-                let dotColor: string;
-                let icon: React.ReactNode;
-                if (isError) {
-                  dotColor = 'border-red-400 bg-red-50';
-                  icon = <XCircle size={12} className="text-red-500" />;
-                } else if (isRunning) {
-                  dotColor = 'border-blue-400 bg-blue-50';
-                  icon = <Loader2 size={12} className="animate-spin text-blue-500" />;
-                } else {
-                  dotColor = 'border-emerald-400 bg-emerald-50';
-                  icon = <CheckCircle2 size={12} className="text-emerald-500" />;
-                }
+                  let dotColor: string;
+                  let icon: React.ReactNode;
+                  if (isError) {
+                    dotColor = 'border-red-400 bg-red-50';
+                    icon = <XCircle size={12} className="text-red-500" />;
+                  } else if (isRunning) {
+                    dotColor = 'border-blue-400 bg-blue-50';
+                    icon = <Loader2 size={12} className="animate-spin text-blue-500" />;
+                  } else if (isCompleted) {
+                    dotColor = 'border-emerald-400 bg-emerald-50';
+                    icon = <CheckCircle2 size={12} className="text-emerald-500" />;
+                  } else {
+                    dotColor = 'border-gray-300 bg-gray-50';
+                    icon = <Clock size={12} className="text-gray-400" />;
+                  }
 
-                return (
-                  <div key={i} className="relative pb-5 last:pb-0">
-                    {/* 竖线 */}
-                    {!isLast && (
-                      <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${isError ? 'bg-red-200' : isRunning ? 'bg-blue-200' : 'bg-emerald-200'}`} />
-                    )}
-                    {/* 圆点 */}
-                    <div className={`absolute left-[-21px] top-1 w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center ${dotColor}`}>
-                      {icon}
+                  return (
+                    <div key={stage.id || i} className="relative pb-5 last:pb-0">
+                      {/* 竖线 */}
+                      {!isLast && (
+                        <div className={`absolute left-[-17px] top-3 bottom-0 w-0.5 ${isError ? 'bg-red-200' : isRunning ? 'bg-blue-200' : isCompleted ? 'bg-emerald-200' : 'bg-gray-200'}`} />
+                      )}
+                      {/* 圆点 */}
+                      <div className={`absolute left-[-21px] top-1 w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center ${dotColor}`}>
+                        {icon}
+                      </div>
+                      {/* 内容 */}
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-medium text-gray-700">{stage.name}</p>
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            isError ? 'bg-red-100 text-red-700' :
+                            isRunning ? 'bg-blue-100 text-blue-700' :
+                            isCompleted ? 'bg-emerald-100 text-emerald-700' :
+                            'bg-gray-100 text-gray-500'
+                          }`}>
+                            {stage.status}
+                          </span>
+                          {stage.nodeType && (
+                            <span className="text-[10px] text-gray-400 bg-gray-100 px-1 py-0.5 rounded">{stage.nodeType}</span>
+                          )}
+                        </div>
+                        {stage.error && (
+                          <pre className="mt-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg whitespace-pre-wrap">{stage.error}</pre>
+                        )}
+                      </div>
                     </div>
-                    {/* 内容 */}
-                    <div>
-                      <p className={`text-sm ${isError ? 'text-red-700 font-medium' : 'text-gray-700'}`}>
-                        {log.message}
-                      </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{formatTime(log.timestamp)}</p>
+                  );
+                })
+              ) : (
+                <>
+                  {/* 无阶段数据时的状态提示 */}
+                  {currentRun.status === 'running' && (
+                    <div className="flex items-center gap-2 py-4">
+                      <Loader2 size={16} className="animate-spin text-blue-500" />
+                      <span className="text-sm text-gray-400">正在启动...</span>
                     </div>
-                  </div>
-                );
-              })}
-
-              {/* 运行中但无日志 */}
-              {currentRun.logs.length === 0 && currentRun.status === 'running' && (
-                <div className="flex items-center gap-2 py-4">
-                  <Loader2 size={16} className="animate-spin text-blue-500" />
-                  <span className="text-sm text-gray-400">正在启动...</span>
-                </div>
+                  )}
+                </>
               )}
 
               {/* 执行完成提示 */}
@@ -340,9 +371,14 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
 
               {/* 执行失败提示 */}
               {currentRun.status === 'failed' && (
-                <div className="flex items-center gap-2 py-2">
-                  <XCircle size={16} className="text-red-500" />
-                  <span className="text-sm text-red-600 font-medium">工作流执行失败</span>
+                <div className="mt-3 p-4 rounded-xl bg-red-50 border border-red-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <XCircle size={16} className="text-red-500" />
+                    <span className="text-sm text-red-700 font-medium">工作流执行失败</span>
+                  </div>
+                  {currentRun.error && (
+                    <pre className="text-xs text-red-600 mt-1 whitespace-pre-wrap font-mono">{currentRun.error}</pre>
+                  )}
                 </div>
               )}
             </div>
