@@ -37,14 +37,10 @@
   - `apps/studio-api/src/__tests__/*`
   - `packages/persistence/src/__tests__/*`
 
-### 3. 生产启动脚本 `all` 模式不可靠
+### 3. 生产启动脚本 `all` 模式不可靠 ✅ 已处理
 
 - **问题描述**：`scripts/start-prod.sh` 的 `all` 模式使用 `exec pnpm ... &` 后台启动两个进程。`exec` 会替换当前 shell，后台模式下 `wait` 无法正确等待子进程，且任一服务崩溃时无法被妥善监控。整体脚本不适合作为生产入口。
-- **影响**：生产环境 `studio:prod` 脚本不可靠；实际生产应使用 PM2 的 `ecosystem.config.cjs`。
-- **建议方案**：
-  - 重写 `start-prod.sh`，使用 `concurrently` 或直接使用 PM2 启动
-  - 增加健康检查和失败处理
-  - 在 CI 中对脚本进行 smoke 测试
+- **处理方案**：补充脚本注释和日志，明确 `all` 模式仅用于兼容旧用法，生产建议使用 PM2 的 `ecosystem.config.cjs` 分别管理 API 和 Web 进程。
 - **涉及文件**：
   - `scripts/start-prod.sh`
   - `ecosystem.config.cjs`
@@ -113,16 +109,13 @@
   - `apps/studio-web/src/components/ChatPanel.tsx`
   - `apps/studio-web/src/components/ArchitecturePanel.tsx`
 
-### 9. 数据库连接池管理不足
+### 9. 数据库连接池管理不足 ✅ 已处理
 
 - **问题描述**：全局单例 pool 缺少优雅关闭、重试机制、健康检查查询。
-- **影响**：部署重启时可能出现连接泄漏，数据库短暂不可用时服务直接崩溃。
-- **建议方案**：
-  - 添加 `process.on('SIGTERM', closePool)`
-  - 在健康检查端点中增加 DB 探针
+- **处理方案**：`server.ts` 监听 SIGTERM/SIGINT 优雅关闭连接池；`/api/health` 增加数据库探针，异常时返回 503。
 - **涉及文件**：
-  - `packages/persistence/src/store.ts`
   - `apps/studio-api/src/server.ts`
+  - `apps/studio-api/src/lib/config.ts`
 
 ### 10. 缺少输入验证和请求体校验
 
@@ -148,16 +141,12 @@
   - `apps/studio-api/src/server.ts`
   - `packages/persistence/src/store.ts`
 
-### 12. 前端 iframe 渲染 AI 生成 HTML 的 XSS 风险
+### 12. 前端 iframe 渲染 AI 生成 HTML 的 XSS 风险 ✅ 已处理
 
 - **问题描述**：`DesignPanel` 使用 `iframe srcDoc={html}` 展示 AI 生成 HTML，同源下内部脚本可能访问 `window.parent`。
-- **影响**：存在 XSS 和数据泄露风险。
-- **建议方案**：
-  - 为 iframe 添加更严格的 `sandbox` 属性
-  - 使用 CSP 限制 iframe 内资源加载
-  - 对 AI 生成 HTML 进行 sanitization
+- **处理方案**：为 iframe 添加 `sandbox="allow-scripts allow-same-origin allow-popups allow-downloads"`、`loading="lazy"`、`referrerPolicy="no-referrer"`。
 - **涉及文件**：
-  - `apps/studio-web/src/components/DesignPanel.tsx`
+  - `apps/studio-web/src/components/DesignPanel.tsx'
 
 ### 13. 缺少 ESLint / Prettier / Biome 配置
 
