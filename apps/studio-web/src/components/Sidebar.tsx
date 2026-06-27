@@ -140,7 +140,7 @@ export function Sidebar({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
                     {s.pinned && <Pin size={12} className="text-blue-500 shrink-0 fill-blue-500" />}
-                    <Text className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 break-words">{s.name}</Text>
+                    <Text className="text-[13px] font-semibold text-gray-800 dark:text-gray-200 break-words">{s.featureName || s.name}</Text>
                   </div>
                   {/* Three-dot menu */}
                   <div className="relative">
@@ -181,8 +181,8 @@ export function Sidebar({
                   </div>
                 </div>
 
-                {s.featureName && (
-                  <Text className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 break-words">{s.featureName}</Text>
+                {s.featureName && s.featureName !== s.name && (
+                  <Text className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 break-words">{s.name}</Text>
                 )}
 
                 <div className="flex items-center gap-2 mt-1.5">
