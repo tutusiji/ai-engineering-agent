@@ -20,6 +20,7 @@ import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
 import { useArtifacts } from './hooks/useArtifacts';
+import { useStudioState } from './hooks/useStudioState';
 import { Sidebar } from './components/Sidebar';
 import { ChatPanel } from './components/ChatPanel';
 import { DocumentPanel } from './components/DocumentPanel';
@@ -52,18 +53,10 @@ export default function App() {
   const [profileId, setProfileId] = useState<string>('');
   const [activeNav, setActiveNav] = useState<NavKey>('chat');
   const [activeChatTab, setActiveChatTab] = useState<ChatTab>('chat');
-  const [designHtml, setDesignHtml] = useState<string | null>(null);
-  const [designVersions, setDesignVersions] = useState<Array<{ id: string; label: string; model: string; createdAt: number }>>([]);
-  const [activeDesignId, setActiveDesignId] = useState<string | null>(null);
-  const [generatedFiles, setGeneratedFiles] = useState<Array<{ path: string; kind: string; content?: string }>>([]);
+  const studio = useStudioState();
   const [designLoading, setDesignLoading] = useState(false);
   const [codeLoading, setCodeLoading] = useState(false);
-  const [archMarkdown, setArchMarkdown] = useState<string | null>(null);
   const [archLoading, setArchLoading] = useState(false);
-  const [archVersions, setArchVersions] = useState<Array<{ id: string; label: string; model: string; createdAt: number }>>([]);
-  const [activeArchId, setActiveArchId] = useState<string | null>(null);
-  const [archDraft, setArchDraft] = useState<string | null>(null);
-  const [archDraftMeta, setArchDraftMeta] = useState<{ architecture: unknown; model: string } | null>(null);
   const [archRefining, setArchRefining] = useState(false);
 
   // Model switcher state
@@ -107,8 +100,8 @@ export default function App() {
   const artifacts = useArtifacts({
     sessionId: activeSessionId,
     document: docHook.document,
-    designHtml,
-    generatedFiles,
+    designHtml: studio.designHtml,
+    generatedFiles: studio.generatedFiles,
   });
 
   // Load design versions for a session
@@ -116,19 +109,19 @@ export default function App() {
     try {
       const res = await fetch(`${API}/sessions/${sid}/designs`);
       const data = await res.json();
-      setDesignVersions(data.versions ?? []);
+      studio.setDesignVersions(data.versions ?? []);
       const activeId = data.activeId;
-      setActiveDesignId(activeId);
+      studio.setActiveDesignId(activeId);
       if (activeId) {
         const active = data.versions?.find((v: { id: string; html: string }) => v.id === activeId);
-        if (active) setDesignHtml(active.html);
-        else setDesignHtml(null);
+        if (active) studio.setDesignHtml(active.html);
+        else studio.setDesignHtml(null);
       } else {
-        setDesignHtml(null);
+        studio.setDesignHtml(null);
       }
     } catch {
-      setDesignVersions([]);
-      setDesignHtml(null);
+      studio.setDesignVersions([]);
+      studio.setDesignHtml(null);
     }
   }, []);
 
@@ -137,19 +130,19 @@ export default function App() {
     try {
       const res = await fetch(`${API}/sessions/${sid}/architectures`);
       const data = await res.json();
-      setArchVersions(data.versions ?? []);
+      studio.setArchVersions(data.versions ?? []);
       const activeId = data.activeId;
-      setActiveArchId(activeId);
+      studio.setActiveArchId(activeId);
       if (activeId && data.activeMarkdown) {
-        setArchMarkdown(data.activeMarkdown);
-        setArchDraft(null);
-        setArchDraftMeta(null);
+        studio.setArchMarkdown(data.activeMarkdown);
+        studio.setArchDraft(null);
+        studio.setArchDraftMeta(null);
       } else {
-        setArchMarkdown(null);
+        studio.setArchMarkdown(null);
       }
     } catch {
-      setArchVersions([]);
-      setArchMarkdown(null);
+      studio.setArchVersions([]);
+      studio.setArchMarkdown(null);
     }
   }, []);
 
@@ -164,11 +157,11 @@ export default function App() {
       });
       const data = await res.json();
       if (data.ok) {
-        setActiveArchId(archId);
+        studio.setActiveArchId(archId);
         if (data.markdown) {
-          setArchMarkdown(data.markdown);
-          setArchDraft(null);
-          setArchDraftMeta(null);
+          studio.setArchMarkdown(data.markdown);
+          studio.setArchDraft(null);
+          studio.setArchDraftMeta(null);
         }
       }
     } catch { /* ignore */ }
@@ -177,7 +170,7 @@ export default function App() {
   // Switch design version
   const switchDesignVersion = async (designId: string) => {
     if (!activeSessionId) return;
-    const version = designVersions.find(v => v.id === designId);
+    const version = studio.designVersions.find(v => v.id === designId);
     if (!version) return;
     // Fetch full version HTML
     try {
@@ -188,7 +181,7 @@ export default function App() {
       });
       const data = await res.json();
       if (data.ok) {
-        setActiveDesignId(designId);
+        studio.setActiveDesignId(designId);
         // Find HTML from versions list (we need to store it)
         await loadDesignVersions(activeSessionId);
       }
@@ -198,13 +191,13 @@ export default function App() {
   // Load session data when switching sessions
   useEffect(() => {
     if (activeSessionId) {
-      setDesignHtml(null);
-      setDesignVersions([]);
-      setArchMarkdown(null);
-      setArchVersions([]);
-      setArchDraft(null);
-      setArchDraftMeta(null);
-      setGeneratedFiles([]);
+      studio.setDesignHtml(null);
+      studio.setDesignVersions([]);
+      studio.setArchMarkdown(null);
+      studio.setArchVersions([]);
+      studio.setArchDraft(null);
+      studio.setArchDraftMeta(null);
+      studio.setGeneratedFiles([]);
       chat.loadSession(activeSessionId);
       loadDesignVersions(activeSessionId);
       loadArchitectureVersions(activeSessionId);
@@ -225,15 +218,15 @@ export default function App() {
       chat.setMessages([]);
       chat.setDocument(null);
       docHook.setDocument(null);
-      setDesignHtml(null);
-      setDesignVersions([]);
-      setActiveDesignId(null);
-      setGeneratedFiles([]);
-      setArchMarkdown(null);
-      setArchVersions([]);
-      setActiveArchId(null);
-      setArchDraft(null);
-      setArchDraftMeta(null);
+      studio.setDesignHtml(null);
+      studio.setDesignVersions([]);
+      studio.setActiveDesignId(null);
+      studio.setGeneratedFiles([]);
+      studio.setArchMarkdown(null);
+      studio.setArchVersions([]);
+      studio.setActiveArchId(null);
+      studio.setArchDraft(null);
+      studio.setArchDraftMeta(null);
       setActiveChatTab('chat');
       console.log('会话已创建');
     }
@@ -250,7 +243,7 @@ export default function App() {
       });
       const data = await res.json();
       if (data.ok && data.htmlContent) {
-        setDesignHtml(data.htmlContent);
+        studio.setDesignHtml(data.htmlContent);
         setActiveChatTab('design');
         // Reload version list
         await loadDesignVersions(activeSessionId);
@@ -276,10 +269,10 @@ export default function App() {
       });
       const data = await res.json();
       if (data.ok && data.markdown) {
-        setArchDraft(data.markdown);
-        setArchDraftMeta({ architecture: data.architecture, model: data.model });
-        setArchMarkdown(null);
-        setActiveArchId(null);
+        studio.setArchDraft(data.markdown);
+        studio.setArchDraftMeta({ architecture: data.architecture, model: data.model });
+        studio.setArchMarkdown(null);
+        studio.setActiveArchId(null);
         setActiveChatTab('architecture');
         console.log('架构设计草稿生成成功');
       } else {
@@ -293,22 +286,22 @@ export default function App() {
   };
 
   const handleSaveArchitecture = async () => {
-    if (!activeSessionId || !archDraft || !archDraftMeta) return;
+    if (!activeSessionId || !studio.archDraft || !studio.archDraftMeta) return;
     try {
       const res = await fetch(`${API}/sessions/${activeSessionId}/architectures/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          architecture: archDraftMeta.architecture,
-          markdown: archDraft,
-          model: archDraftMeta.model,
+          architecture: studio.archDraftMeta.architecture,
+          markdown: studio.archDraft,
+          model: studio.archDraftMeta.model,
         }),
       });
       const data = await res.json();
       if (data.ok) {
-        setArchMarkdown(archDraft);
-        setArchDraft(null);
-        setArchDraftMeta(null);
+        studio.setArchMarkdown(studio.archDraft);
+        studio.setArchDraft(null);
+        studio.setArchDraftMeta(null);
         await loadArchitectureVersions(activeSessionId);
         console.log('架构已保存');
       }
@@ -333,10 +326,10 @@ export default function App() {
       });
       const data = await res.json();
       if (data.ok && data.markdown) {
-        setArchDraft(data.markdown);
-        setArchDraftMeta({ architecture: data.architecture, model: data.model });
-        setArchMarkdown(null);
-        setActiveArchId(null);
+        studio.setArchDraft(data.markdown);
+        studio.setArchDraftMeta({ architecture: data.architecture, model: data.model });
+        studio.setArchMarkdown(null);
+        studio.setActiveArchId(null);
         console.log('架构精炼完成');
       } else {
         console.error(data.error || '精炼失败');
@@ -359,7 +352,7 @@ export default function App() {
       });
       const data = await res.json();
       if (data.ok && data.files) {
-        setGeneratedFiles(data.files);
+        studio.setGeneratedFiles(data.files);
         setActiveChatTab('code');
         console.log(`代码生成成功，共 ${data.files.length} 个文件`);
       } else {
@@ -498,12 +491,12 @@ export default function App() {
                 )}
                 {activeChatTab === 'architecture' && (
                   <ArchitecturePanel
-                    markdown={archDraft ?? archMarkdown}
+                    markdown={studio.archDraft ?? studio.archMarkdown}
                     completeness={completeness}
                     loading={archLoading}
-                    versions={archVersions}
-                    activeArchId={activeArchId}
-                    isDraft={!!archDraft}
+                    versions={studio.archVersions}
+                    activeArchId={studio.activeArchId}
+                    isDraft={!!studio.archDraft}
                     refining={archRefining}
                     onGenerate={handleGenerateArchitecture}
                     onSwitchVersion={switchArchitectureVersion}
@@ -513,17 +506,17 @@ export default function App() {
                 )}
                 {activeChatTab === 'design' && (
                   <DesignPanel
-                    html={designHtml}
+                    html={studio.designHtml}
                     completeness={completeness}
                     loading={designLoading}
-                    versions={designVersions}
-                    activeDesignId={activeDesignId}
+                    versions={studio.designVersions}
+                    activeDesignId={studio.activeDesignId}
                     onGenerate={handleGenerateDesign}
                     onSwitchVersion={switchDesignVersion}
                   />
                 )}
                 {activeChatTab === 'code' && (
-                  <CodePanel files={generatedFiles} />
+                  <CodePanel files={studio.generatedFiles} />
                 )}
               </div>
             </div>
