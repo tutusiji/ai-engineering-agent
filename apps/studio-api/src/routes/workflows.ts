@@ -10,8 +10,8 @@ import type { JsonObject } from '@ai-engineering-agent/shared-types';
 import { WorkflowExecutor, loadWorkflowRegistry } from '@ai-engineering-agent/workflow-core';
 import { getSkill, runSkillThroughLlm } from '@ai-engineering-agent/agent-runtime';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { validateBody } from '../middleware/validate-request.js';
-import { WorkflowRunSchema } from '../lib/validate.js';
+import { validateParams, validateBody } from '../middleware/validate-request.js';
+import { WorkflowRunSchema, SessionIdParamSchema } from '../lib/validate.js';
 import { createSkillContext, generateId } from '../lib/skill-context.js';
 import { repoRoot } from '../lib/config.js';
 import type { WorkflowNodeResult } from '@ai-engineering-agent/workflow-core';
@@ -48,7 +48,7 @@ export function createWorkflowsRouter(
     res.json(loadWorkflows());
   });
 
-  router.post('/:id/run', validateBody(WorkflowRunSchema), async (req, res) => {
+  router.post('/:id/run', validateParams(SessionIdParamSchema), validateBody(WorkflowRunSchema), async (req, res) => {
     try {
       const { profileId, sessionId, params = {} } = req.body;
       const runId = `run-${generateId()}`;
