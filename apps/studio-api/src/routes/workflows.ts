@@ -53,7 +53,7 @@ export function createWorkflowsRouter(
       const { profileId, sessionId, params = {} } = req.body;
       const runId = `run-${generateId()}`;
       const workflowId = req.params.id;
-      const run = await runStore.create(runId, workflowId, workflowId, 'manual');
+      await runStore.create(runId, workflowId, workflowId, 'manual');
       res.json({ ok: true, runId, status: 'pending' });
 
       (async () => {

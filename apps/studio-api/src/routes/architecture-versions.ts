@@ -7,7 +7,7 @@ import { SessionStore } from '@ai-engineering-agent/persistence';
 import { buildArchitectureMarkdown } from '../lib/architecture-markdown.js';
 import { validateBody, validateParams } from '../middleware/validate-request.js';
 import { SessionIdParamSchema, ActiveArchitectureSchema, SaveArchitectureSchema } from '../lib/validate.js';
-import type { JsonObject } from '@ai-engineering-agent/shared-types';
+
 import type { ArtifactStore as ArtifactStoreType } from '@ai-engineering-agent/persistence';
 import { generateId } from '../lib/skill-context.js';
 import type { LlmConfig } from '@ai-engineering-agent/agent-runtime';

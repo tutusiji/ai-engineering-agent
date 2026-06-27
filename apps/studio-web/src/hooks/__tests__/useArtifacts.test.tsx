@@ -11,7 +11,7 @@ describe('useArtifacts', () => {
     const { result } = renderHook(() =>
       useArtifacts({
         sessionId: null,
-        document: { featureName: '登录', businessGoal: '支持登录', completeness: 80 } as any,
+        document: { featureName: '登录', businessGoal: '支持登录', completeness: 80 },
         designHtml: null,
         generatedFiles: [],
       })

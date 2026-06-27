@@ -14,12 +14,19 @@
     "studio": "pnpm studio:api & pnpm studio:web",
     "studio:build": "pnpm --filter @ai-engineering-agent/studio-web build",
     "studio:preview": "cd apps/studio-web && pnpm preview --port 4400 --host 0.0.0.0",
-    "studio:prod": "bash scripts/start-prod.sh all"
+    "studio:prod": "bash scripts/start-prod.sh all",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\""
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^25.6.0",
+    "eslint": "^10.6.0",
+    "prettier": "^3.9.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0",
     "yaml": "^2.8.3"
   },
   "dependencies": {

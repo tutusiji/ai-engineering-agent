@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import { SessionStore, ArtifactStore } from '@ai-engineering-agent/persistence';
 import { validateQuery } from '../middleware/validate-request.js';
-import { ArtifactDownloadSchema, SessionIdParamSchema } from '../lib/validate.js';
+import { ArtifactDownloadSchema } from '../lib/validate.js';
 import { buildSessionArtifacts, buildArtifactZip, sendArtifactResponse } from '../artifact-service.js';
 
 export function createArtifactsRouter(sessionStore: SessionStore, artifactStore: ArtifactStore) {

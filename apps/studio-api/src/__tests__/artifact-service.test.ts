@@ -35,7 +35,7 @@ describe('buildSessionArtifacts', () => {
       },
     };
 
-    const artifacts = buildSessionArtifacts(session as any, 's1', store, '<html></html>');
+    const artifacts = buildSessionArtifacts(session, 's1', store, '<html></html>');
     expect(artifacts.some(a => a.id === 'req-md' && a.category === 'requirement')).toBe(true);
     expect(artifacts.some(a => a.id === 'design-html' && a.category === 'design')).toBe(true);
   });
@@ -55,7 +55,7 @@ describe('buildSessionArtifacts', () => {
       },
     };
 
-    const artifacts = buildSessionArtifacts(session as any, 's1', store, null);
+    const artifacts = buildSessionArtifacts(session, 's1', store, null);
     expect(artifacts.some(a => a.id === 'design-zip:design-123' && a.category === 'design')).toBe(true);
   });
 });

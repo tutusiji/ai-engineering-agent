@@ -35,7 +35,7 @@ describe('useChat', () => {
 
   it('sends a message and stores user message', async () => {
     const body = `data: ${JSON.stringify({ content: 'Hello' })}\n\ndata: [DONE]\n\n`;
-    (fetch as any).mockResolvedValueOnce({
+    (fetch as unknown as typeof fetch).mockResolvedValueOnce({
       ok: true,
       body: new MockReadableStream([body]),
     });

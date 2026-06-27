@@ -3,7 +3,7 @@
  */
 
 import type { Request, Response, NextFunction } from 'express';
-import { z, type ZodSchema, type ZodError } from 'zod';
+import type { ZodSchema, ZodError } from 'zod';
 
 export function validateBody<T>(schema: ZodSchema<T>) {
   return (req: Request, res: Response, next: NextFunction) => {

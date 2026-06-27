@@ -19,7 +19,7 @@ describe('useDocument', () => {
 
   it('loads document manually', async () => {
     const doc = { featureName: 'Test', completeness: 50 };
-    (fetch as any).mockResolvedValueOnce({ json: async () => ({ ok: true, document: doc }) });
+    (fetch as unknown as typeof fetch).mockResolvedValueOnce({ json: async () => ({ ok: true, document: doc }) });
 
     const { result } = renderHook(() => useDocument('s1'));
 

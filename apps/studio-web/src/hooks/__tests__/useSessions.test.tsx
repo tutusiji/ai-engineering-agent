@@ -14,7 +14,7 @@ describe('useSessions', () => {
 
   it('loads sessions and auto-selects first', async () => {
     const sessions = [{ id: 's1', name: 'Session 1' }];
-    (fetch as any).mockResolvedValueOnce({ json: async () => sessions });
+    (fetch as unknown as typeof fetch).mockResolvedValueOnce({ json: async () => sessions });
 
     const { result } = renderHook(() => useSessions());
 
@@ -23,7 +23,7 @@ describe('useSessions', () => {
   });
 
   it('creates a session and selects it', async () => {
-    (fetch as any)
+    (fetch as unknown as typeof fetch)
       .mockResolvedValueOnce({ json: async () => [] })
       .mockResolvedValueOnce({ json: async () => ({ id: 's2', name: 'New' }) });
 
