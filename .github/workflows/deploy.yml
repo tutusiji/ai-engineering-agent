@@ -39,6 +39,9 @@ jobs:
       - name: 🔨 Build frontend
         run: pnpm --filter @ai-engineering-agent/studio-web build
 
+      - name: 🧪 Run backend tests
+        run: pnpm --filter @ai-engineering-agent/studio-api test run
+
       - name: 🔑 Setup SSH
         uses: shimataro/ssh-key-action@v2
         with:
@@ -66,24 +69,52 @@ jobs:
             set -e
             cd /root/projects/ai-engineering-agent
 
-            # Clean any leftover local changes
-            git checkout -- .
-            git clean -fd
+            # Preserve local environment and runtime data
+            if [ -f .env ]; then
+              cp .env .env.deploy-backup
+            fi
 
             # Pull latest code
             git fetch origin
             git checkout ${{ github.event.inputs.branch || 'main' }}
             git reset --hard origin/${{ github.event.inputs.branch || 'main' }}
 
+            # Restore local environment
+            if [ -f .env.deploy-backup ]; then
+              mv .env.deploy-backup .env
+            fi
+
             # Install backend deps only (frontend dist already synced)
             pnpm install --frozen-lockfile --filter !@ai-engineering-agent/studio-web
 
             echo "🔄 Restarting via PM2..."
-            pm2 reload ecosystem.config.cjs --update-env 2>/dev/null || \
-            pm2 restart ecosystem.config.cjs --update-env 2>/dev/null || \
-            pm2 start ecosystem.config.cjs
+            pm2 startOrReload ecosystem.config.cjs --update-env
 
+            echo "⏳ Waiting for services..."
             sleep 3
+
+            echo "🏥 Running health check..."
+            MAX_RETRIES=10
+            RETRY_COUNT=0
+            HEALTH_OK=false
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if curl -sf http://localhost:4401/api/health >/dev/null 2>&1; then
+                HEALTH_OK=true
+                break
+              fi
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              echo "Health check attempt $RETRY_COUNT/$MAX_RETRIES failed, retrying..."
+              sleep 2
+            done
+
+            if [ "$HEALTH_OK" = "false" ]; then
+              echo "❌ Health check failed after $MAX_RETRIES attempts"
+              echo "🔄 Rolling back to previous git state..."
+              git reset --hard HEAD@{1}
+              pm2 startOrReload ecosystem.config.cjs --update-env
+              exit 1
+            fi
+
             echo "✅ Deploy complete!"
             pm2 status
           SERVER_SCRIPT
