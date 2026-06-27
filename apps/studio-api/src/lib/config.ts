@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
 import { loadLlmConfigFromEnv, type LlmConfig } from '@ai-engineering-agent/agent-runtime';
+import { getPool } from '@ai-engineering-agent/persistence';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(__dirname, '../../..');
@@ -14,6 +15,23 @@ export const PORT = Number(process.env.STUDIO_API_PORT ?? 4401);
 
 export function loadLlmConfig(): LlmConfig {
   return loadLlmConfigFromEnv();
+}
+
+/** 执行数据库健康检查 */
+export async function checkDatabaseHealth(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+  const start = Date.now();
+  try {
+    const pool = getPool();
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT 1');
+      return { ok: true, latencyMs: Date.now() - start };
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    return { ok: false, latencyMs: Date.now() - start, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 export type ModelPreset = {

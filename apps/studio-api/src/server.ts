@@ -4,11 +4,11 @@
  * 路由已拆分到 src/routes/ 下，server.ts 仅负责组装。
  */
 
-import { initPool, SessionStore, RunStore, ArtifactStore, MetricsStore } from '@ai-engineering-agent/persistence';
+import { initPool, closePool, SessionStore, RunStore, ArtifactStore, MetricsStore } from '@ai-engineering-agent/persistence';
 import { loadLlmConfigFromEnv } from '@ai-engineering-agent/agent-runtime';
 import express from 'express';
 import { setupSecurityMiddleware } from './middleware/security.js';
-import { PORT } from './lib/config.js';
+import { PORT, checkDatabaseHealth } from './lib/config.js';
 import { createModelsRouter } from './routes/models.js';
 import { createProfilesRouter } from './routes/profiles.js';
 import { createUiCatalogRouter } from './routes/ui-catalog.js';
@@ -36,8 +36,15 @@ const app = express();
 setupSecurityMiddleware(app);
 
 // Health
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', model: llmConfig.model, timestamp: Date.now() });
+app.get('/api/health', async (_req, res) => {
+  const dbHealth = await checkDatabaseHealth();
+  const statusCode = dbHealth.ok ? 200 : 503;
+  res.status(statusCode).json({
+    status: dbHealth.ok ? 'ok' : 'error',
+    model: llmConfig.model,
+    timestamp: Date.now(),
+    database: dbHealth,
+  });
 });
 
 // Models
@@ -74,7 +81,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`╔══════════════════════════════════════════╗`);
   console.log(`║   Studio API running on port ${PORT}       ║`);
   console.log(`╚══════════════════════════════════════════╝`);
@@ -82,3 +89,20 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  URL:   ${llmConfig.baseUrl}`);
   console.log(`  Storage: ~/.ai-studio/data/`);
 });
+
+// Graceful shutdown
+async function shutdown(signal: string) {
+  console.log(`\nReceived ${signal}, shutting down gracefully...`);
+  server.close(async () => {
+    try {
+      await closePool();
+      console.log('Database pool closed');
+    } catch (err) {
+      console.error('Error closing database pool:', err);
+    }
+    process.exit(0);
+  });
+}
+
+process.on('SIGTERM', (signal) => shutdown(signal));
+process.on('SIGINT', (signal) => shutdown(signal));

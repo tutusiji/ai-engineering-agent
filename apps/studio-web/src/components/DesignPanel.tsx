@@ -157,6 +157,9 @@ export function DesignPanel({ html, completeness, loading, versions, activeDesig
         srcDoc={html ?? undefined}
         className="flex-1 w-full border-none"
         title="Frontend Preview"
+        sandbox="allow-scripts allow-same-origin allow-popups allow-downloads"
+        loading="lazy"
+        referrerPolicy="no-referrer"
       />
     </div>
   );
