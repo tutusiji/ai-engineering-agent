@@ -18,11 +18,16 @@
     "@ai-engineering-agent/skill-sdk": "workspace:*",
     "@ai-engineering-agent/validation-core": "workspace:*",
     "@ai-engineering-agent/workflow-core": "workspace:*",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "jszip": "^3.10.1"
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "jszip": "^3.10.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^25.6.0",
