@@ -221,6 +221,20 @@ export default function App() {
   const handleCreateSession = async () => {
     const id = await createSession(profileId);
     if (id) {
+      // 新建会话时清空右侧产物和结构化文档状态，避免旧会话内容残留
+      chat.setMessages([]);
+      chat.setDocument(null);
+      docHook.setDocument(null);
+      setDesignHtml(null);
+      setDesignVersions([]);
+      setActiveDesignId(null);
+      setGeneratedFiles([]);
+      setArchMarkdown(null);
+      setArchVersions([]);
+      setActiveArchId(null);
+      setArchDraft(null);
+      setArchDraftMeta(null);
+      setActiveChatTab('chat');
       console.log('会话已创建');
     }
   };
