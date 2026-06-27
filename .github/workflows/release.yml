@@ -1,12 +1,6 @@
 name: Create Release
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'docs/**'
-      - '*.md'
   workflow_dispatch:
     inputs:
       version_bump:
