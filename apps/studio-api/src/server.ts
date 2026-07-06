@@ -4,10 +4,11 @@
  * 路由已拆分到 src/routes/ 下，server.ts 仅负责组装。
  */
 
-import { initPool, closePool, SessionStore, RunStore, ArtifactStore, MetricsStore } from '@ai-engineering-agent/persistence';
+import { initPool, closePool, runMigrations, SessionStore, RunStore, ArtifactStore, MetricsStore, UserStore } from '@ai-engineering-agent/persistence';
 import { loadLlmConfigFromEnv } from '@ai-engineering-agent/agent-runtime';
 import express from 'express';
 import { setupSecurityMiddleware } from './middleware/security.js';
+import { requireAuth } from './middleware/auth.js';
 import { PORT, checkDatabaseHealth } from './lib/config.js';
 import { createModelsRouter } from './routes/models.js';
 import { createProfilesRouter } from './routes/profiles.js';
@@ -21,6 +22,7 @@ import { createWorkflowsRouter } from './routes/workflows.js';
 import { createRunsRouter } from './routes/runs.js';
 import { createArtifactsRouter } from './routes/artifacts.js';
 import { createMetricsRouter } from './routes/metrics.js';
+import { createAuthRouter } from './routes/auth.js';
 
 const llmConfig = loadLlmConfigFromEnv();
 
@@ -28,14 +30,15 @@ const sessionStore = new SessionStore();
 const runStore = new RunStore();
 const artifactStore = new ArtifactStore();
 const metricsStore = new MetricsStore();
+const userStore = new UserStore();
 
 await initPool();
-await metricsStore.ensureTable();
+await runMigrations();
 
 const app = express();
 setupSecurityMiddleware(app);
 
-// Health
+// Health (no auth)
 app.get('/api/health', async (_req, res) => {
   const dbHealth = await checkDatabaseHealth();
   const statusCode = dbHealth.ok ? 200 : 503;
@@ -46,6 +49,12 @@ app.get('/api/health', async (_req, res) => {
     database: dbHealth,
   });
 });
+
+// Auth routes (no auth required)
+app.use('/api/auth', createAuthRouter(userStore, sessionStore));
+
+// All routes below require authentication
+app.use('/api', requireAuth);
 
 // Models
 app.use('/api/models', createModelsRouter(llmConfig));

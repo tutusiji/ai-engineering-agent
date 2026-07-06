@@ -6,6 +6,7 @@
   "packageManager": "pnpm@10.16.0",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate": "bash -c 'set -a; [ -f .env ] && source .env; set +a; tsx scripts/migrate.ts'",
     "workflow:mock": "tsx packages/workflow-core/src/mock-runner.ts",
     "workflow:llm": "tsx packages/workflow-core/src/llm-runner.ts",
     "requirement": "tsx packages/workflow-core/src/interactive-runner.ts",
