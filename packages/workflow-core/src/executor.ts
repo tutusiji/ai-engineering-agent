@@ -105,12 +105,31 @@ export class WorkflowExecutor {
       options.onNodeComplete?.(node, result, state);
 
       if (result.ok) {
-        // Check if this node requires approval
+        // Check if this node requires approval (节点级审批闸门)
         if (node.requiresApproval && options.onApprovalRequired) {
           const approved = await options.onApprovalRequired(node, state);
           if (!approved) {
             state.status = 'waiting-approval';
             return state;
+          }
+        }
+
+        // Check if this node triggers an approval gate (stage 级审批闸门)
+        // YAML 中 approvalGates.afterStage 指向 node id，当该节点完成后触发审批
+        if (definition.approvalGates?.length && options.onApprovalRequired) {
+          const gate = definition.approvalGates.find((g) => g.afterStage === node.id);
+          if (gate?.required) {
+            const gateNode: WorkflowNodeDef = {
+              ...node,
+              id: `approval-gate:${gate.afterStage}`,
+              name: gate.name,
+              requiresApproval: true,
+            };
+            const approved = await options.onApprovalRequired(gateNode, state);
+            if (!approved) {
+              state.status = 'waiting-approval';
+              return state;
+            }
           }
         }
 

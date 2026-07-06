@@ -7,7 +7,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { getJwtSecret, getJwtExpiresIn } from '../lib/secrets.js';
+import { getJwtSecret as loadJwtSecret, getJwtExpiresIn } from '../lib/secrets.js';
 
 export interface AuthUser {
   id: string;
@@ -28,7 +28,7 @@ let cachedSecret: string | null = null;
 
 function secret(): string {
   if (cachedSecret === null) {
-    cachedSecret = getJwtSecret();
+    cachedSecret = loadJwtSecret();
   }
   return cachedSecret;
 }

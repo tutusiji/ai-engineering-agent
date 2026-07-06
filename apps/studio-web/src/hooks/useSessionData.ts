@@ -144,7 +144,6 @@ export function useSessionData(
       loadDesignVersions(activeSessionId);
       loadArchitectureVersions(activeSessionId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
   return {

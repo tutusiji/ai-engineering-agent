@@ -54,8 +54,11 @@ interface WorkflowRun {
 
 /**
  * 工作流面板组件
+ *
+ * 传入 sessionId 以携带会话上下文（需求文档、架构方案）执行工作流。
+ * 这是修复"前端工作流页与主功能割裂"断裂点的关键。
  */
-export function WorkflowPanel({ profileId }: { profileId: string }) {
+export function WorkflowPanel({ profileId, sessionId }: { profileId: string; sessionId: string | null }) {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +71,7 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch(`${API}/workflows`)
+    fetch(`${API}/workflows`, { credentials: 'include' })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -85,7 +88,7 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
   const pollRun = useCallback(async (runId: string) => {
     const poll = async () => {
       try {
-        const res = await fetch(`${API}/runs/${runId}`);
+        const res = await fetch(`${API}/runs/${runId}`, { credentials: 'include' });
         const data = await res.json();
         setCurrentRun(data);
 
@@ -106,6 +109,10 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
   /** 执行选中的工作流 */
   const handleRun = useCallback(async () => {
     if (!selectedWorkflow) return;
+    if (!sessionId) {
+      setRunError('请先选择或创建一个会话，工作流需要会话上下文');
+      return;
+    }
     setRunning(true);
     setRunError(null);
     setCurrentRun(null);
@@ -114,7 +121,8 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
       const res = await fetch(`${API}/workflows/${selectedWorkflow.id}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId }),
+        credentials: 'include',
+        body: JSON.stringify({ profileId, sessionId }),
       });
       const data = await res.json();
 
@@ -128,7 +136,7 @@ export function WorkflowPanel({ profileId }: { profileId: string }) {
       setRunError('请求失败，请稍后重试');
       setRunning(false);
     }
-  }, [selectedWorkflow, profileId, pollRun]);
+  }, [selectedWorkflow, profileId, sessionId, pollRun]);
 
   /** 获取运行状态的图标和颜色 */
   const getStatusBadge = (status: string) => {

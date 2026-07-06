@@ -15,22 +15,13 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import type { JsonObject, JsonValue } from '@ai-engineering-agent/shared-types';
 import { FileSchemaRegistry } from '@ai-engineering-agent/contract-schema';
 import { FilePolicyRegistry } from '@ai-engineering-agent/policy-engine';
 import { WorkflowExecutor } from './executor';
 import { loadWorkflowRegistry } from './loader';
+import { runPluginNode, createMockResult } from './plugin-runner.js';
 import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types';
-import { scanProject } from '@ai-engineering-agent/project-scanner';
-import { runRuleChecker } from '@ai-engineering-agent/rule-checkers';
-import { buildUiContract } from '@ai-engineering-agent/navigation-decider';
-import { buildGenerationReport } from '@ai-engineering-agent/page-generator';
-import { buildPlaywrightValidation } from '@ai-engineering-agent/playwright-runner';
-import { buildVisualRegressionValidation } from '@ai-engineering-agent/visual-regression-runner';
-import {
-  runMockValidationPlugin,
-  runMockValidationSuite,
-} from '@ai-engineering-agent/validation-core';
 
 // Agent Runtime
 import {
@@ -107,189 +98,6 @@ async function runAgentNode(
   return { ok: false, error: result.error, raw: result.raw as JsonValue };
 }
 
-// ─── Plugin Node Runner (same as mock-runner) ───────────────────────────
-
-function createValidationContext(node: WorkflowNodeDef, state: WorkflowRunState) {
-  return {
-    runId: state.context.runId,
-    nodeId: node.id,
-    targetProject: state.context.targetProject,
-    targetProfileId: state.context.targetProfile?.id,
-    workspaceRoot: state.context.targetProject,
-    env: process.env,
-  };
-}
-
-function toJsonValue<T>(value: T): JsonValue {
-  return JSON.parse(JSON.stringify(value)) as JsonValue;
-}
-
-async function createValidationNodeResult(node: WorkflowNodeDef, state: WorkflowRunState): Promise<WorkflowNodeResult> {
-  if (node.type === 'pluginGroup' && node.plugins?.length) {
-    const targetProject = state.context.targetProject;
-    const scanReport = targetProject ? await scanProject({ rootDir: targetProject }) : undefined;
-
-    const supportedRulePlugins = new Set([
-      'loading-rule-checker',
-      'debounce-rule-checker',
-      'delete-confirm-rule-checker',
-    ]);
-
-    const checks = await Promise.all(
-      node.plugins.map(async (pluginName) => {
-        if (scanReport && supportedRulePlugins.has(pluginName)) {
-          const report = runRuleChecker(pluginName, scanReport);
-          return { name: pluginName, report, metadata: { mock: false, source: 'project-scan' } };
-        }
-
-        if (pluginName === 'playwright-runner') {
-          const report = await buildPlaywrightValidation({
-            targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-            targetProject: state.context.targetProject,
-            projectScan: scanReport,
-            targetValidation: state.context.resolvedTargetProfile?.validation,
-          });
-          return { name: pluginName, report: report as unknown as ValidationReport, metadata: { mock: false, source: 'playwright-runner' } };
-        }
-
-        if (pluginName === 'visual-regression-runner') {
-          const generationReport = state.nodeResults.code_generation?.output as JsonObject | undefined;
-          const report = await buildVisualRegressionValidation({
-            targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-            targetProject: state.context.targetProject,
-            projectScan: scanReport,
-            generationReport,
-            targetValidation: state.context.resolvedTargetProfile?.validation,
-          });
-          return { name: pluginName, report: report as unknown as ValidationReport, metadata: { mock: false, source: 'visual-regression-runner' } };
-        }
-
-        return runMockValidationPlugin(pluginName, createValidationContext(node, state));
-      }),
-    );
-
-    const suiteResult = runMockValidationSuite([], createValidationContext(node, state));
-    suiteResult.checks = checks;
-    suiteResult.report = {
-      passed: checks.every((check) => check.report.passed),
-      issues: checks.flatMap((check) => check.report.issues),
-    };
-    suiteResult.passed = suiteResult.report.passed;
-
-    return {
-      ok: suiteResult.passed,
-      output: {
-        checks: suiteResult.checks.map((check) => ({ name: check.name, passed: check.report.passed, issueCount: check.report.issues.length })),
-        passed: suiteResult.report.passed,
-        issues: toJsonValue(suiteResult.report.issues),
-        scannedProject: scanReport?.rootDir ?? null,
-      },
-      raw: toJsonValue(suiteResult.report),
-    };
-  }
-
-  if (node.type === 'plugin' && node.plugin) {
-    if (node.plugin === 'project-scanner' && state.context.targetProject) {
-      const scanReport = await scanProject({ rootDir: state.context.targetProject });
-      return { ok: true, output: toJsonValue(scanReport) as JsonObject };
-    }
-
-    if (node.plugin === 'navigation-decider') {
-      const targetProfile = state.context.resolvedTargetProfile;
-      const pagePlan = state.nodeResults.page_planning?.output as JsonObject | undefined;
-      const scanReport = state.context.targetProject ? await scanProject({ rootDir: state.context.targetProject }) : undefined;
-      const uiContract = buildUiContract({
-        targetProfileId: targetProfile?.id ?? 'unknown',
-        supportedLayouts: Array.isArray(targetProfile?.pagePatterns?.supports) ? (targetProfile?.pagePatterns?.supports as string[]) : [],
-        pagePlan: {
-          targetProfile: String(pagePlan?.targetProfile ?? targetProfile?.id ?? 'unknown'),
-          pages: Array.isArray(pagePlan?.pages) ? (pagePlan.pages as never[]) : [],
-        },
-        projectScan: scanReport,
-      });
-      return { ok: true, output: uiContract };
-    }
-
-    if (node.plugin === 'page-generator') {
-      const implementationPlan = state.nodeResults.implementation_plan?.output as JsonObject | undefined;
-      const uiContract = state.nodeResults.navigation_decision?.output as JsonObject | undefined;
-      const generationReport = buildGenerationReport({
-        implementationPlan: {
-          pageName: String(implementationPlan?.pageName ?? '示例页面'),
-          targetProfile: String(implementationPlan?.targetProfile ?? 'unknown'),
-          files: Array.isArray(implementationPlan?.files) ? (implementationPlan.files as never[]) : [],
-          routeChanges: Array.isArray(implementationPlan?.routeChanges) ? (implementationPlan.routeChanges as string[]) : undefined,
-          componentDependencies: Array.isArray(implementationPlan?.componentDependencies) ? (implementationPlan.componentDependencies as string[]) : undefined,
-        },
-        uiContract,
-      });
-      return { ok: true, output: generationReport };
-    }
-
-    if (node.plugin === 'playwright-runner') {
-      const scanReport = state.context.targetProject ? await scanProject({ rootDir: state.context.targetProject }) : undefined;
-      const report = await buildPlaywrightValidation({
-        targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-        targetProject: state.context.targetProject,
-        projectScan: scanReport,
-        targetValidation: state.context.resolvedTargetProfile?.validation,
-      });
-      const runnerStatus = typeof report.runnerStatus === 'string' ? report.runnerStatus : 'unknown';
-      return { ok: !['failed'].includes(runnerStatus), output: report, raw: toJsonValue(report) };
-    }
-
-    if (node.plugin === 'visual-regression-runner') {
-      const scanReport = state.context.targetProject ? await scanProject({ rootDir: state.context.targetProject }) : undefined;
-      const generationReport = state.nodeResults.code_generation?.output as JsonObject | undefined;
-      const report = await buildVisualRegressionValidation({
-        targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-        targetProject: state.context.targetProject,
-        projectScan: scanReport,
-        generationReport,
-        targetValidation: state.context.resolvedTargetProfile?.validation,
-      });
-      const runnerStatus = typeof report.runnerStatus === 'string' ? report.runnerStatus : 'unknown';
-      return { ok: !['failed'].includes(runnerStatus), output: report, raw: toJsonValue(report) };
-    }
-
-    const check = runMockValidationPlugin(node.plugin, createValidationContext(node, state));
-    return { ok: check.report.passed, output: { check: check.name, passed: check.report.passed, issues: toJsonValue(check.report.issues) }, raw: toJsonValue(check.report) };
-  }
-
-  return createMockResult(node, state, state.context.input);
-}
-
-function createMockResult(node: WorkflowNodeDef, state: WorkflowRunState, input: JsonObject): WorkflowNodeResult {
-  const handledBy = node.skill ?? node.plugin ?? node.plugins ?? 'mock-runner';
-
-  if (node.id === 'target_profile_selection') {
-    const targetProfile = state.context.resolvedTargetProfile;
-    return {
-      ok: true,
-      output: {
-        profileId: targetProfile?.id ?? 'unknown',
-        platform: targetProfile?.platform ?? 'unknown',
-        framework: targetProfile?.framework ?? 'unknown',
-        uiLibrary: targetProfile?.uiLibrary ?? 'unknown',
-        routingMode: targetProfile?.routingMode ?? 'unknown',
-        reasons: ['mock runner selected configured target profile'],
-      },
-    };
-  }
-
-  return {
-    ok: true,
-    output: {
-      nodeId: node.id,
-      nodeType: node.type,
-      handledBy,
-      targetProfile: state.context.targetProfile?.id ?? 'unknown',
-      availableInputKeys: Object.keys(input),
-      schemaHint: node.outputSchema ?? null,
-    },
-  };
-}
-
 // ─── Main ───────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -340,15 +148,11 @@ async function main(): Promise<void> {
     async runAgent(node, input, state) {
       return runAgentNode(node, input, state);
     },
-    async runPlugin(node, input, state) {
-      const runtimePlugins = new Set(['project-scanner', 'navigation-decider', 'page-generator', 'playwright-runner', 'visual-regression-runner', 'typecheck']);
-      if (node.plugin && runtimePlugins.has(node.plugin)) {
-        return createValidationNodeResult(node, state);
-      }
-      return createMockResult(node, state, input);
+    async runPlugin(node, _input, state) {
+      return runPluginNode(node, state);
     },
-    async runPluginGroup(node, input, state) {
-      return createValidationNodeResult(node, state);
+    async runPluginGroup(node, _input, state) {
+      return runPluginNode(node, state);
     },
   });
 

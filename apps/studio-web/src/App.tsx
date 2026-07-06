@@ -85,7 +85,6 @@ export default function App() {
     if (activeSessionId) {
       chat.loadSession(activeSessionId);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
   // 同步 chat.document 到 docHook（session 加载后）
@@ -93,7 +92,6 @@ export default function App() {
     if (chat.document) {
       docHook.loadDocument(chat.document);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat.document]);
 
   // ── 新建会话 ──────────────────────────────────────────────
@@ -239,7 +237,9 @@ export default function App() {
             </div>
           )}
 
-          {activeNav === 'workflows' && <WorkflowPanel profileId={profileId} />}
+          {activeNav === 'workflows' && (
+            <WorkflowPanel profileId={profileId} sessionId={activeSessionId} />
+          )}
 
           {activeNav === 'history' && <RunHistory />}
         </main>
