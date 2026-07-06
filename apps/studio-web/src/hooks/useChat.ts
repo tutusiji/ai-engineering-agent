@@ -54,7 +54,7 @@ export function useChat(
   // Load session messages
   const loadSession = useCallback(async (sid: string) => {
     try {
-      const res = await fetch(`${API}/chat/${sid}`);
+      const res = await fetch(`${API}/chat/${sid}`, { credentials: 'include' });
       if (!res.ok) return;
       const data = await res.json();
       setMessages(data.messages ?? []);
@@ -85,6 +85,7 @@ export function useChat(
       const res = await fetch(`${API}/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ sessionId, profileId, userMessage: text }),
         signal: controller.signal,
       });
@@ -231,6 +232,7 @@ export function useChat(
       const res = await fetch(`${API}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ sessionId, profileId, userMessage: text }),
       });
       const data = await res.json();

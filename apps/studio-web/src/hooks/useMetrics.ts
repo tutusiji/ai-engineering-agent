@@ -36,12 +36,12 @@ export function useMetrics() {
   const [loading, setLoading] = useState(true);
 
   const fetchProjects = useCallback(async () => {
-    const res = await fetch(`${API}/metrics/projects`);
+    const res = await fetch(`${API}/metrics/projects`, { credentials: 'include' });
     if (res.ok) setProjects(await res.json());
   }, []);
 
   const fetchOverview = useCallback(async () => {
-    const res = await fetch(`${API}/metrics/overview`);
+    const res = await fetch(`${API}/metrics/overview`, { credentials: 'include' });
     if (res.ok) setOverview(await res.json());
   }, []);
 
@@ -57,11 +57,11 @@ export function useMetrics() {
 }
 
 export async function fetchProjectDetail(projectId: string) {
-  const res = await fetch(`${API}/metrics/projects/${projectId}`);
+  const res = await fetch(`${API}/metrics/projects/${projectId}`, { credentials: 'include' });
   return res.ok ? res.json() : null;
 }
 
 export async function fetchProjectStages(projectId: string): Promise<StageDetail[]> {
-  const res = await fetch(`${API}/metrics/projects/${projectId}/stages`);
+  const res = await fetch(`${API}/metrics/projects/${projectId}/stages`, { credentials: 'include' });
   return res.ok ? res.json() : [];
 }

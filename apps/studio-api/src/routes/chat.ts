@@ -21,7 +21,7 @@ export function createChatRouter(llmConfig: LlmConfig, sessionStore: SessionStor
       const { sessionId, profileId, userMessage, mode } = req.body;
       let session = await sessionStore.get(sessionId);
       if (!session) {
-        session = await sessionStore.create(sessionId);
+        session = await sessionStore.create(sessionId, undefined, req.user?.id);
         if (profileId) await sessionStore.update(sessionId, { profileId });
       }
       await sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });
@@ -109,7 +109,7 @@ export function createChatRouter(llmConfig: LlmConfig, sessionStore: SessionStor
     try {
       let session = await sessionStore.get(sessionId);
       if (!session) {
-        session = await sessionStore.create(sessionId);
+        session = await sessionStore.create(sessionId, undefined, req.user?.id);
         if (profileId) await sessionStore.update(sessionId, { profileId });
       }
       await sessionStore.addMessage(sessionId, { role: 'user', content: userMessage, timestamp: Date.now() });

@@ -38,7 +38,8 @@ export function setupSecurityMiddleware(app: Express): void {
     max: 300, // 每 IP 每窗口最多 300 次
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: Request) => (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown',
+    keyGenerator: (req: Request) => (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown',
+    validate: { keyGeneratorIpFallback: false },
     handler: (_req, res) => {
       res.status(429).json({ error: 'Too many requests, please try again later.' });
     },

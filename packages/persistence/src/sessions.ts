@@ -20,6 +20,7 @@ export interface Session {
   document?: Record<string, unknown>;
   completeness: number;
   pinned: boolean;
+  userId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -35,21 +36,22 @@ function rowToSession(row: Record<string, unknown>): Session {
     document: row.document ? (typeof row.document === 'string' ? JSON.parse(row.document as string) : row.document as Record<string, unknown>) : undefined,
     completeness: row.completeness as number,
     pinned: Boolean(row.pinned),
+    userId: row.user_id as string | undefined,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
 }
 
 export class SessionStore {
-  async create(id: string, name?: string): Promise<Session> {
+  async create(id: string, name?: string, userId?: string): Promise<Session> {
     const now = Date.now();
     const sessionName = name ?? `会话 ${new Date(now).toLocaleString('zh-CN')}`;
     await query(
-      `INSERT INTO sessions (id, name, messages, completeness, created_at, updated_at)
-       VALUES ($1, $2, '[]'::jsonb, 0, $3, $3)`,
-      [id, sessionName, now]
+      `INSERT INTO sessions (id, name, messages, completeness, user_id, created_at, updated_at)
+       VALUES ($1, $2, '[]'::jsonb, 0, $3, $4, $5)`,
+      [id, sessionName, userId ?? null, now, now]
     );
-    return { id, name: sessionName, messages: [], completeness: 0, pinned: false, createdAt: now, updatedAt: now };
+    return { id, name: sessionName, messages: [], completeness: 0, pinned: false, userId, createdAt: now, updatedAt: now };
   }
 
   async get(id: string): Promise<Session | undefined> {
@@ -57,7 +59,14 @@ export class SessionStore {
     return row ? rowToSession(row) : undefined;
   }
 
-  async list(): Promise<Session[]> {
+  async list(userId?: string): Promise<Session[]> {
+    if (userId) {
+      const rows = await queryAll(
+        'SELECT * FROM sessions WHERE user_id = $1 ORDER BY pinned DESC, updated_at DESC',
+        [userId]
+      );
+      return rows.map(rowToSession);
+    }
     const rows = await queryAll('SELECT * FROM sessions ORDER BY pinned DESC, updated_at DESC');
     return rows.map(rowToSession);
   }
@@ -94,6 +103,10 @@ export class SessionStore {
     if (patch.pinned !== undefined) {
       sets.push(`pinned = $${paramIdx++}`);
       values.push(patch.pinned);
+    }
+    if (patch.userId !== undefined) {
+      sets.push(`user_id = $${paramIdx++}`);
+      values.push(patch.userId);
     }
 
     sets.push(`updated_at = $${paramIdx++}`);
@@ -145,5 +158,14 @@ export class SessionStore {
     runs.push(run);
     doc._artifactRuns = runs;
     return this.updateDocument(id, doc, session.completeness);
+  }
+
+  /** Assign all sessions without a user_id to a specific user. */
+  async assignOrphanSessions(userId: string): Promise<number> {
+    const result = await query(
+      `UPDATE sessions SET user_id = $1 WHERE user_id IS NULL`,
+      [userId]
+    );
+    return result.rowCount ?? 0;
   }
 }

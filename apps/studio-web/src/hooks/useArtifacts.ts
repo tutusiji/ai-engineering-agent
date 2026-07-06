@@ -177,7 +177,7 @@ export function useArtifacts(input: UseArtifactsInput): UseArtifactsOutput {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/sessions/${sessionId}/artifacts`);
+      const res = await fetch(`${API}/sessions/${sessionId}/artifacts`, { credentials: 'include' });
       if (!res.ok) throw new Error(`Failed to fetch artifacts: ${res.status}`);
       const data = await res.json();
       setBackendArtifacts((data.artifacts as ArtifactItem[]) ?? []);

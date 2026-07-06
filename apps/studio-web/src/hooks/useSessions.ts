@@ -25,8 +25,10 @@ export function useSessions() {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/sessions`);
+      const res = await fetch(`${API}/sessions`, { credentials: 'include' });
+      if (!res.ok) return;
       const data = await res.json();
+      if (!Array.isArray(data)) return;
       setSessions(data);
       // Auto-select first session if none selected
       if (!activeSessionId && data.length > 0) {
@@ -45,6 +47,7 @@ export function useSessions() {
       const res = await fetch(`${API}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ ...(profileId ? { profileId } : {}), name }),
       });
       const data = await res.json();
@@ -57,7 +60,7 @@ export function useSessions() {
   }, [refresh]);
 
   const deleteSession = useCallback(async (id: string) => {
-    await fetch(`${API}/sessions/${id}`, { method: 'DELETE' });
+    await fetch(`${API}/sessions/${id}`, { method: 'DELETE', credentials: 'include' });
     if (activeSessionId === id) {
       setActiveSessionId(null);
     }
@@ -68,13 +71,14 @@ export function useSessions() {
     await fetch(`${API}/sessions/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ name, ...(featureName !== undefined ? { featureName } : {}) }),
     });
     await refresh();
   }, [refresh]);
 
   const togglePin = useCallback(async (id: string) => {
-    await fetch(`${API}/sessions/${id}/pin`, { method: 'POST' });
+    await fetch(`${API}/sessions/${id}/pin`, { method: 'POST', credentials: 'include' });
     await refresh();
   }, [refresh]);
 

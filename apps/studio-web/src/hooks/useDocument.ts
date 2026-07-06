@@ -26,6 +26,7 @@ export function useDocument(sessionId: string | null) {
       const res = await fetch(`${API}/chat/document/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ sessionId }),
       });
       const data = await res.json();
@@ -52,6 +53,7 @@ export function useDocument(sessionId: string | null) {
       const res = await fetch(`${API}/chat/document/optimize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ sessionId, module, instruction }),
       });
       const data = await res.json();
