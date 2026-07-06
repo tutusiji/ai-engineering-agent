@@ -1,27 +1,40 @@
 /**
- * App.tsx — Main Studio layout (HeroUI + Tailwind)
+ * App.tsx — Main Studio layout
+ *
+ * 纯布局编排 + auth 守卫。所有业务逻辑已抽取到独立 hooks：
+ * - useSessions: 会话列表管理
+ * - useChat: 对话与 SSE 流
+ * - useDocument: 需求文档
+ * - useArtifacts: 产物管理
+ * - useStudioState: 右侧产物与设计状态
+ * - useModelSwitcher: 模型切换
+ * - useSessionData: 会话切换时的版本加载
+ * - useGeneration: 架构/设计/代码生成
  *
  * Layout:
  *   ┌──────────────────────────────────────────────────┐
  *   │                   Header                          │
  *   ├──────────┬───────────────────────┬───────────────┤
- *   │          │                       │               │
  *   │ Sidebar  │    Main Content       │  Doc Panel    │
  *   │          │  (Chat/Workflow/      │  (when chat)  │
  *   │          │   History/Design/     │               │
  *   │          │   Code)               │               │
- *   │          │                       │               │
  *   └──────────┴───────────────────────┴───────────────┘
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { Zap, Image, Code, ChevronDown, Check, Cpu, Layers } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Zap, Image, Code, Layers } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
 import { useArtifacts } from './hooks/useArtifacts';
 import { useStudioState } from './hooks/useStudioState';
+import { useModelSwitcher } from './hooks/useModelSwitcher';
+import { useSessionData } from './hooks/useSessionData';
+import { useGeneration } from './hooks/useGeneration';
+import { useAuth } from './hooks/useAuth';
 import { Sidebar } from './components/Sidebar';
+import { Header } from './components/Header';
 import { ChatPanel } from './components/ChatPanel';
 import { DocumentPanel } from './components/DocumentPanel';
 import { ArtifactsPanel } from './components/ArtifactsPanel';
@@ -30,9 +43,7 @@ import { ArchitecturePanel } from './components/ArchitecturePanel';
 import { CodePanel } from './components/CodePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { RunHistory } from './components/RunHistory';
-import { ThemeToggle } from './components/ThemeToggle';
-
-const API = '/api';
+import { LoginPage } from './components/LoginPage';
 
 type NavKey = 'chat' | 'workflows' | 'history';
 type ChatTab = 'chat' | 'architecture' | 'design' | 'code' | 'document';
@@ -47,56 +58,18 @@ export default function App() {
     deleteSession,
     editSession,
     togglePin,
-    refresh: refreshSessions,
   } = useSessions();
+
+  const auth = useAuth();
 
   const [profileId, setProfileId] = useState<string>('');
   const [activeNav, setActiveNav] = useState<NavKey>('chat');
   const [activeChatTab, setActiveChatTab] = useState<ChatTab>('chat');
   const studio = useStudioState();
-  const [designLoading, setDesignLoading] = useState(false);
-  const [codeLoading, setCodeLoading] = useState(false);
-  const [archLoading, setArchLoading] = useState(false);
-  const [archRefining, setArchRefining] = useState(false);
-
-  // Model switcher state
-  interface ModelOption { id: string; label: string; model: string; active: boolean }
-  const [models, setModels] = useState<ModelOption[]>([]);
-  const [currentModel, setCurrentModel] = useState<string>('');
-  const [modelMenuOpen, setModelMenuOpen] = useState(false);
-
-  const fetchModels = useCallback(async () => {
-    try {
-      const res = await fetch(`${API}/models`);
-      const data = await res.json();
-      setModels(data);
-      const active = data.find((m: ModelOption) => m.active);
-      if (active) setCurrentModel(active.label);
-    } catch { /* ignore */ }
-  }, []);
-
-  useEffect(() => { fetchModels(); }, [fetchModels]);
-
-  const switchModel = async (modelId: string) => {
-    try {
-      const res = await fetch(`${API}/models/switch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ modelId }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setCurrentModel(data.label);
-        setModels(prev => prev.map(m => ({ ...m, active: m.id === modelId })));
-      }
-    } catch { /* ignore */ }
-    setModelMenuOpen(false);
-  };
+  const modelSwitcher = useModelSwitcher();
 
   const docHook = useDocument(activeSessionId);
-
   const chat = useChat(activeSessionId, profileId, docHook.updateFromSSE);
-
   const artifacts = useArtifacts({
     sessionId: activeSessionId,
     document: docHook.document,
@@ -104,329 +77,70 @@ export default function App() {
     generatedFiles: studio.generatedFiles,
   });
 
-  // Load design versions for a session
-  const loadDesignVersions = useCallback(async (sid: string) => {
-    try {
-      const res = await fetch(`${API}/sessions/${sid}/designs`);
-      const data = await res.json();
-      studio.setDesignVersions(data.versions ?? []);
-      const activeId = data.activeId;
-      studio.setActiveDesignId(activeId);
-      if (activeId) {
-        const active = data.versions?.find((v: { id: string; html: string }) => v.id === activeId);
-        if (active) studio.setDesignHtml(active.html);
-        else studio.setDesignHtml(null);
-      } else {
-        studio.setDesignHtml(null);
-      }
-    } catch {
-      studio.setDesignVersions([]);
-      studio.setDesignHtml(null);
-    }
-  }, []);
+  const sessionData = useSessionData(activeSessionId, studio);
+  const generation = useGeneration(activeSessionId, profileId, studio, docHook);
 
-  // Load architecture versions for a session
-  const loadArchitectureVersions = useCallback(async (sid: string) => {
-    try {
-      const res = await fetch(`${API}/sessions/${sid}/architectures`);
-      const data = await res.json();
-      studio.setArchVersions(data.versions ?? []);
-      const activeId = data.activeId;
-      studio.setActiveArchId(activeId);
-      if (activeId && data.activeMarkdown) {
-        studio.setArchMarkdown(data.activeMarkdown);
-        studio.setArchDraft(null);
-        studio.setArchDraftMeta(null);
-      } else {
-        studio.setArchMarkdown(null);
-      }
-    } catch {
-      studio.setArchVersions([]);
-      studio.setArchMarkdown(null);
-    }
-  }, []);
-
-  // Switch architecture version
-  const switchArchitectureVersion = async (archId: string) => {
-    if (!activeSessionId) return;
-    try {
-      const res = await fetch(`${API}/sessions/${activeSessionId}/architectures/active`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ architectureId: archId }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        studio.setActiveArchId(archId);
-        if (data.markdown) {
-          studio.setArchMarkdown(data.markdown);
-          studio.setArchDraft(null);
-          studio.setArchDraftMeta(null);
-        }
-      }
-    } catch { /* ignore */ }
-  };
-
-  // Switch design version
-  const switchDesignVersion = async (designId: string) => {
-    if (!activeSessionId) return;
-    const version = studio.designVersions.find(v => v.id === designId);
-    if (!version) return;
-    // Fetch full version HTML
-    try {
-      const res = await fetch(`${API}/sessions/${activeSessionId}/designs/active`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ designId }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        studio.setActiveDesignId(designId);
-        // Find HTML from versions list (we need to store it)
-        await loadDesignVersions(activeSessionId);
-      }
-    } catch { /* ignore */ }
-  };
-
-  // Load session data when switching sessions
+  // 会话切换时加载对话历史（版本加载由 useSessionData 处理）
   useEffect(() => {
     if (activeSessionId) {
-      studio.setDesignHtml(null);
-      studio.setDesignVersions([]);
-      studio.setArchMarkdown(null);
-      studio.setArchVersions([]);
-      studio.setArchDraft(null);
-      studio.setArchDraftMeta(null);
-      studio.setGeneratedFiles([]);
       chat.loadSession(activeSessionId);
-      loadDesignVersions(activeSessionId);
-      loadArchitectureVersions(activeSessionId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
-  // Sync document from chat to docHook when session loads
+  // 同步 chat.document 到 docHook（session 加载后）
   useEffect(() => {
     if (chat.document) {
       docHook.loadDocument(chat.document);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat.document]);
 
+  // ── 新建会话 ──────────────────────────────────────────────
   const handleCreateSession = async () => {
     const id = await createSession(profileId);
     if (id) {
-      // 新建会话时清空右侧产物和结构化文档状态，避免旧会话内容残留
+      // 清空右侧产物和结构化文档状态，避免旧会话内容残留
       chat.setMessages([]);
       chat.setDocument(null);
       docHook.setDocument(null);
-      studio.setDesignHtml(null);
-      studio.setDesignVersions([]);
-      studio.setActiveDesignId(null);
-      studio.setGeneratedFiles([]);
-      studio.setArchMarkdown(null);
-      studio.setArchVersions([]);
-      studio.setActiveArchId(null);
-      studio.setArchDraft(null);
-      studio.setArchDraftMeta(null);
+      studio.resetOutputs();
       setActiveChatTab('chat');
-      console.log('会话已创建');
-    }
-  };
-
-  const handleGenerateDesign = async () => {
-    if (!activeSessionId) return;
-    setDesignLoading(true);
-    try {
-      const res = await fetch(`${API}/generate/design`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: activeSessionId, profileId: profileId || undefined }),
-      });
-      const data = await res.json();
-      if (data.ok && data.htmlContent) {
-        studio.setDesignHtml(data.htmlContent);
-        setActiveChatTab('design');
-        // Reload version list
-        await loadDesignVersions(activeSessionId);
-        console.log('UI预览生成成功');
-      } else {
-        console.error(data.error || '生成失败');
-      }
-    } catch {
-      console.error('请求失败');
-    } finally {
-      setDesignLoading(false);
-    }
-  };
-
-  const handleGenerateArchitecture = async () => {
-    if (!activeSessionId) return;
-    setArchLoading(true);
-    try {
-      const res = await fetch(`${API}/generate/architecture`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: activeSessionId, profileId: profileId || undefined }),
-      });
-      const data = await res.json();
-      if (data.ok && data.markdown) {
-        studio.setArchDraft(data.markdown);
-        studio.setArchDraftMeta({ architecture: data.architecture, model: data.model });
-        studio.setArchMarkdown(null);
-        studio.setActiveArchId(null);
-        setActiveChatTab('architecture');
-        console.log('架构设计草稿生成成功');
-      } else {
-        console.error(data.error || '架构生成失败');
-      }
-    } catch {
-      console.error('请求失败');
-    } finally {
-      setArchLoading(false);
-    }
-  };
-
-  const handleSaveArchitecture = async () => {
-    if (!activeSessionId || !studio.archDraft || !studio.archDraftMeta) return;
-    try {
-      const res = await fetch(`${API}/sessions/${activeSessionId}/architectures/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          architecture: studio.archDraftMeta.architecture,
-          markdown: studio.archDraft,
-          model: studio.archDraftMeta.model,
-        }),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        studio.setArchMarkdown(studio.archDraft);
-        studio.setArchDraft(null);
-        studio.setArchDraftMeta(null);
-        await loadArchitectureVersions(activeSessionId);
-        console.log('架构已保存');
-      }
-    } catch {
-      console.error('保存失败');
-    }
-  };
-
-  const handleArchitectureRefine = async (feedback: string) => {
-    if (!activeSessionId || !feedback.trim()) return;
-    setArchRefining(true);
-    try {
-      const res = await fetch(`${API}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: activeSessionId,
-          profileId: profileId || undefined,
-          userMessage: feedback,
-          mode: 'architecture-refinement',
-        }),
-      });
-      const data = await res.json();
-      if (data.ok && data.markdown) {
-        studio.setArchDraft(data.markdown);
-        studio.setArchDraftMeta({ architecture: data.architecture, model: data.model });
-        studio.setArchMarkdown(null);
-        studio.setActiveArchId(null);
-        console.log('架构精炼完成');
-      } else {
-        console.error(data.error || '精炼失败');
-      }
-    } catch {
-      console.error('请求失败');
-    } finally {
-      setArchRefining(false);
-    }
-  };
-
-  const handleGenerateCode = async () => {
-    if (!activeSessionId) return;
-    setCodeLoading(true);
-    try {
-      const res = await fetch(`${API}/generate/code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: activeSessionId, profileId: profileId || undefined }),
-      });
-      const data = await res.json();
-      if (data.ok && data.files) {
-        studio.setGeneratedFiles(data.files);
-        setActiveChatTab('code');
-        console.log(`代码生成成功，共 ${data.files.length} 个文件`);
-      } else {
-        console.error(data.error || '生成失败');
-      }
-    } catch {
-      console.error('请求失败');
-    } finally {
-      setCodeLoading(false);
     }
   };
 
   const completeness = docHook.completeness;
 
+  // ── Auth 加载中 ───────────────────────────────────────────
+  if (auth.loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Zap className="w-6 h-6 text-white" />
+          </div>
+          <p className="text-sm text-gray-400">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 未认证 → 登录页 ───────────────────────────────────────
+  if (!auth.user) {
+    return <LoginPage onLogin={auth.login} onRegister={auth.register} error={auth.error} />;
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center px-6 h-16 shrink-0"
-        style={{ background: 'linear-gradient(135deg, #001529, #002140)', borderBottom: '1px solid #003a70' }}>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center mr-3"
-          style={{ background: 'linear-gradient(135deg, #1677ff, #4096ff)' }}>
-          <Zap className="w-5 h-5 text-white" />
-        </div>
-        <h4 className="text-white m-0 flex-1 text-lg font-semibold">
-          AI Engineering Agent
-        </h4>
-        <div className="flex gap-3 items-center">
-          {/* 主题切换按钮 */}
-          <ThemeToggle />
-          {/* Model Switcher */}
-          <div className="relative">
-            <button
-              onClick={() => setModelMenuOpen(!modelMenuOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium
-                bg-white/10 hover:bg-white/20 text-white/90 backdrop-blur-sm
-                border border-white/10 hover:border-white/20 transition-all cursor-pointer"
-            >
-              <Cpu className="w-3.5 h-3.5" />
-              <span>{currentModel || 'Loading...'}</span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${modelMenuOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {modelMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setModelMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 z-50 w-52 rounded-xl overflow-hidden
-                  bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-2xl">
-                  <div className="px-3 py-2 text-[10px] text-white/40 uppercase tracking-wider font-medium">
-                    选择模型
-                  </div>
-                  {models.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => switchModel(m.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors cursor-pointer
-                        ${m.active
-                          ? 'bg-blue-500/20 text-blue-300'
-                          : 'text-white/80 hover:bg-white/10 hover:text-white'
-                        }`}
-                    >
-                      <div className={`w-5 h-5 rounded-md flex items-center justify-center
-                        ${m.active ? 'bg-blue-500/30' : 'bg-white/10'}`}>
-                        {m.active ? <Check className="w-3 h-3" /> : <Cpu className="w-3 h-3" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{m.label}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <Header
+        user={auth.user}
+        models={modelSwitcher.models}
+        currentModel={modelSwitcher.currentModel}
+        modelMenuOpen={modelSwitcher.modelMenuOpen}
+        onToggleModelMenu={() => modelSwitcher.setModelMenuOpen(!modelSwitcher.modelMenuOpen)}
+        onSwitchModel={modelSwitcher.switchModel}
+        onLogout={auth.logout}
+      />
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
@@ -454,19 +168,22 @@ export default function App() {
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
               {/* Tab bar */}
               <div className="flex gap-0 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0">
-                {([
-                  ['chat', Zap, '需求对话'],
-                  ['architecture', Layers, '架构'],
-                  ['design', Image, 'UI预览'],
-                  ['code', Code, '代码'],
-                ] as const).map(([key, Icon, label]) => (
+                {(
+                  [
+                    ['chat', Zap, '需求对话'],
+                    ['architecture', Layers, '架构'],
+                    ['design', Image, 'UI预览'],
+                    ['code', Code, '代码'],
+                  ] as const
+                ).map(([key, Icon, label]) => (
                   <button
                     key={key}
                     onClick={() => setActiveChatTab(key)}
                     className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-[1px]
-                      ${activeChatTab === key
-                        ? 'text-blue-600 border-blue-600'
-                        : 'text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300'
+                      ${
+                        activeChatTab === key
+                          ? 'text-blue-600 border-blue-600'
+                          : 'text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300'
                       }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -493,48 +210,43 @@ export default function App() {
                   <ArchitecturePanel
                     markdown={studio.archDraft ?? studio.archMarkdown}
                     completeness={completeness}
-                    loading={archLoading}
+                    loading={generation.archLoading}
                     versions={studio.archVersions}
                     activeArchId={studio.activeArchId}
                     isDraft={!!studio.archDraft}
-                    refining={archRefining}
-                    onGenerate={handleGenerateArchitecture}
-                    onSwitchVersion={switchArchitectureVersion}
-                    onSave={handleSaveArchitecture}
-                    onSendFeedback={handleArchitectureRefine}
+                    refining={generation.archRefining}
+                    onGenerate={generation.generateArchitecture}
+                    onSwitchVersion={sessionData.switchArchitectureVersion}
+                    onSave={generation.saveArchitecture}
+                    onSendFeedback={generation.refineArchitecture}
                   />
                 )}
                 {activeChatTab === 'design' && (
                   <DesignPanel
                     html={studio.designHtml}
                     completeness={completeness}
-                    loading={designLoading}
+                    loading={generation.designLoading}
                     versions={studio.designVersions}
                     activeDesignId={studio.activeDesignId}
-                    onGenerate={handleGenerateDesign}
-                    onSwitchVersion={switchDesignVersion}
+                    onGenerate={() =>
+                      generation.generateDesign(() => setActiveChatTab('design'))
+                    }
+                    onSwitchVersion={sessionData.switchDesignVersion}
                   />
                 )}
-                {activeChatTab === 'code' && (
-                  <CodePanel files={studio.generatedFiles} />
-                )}
+                {activeChatTab === 'code' && <CodePanel files={studio.generatedFiles} />}
               </div>
             </div>
           )}
 
-          {activeNav === 'workflows' && (
-            <WorkflowPanel profileId={profileId} />
-          )}
+          {activeNav === 'workflows' && <WorkflowPanel profileId={profileId} />}
 
-          {activeNav === 'history' && (
-            <RunHistory />
-          )}
+          {activeNav === 'history' && <RunHistory />}
         </main>
 
         {/* Right sidebar — Artifacts + Document panel (only in chat mode) */}
         {activeNav === 'chat' && (
           <aside className="w-[360px] shrink-0 bg-white dark:bg-gray-900 border-l border-divider dark:border-gray-800 flex flex-col h-full overflow-hidden">
-            {/* 当前会话标题 — 独立卡片式区域，与下方输出产物明确分隔 */}
             {activeSession && (
               <div className="px-4 py-4 shrink-0 bg-gradient-to-b from-blue-50/70 via-blue-50/20 to-white dark:from-blue-950/30 dark:via-blue-950/10 dark:to-gray-900 border-b-2 border-gray-200 dark:border-gray-700">
                 <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight break-words">
@@ -569,7 +281,6 @@ export default function App() {
             </div>
           </aside>
         )}
-
       </div>
     </div>
   );
