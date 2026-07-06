@@ -10,8 +10,8 @@
  *   2. Refine mode — AI refines existing requirements based on user feedback
  */
 
-import type { JsonObject } from '../../../shared-types/src';
-import type { SkillContext, SkillDefinition, SkillPrompt } from '../../../skill-sdk/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
 
 export interface RequirementDocument {
   /** 功能名称 */

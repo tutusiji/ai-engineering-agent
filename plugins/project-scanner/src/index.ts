@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { JsonObject } from '../../../packages/shared-types/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
 
 const DEFAULT_IGNORED_DIRS = new Set([
   '.git',

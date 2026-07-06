@@ -1,4 +1,4 @@
-import type { JsonValue, ValidationIssue, ValidationReport } from '../../shared-types/src';
+import type { JsonValue, ValidationIssue, ValidationReport } from '@ai-engineering-agent/shared-types';
 
 export interface ValidationCheckContext {
   runId: string;

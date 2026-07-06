@@ -1,5 +1,5 @@
-import type { JsonObject } from '../../../packages/shared-types/src';
-import type { ProjectScanReport } from '../../project-scanner/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { ProjectScanReport } from '@ai-engineering-agent/project-scanner';
 
 export interface PagePlanItem {
   name: string;

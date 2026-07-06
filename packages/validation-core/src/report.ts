@@ -1,4 +1,4 @@
-import type { ValidationIssue, ValidationReport } from '../../shared-types/src';
+import type { ValidationIssue, ValidationReport } from '@ai-engineering-agent/shared-types';
 import type { ValidationCheckResult, ValidationSuiteResult } from './types';
 
 export function createValidationReport(issues: ValidationIssue[] = []): ValidationReport {

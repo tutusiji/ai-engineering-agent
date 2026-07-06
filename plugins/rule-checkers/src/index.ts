@@ -1,6 +1,6 @@
-import type { ValidationIssue, ValidationReport } from '../../../packages/shared-types/src';
-import { createValidationReport } from '../../../packages/validation-core/src';
-import type { ProjectScanReport } from '../../project-scanner/src';
+import type { ValidationIssue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import { createValidationReport } from '@ai-engineering-agent/validation-core';
+import type { ProjectScanReport } from '@ai-engineering-agent/project-scanner';
 
 export function runRuleChecker(pluginName: string, report: ProjectScanReport): ValidationReport {
   switch (pluginName) {

@@ -8,8 +8,8 @@
  * This is an intermediate artifact — it guides coding but does not produce code.
  */
 
-import type { JsonObject } from '../../../shared-types/src';
-import type { SkillContext, SkillDefinition, SkillPrompt } from '../../../skill-sdk/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
 
 export const architecturePlanningSkill: SkillDefinition = {
   name: 'architecture-planning',

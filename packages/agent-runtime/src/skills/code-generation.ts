@@ -5,8 +5,8 @@
  * This is the final step — from requirements to real source code.
  */
 
-import type { JsonObject } from '../../../shared-types/src';
-import type { SkillContext, SkillDefinition, SkillPrompt } from '../../../skill-sdk/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
 
 export const codeGenerationSkill: SkillDefinition = {
   name: 'code-generation',

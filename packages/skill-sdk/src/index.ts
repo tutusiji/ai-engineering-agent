@@ -5,7 +5,7 @@ import type {
   SchemaRef,
   TargetProfileRef,
   ValidationReport,
-} from '../../shared-types/src';
+} from '@ai-engineering-agent/shared-types';
 
 export interface SkillContext {
   runId: string;

@@ -102,32 +102,32 @@ export function createWorkflowsRouter(
               try {
                 switch (node.id) {
                   case 'project-scanner': {
-                    const scanner = await import('../../../plugins/project-scanner/src/index.js');
+                    const scanner = await import('@ai-engineering-agent/project-scanner');
                     result = { ok: true, output: scanner.scanProject(state.context.targetProject ?? '.') as unknown as JsonObject };
                     break;
                   }
                   case 'navigation-decider': {
-                    const nav = await import('../../../plugins/navigation-decider/src/index.js');
+                    const nav = await import('@ai-engineering-agent/navigation-decider');
                     result = { ok: true, output: nav.buildUiContract(input, state.context.resolvedTargetProfile) as unknown as JsonObject };
                     break;
                   }
                   case 'page-generator': {
-                    const pg = await import('../../../plugins/page-generator/src/index.js');
+                    const pg = await import('@ai-engineering-agent/page-generator');
                     result = { ok: true, output: pg.buildGenerationReport(input) as unknown as JsonObject };
                     break;
                   }
                   case 'playwright-runner': {
-                    const pw = await import('../../../plugins/playwright-runner/src/index.js');
+                    const pw = await import('@ai-engineering-agent/playwright-runner');
                     result = { ok: true, output: pw.buildPlaywrightValidation(state.context.targetProject ?? '.') as unknown as JsonObject };
                     break;
                   }
                   case 'visual-regression-runner': {
-                    const vr = await import('../../../plugins/visual-regression-runner/src/index.js');
+                    const vr = await import('@ai-engineering-agent/visual-regression-runner');
                     result = { ok: true, output: vr.buildVisualRegressionValidation(state.context.targetProject ?? '.') as unknown as JsonObject };
                     break;
                   }
                   case 'db-migration': {
-                    const { generateMigration } = await import('../../../plugins/db-migration/src/index.js');
+                    const { generateMigration } = await import('@ai-engineering-agent/plugin-db-migration');
                     const dataModel = state.nodeResults['data_modeling']?.output;
                     const entities = (dataModel as Record<string, unknown>)?.entities as Array<Record<string, unknown>> | undefined;
                     result = { ok: true, output: generateMigration({
@@ -137,7 +137,7 @@ export function createWorkflowsRouter(
                     break;
                   }
                   case 'api-scaffold': {
-                    const { scaffoldApi } = await import('../../../plugins/api-scaffold/src/index.js');
+                    const { scaffoldApi } = await import('@ai-engineering-agent/plugin-api-scaffold');
                     const resolvedProfile = state.context.resolvedTargetProfile as unknown as Record<string, unknown> | undefined;
                     const backendRaw = resolvedProfile?.backend as Record<string, unknown> | undefined;
                     result = { ok: true, output: scaffoldApi({
@@ -151,7 +151,7 @@ export function createWorkflowsRouter(
                     break;
                   }
                   case 'docker-generator': {
-                    const { generateDocker } = await import('../../../plugins/docker-generator/src/index.js');
+                    const { generateDocker } = await import('@ai-engineering-agent/plugin-docker-generator');
                     result = { ok: true, output: generateDocker({
                       appName: 'generated-app',
                       backendPort: 3000,
@@ -162,7 +162,7 @@ export function createWorkflowsRouter(
                     break;
                   }
                   case 'api-contract-validator': {
-                    const { validateApiContract } = await import('../../../plugins/api-contract-validator/src/index.js');
+                    const { validateApiContract } = await import('@ai-engineering-agent/plugin-api-contract-validator');
                     const apiContract = (state.nodeResults['api_design']?.output ?? {}) as JsonObject;
                     const backendOutput = state.nodeResults['backend_coding']?.output as Record<string, unknown> | undefined;
                     const generatedFiles = (backendOutput?.generatedFiles as Array<{path: string; content: string}>) ?? [];

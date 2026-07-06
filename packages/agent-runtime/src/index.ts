@@ -2,7 +2,7 @@
  * Skill registry — maps skill names from workflow YAML to SkillDefinition instances.
  */
 
-import type { SkillDefinition } from '../../skill-sdk/src';
+import type { SkillDefinition } from '@ai-engineering-agent/skill-sdk';
 
 // Existing skills
 import { requirementAnalysisSkill } from './skills/requirement-analysis';

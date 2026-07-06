@@ -1,4 +1,4 @@
-import type { ValidationIssue } from '../../shared-types/src';
+import type { ValidationIssue } from '@ai-engineering-agent/shared-types';
 import { createValidationIssue, createValidationReport, mergeValidationChecks } from './report';
 import type {
   ValidationCheckContext,

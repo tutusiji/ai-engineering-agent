@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { JsonObject, SchemaRef } from '../../shared-types/src';
+import type { JsonObject, SchemaRef } from '@ai-engineering-agent/shared-types';
 
 export interface SchemaRegistryOptions {
   contractsDir: string;

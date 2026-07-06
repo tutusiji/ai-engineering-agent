@@ -1,6 +1,6 @@
-import type { JsonObject, JsonValue, SchemaRef, TargetProfileRef } from '../../shared-types/src';
-import type { FilePolicyRegistry, TargetProfileDefinition } from '../../policy-engine/src';
-import type { FileSchemaRegistry } from '../../contract-schema/src';
+import type { JsonObject, JsonValue, SchemaRef, TargetProfileRef } from '@ai-engineering-agent/shared-types';
+import type { FilePolicyRegistry, TargetProfileDefinition } from '@ai-engineering-agent/policy-engine';
+import type { FileSchemaRegistry } from '@ai-engineering-agent/contract-schema';
 
 export type WorkflowNodeType = 'agent' | 'plugin' | 'pluginGroup';
 

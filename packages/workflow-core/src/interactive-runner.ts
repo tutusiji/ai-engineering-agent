@@ -17,19 +17,19 @@ import * as readline from 'node:readline';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { JsonObject } from '../../shared-types/src';
-import { FileSchemaRegistry } from '../../contract-schema/src';
-import { FilePolicyRegistry } from '../../policy-engine/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import { FileSchemaRegistry } from '@ai-engineering-agent/contract-schema';
+import { FilePolicyRegistry } from '@ai-engineering-agent/policy-engine';
 import {
   getSkill,
   runSkillThroughLlm,
   loadLlmConfigFromEnv,
   type LlmConfig,
-} from '../../agent-runtime/src';
-import type { SkillContext, SkillDefinition } from '../../skill-sdk/src';
-import type { RequirementDocument } from '../../agent-runtime/src/skills/interactive-requirement';
+} from '@ai-engineering-agent/agent-runtime';
+import type { SkillContext, SkillDefinition } from '@ai-engineering-agent/skill-sdk';
+import type { RequirementDocument } from '@ai-engineering-agent/agent-runtime';
 
-import { getCompatibleLibraries, getLibrarySummary } from '../../agent-runtime/src/ui-catalog';
+import { getCompatibleLibraries, getLibrarySummary } from '@ai-engineering-agent/agent-runtime';
 
 // ─── Config ─────────────────────────────────────────────────────────────
 

@@ -15,22 +15,22 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { JsonObject, JsonValue, ValidationReport } from '../../shared-types/src';
-import { FileSchemaRegistry } from '../../contract-schema/src';
-import { FilePolicyRegistry } from '../../policy-engine/src';
+import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import { FileSchemaRegistry } from '@ai-engineering-agent/contract-schema';
+import { FilePolicyRegistry } from '@ai-engineering-agent/policy-engine';
 import { WorkflowExecutor } from './executor';
 import { loadWorkflowRegistry } from './loader';
 import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types';
-import { scanProject } from '../../../plugins/project-scanner/src';
-import { runRuleChecker } from '../../../plugins/rule-checkers/src';
-import { buildUiContract } from '../../../plugins/navigation-decider/src';
-import { buildGenerationReport } from '../../../plugins/page-generator/src';
-import { buildPlaywrightValidation } from '../../../plugins/playwright-runner/src';
-import { buildVisualRegressionValidation } from '../../../plugins/visual-regression-runner/src';
+import { scanProject } from '@ai-engineering-agent/project-scanner';
+import { runRuleChecker } from '@ai-engineering-agent/rule-checkers';
+import { buildUiContract } from '@ai-engineering-agent/navigation-decider';
+import { buildGenerationReport } from '@ai-engineering-agent/page-generator';
+import { buildPlaywrightValidation } from '@ai-engineering-agent/playwright-runner';
+import { buildVisualRegressionValidation } from '@ai-engineering-agent/visual-regression-runner';
 import {
   runMockValidationPlugin,
   runMockValidationSuite,
-} from '../../validation-core/src';
+} from '@ai-engineering-agent/validation-core';
 
 // Agent Runtime
 import {
@@ -38,8 +38,8 @@ import {
   runSkillThroughLlm,
   loadLlmConfigFromEnv,
   type LlmConfig,
-} from '../../agent-runtime/src';
-import type { SkillContext } from '../../skill-sdk/src';
+} from '@ai-engineering-agent/agent-runtime';
+import type { SkillContext } from '@ai-engineering-agent/skill-sdk';
 
 // ─── LLM Config ────────────────────────────────────────────────────────
 

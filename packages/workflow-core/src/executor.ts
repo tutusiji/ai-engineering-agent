@@ -1,4 +1,4 @@
-import type { JsonObject, TargetProfileRef } from '../../shared-types/src';
+import type { JsonObject, TargetProfileRef } from '@ai-engineering-agent/shared-types';
 import type {
   WorkflowDefinition,
   WorkflowNodeDef,

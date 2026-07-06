@@ -5,8 +5,8 @@
  * with page types, route modes, and component reuse hints.
  */
 
-import type { JsonObject } from '../../../shared-types/src';
-import type { SkillContext, SkillDefinition, SkillPrompt } from '../../../skill-sdk/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
 
 export const pagePlanningSkill: SkillDefinition = {
   name: 'page-planning',

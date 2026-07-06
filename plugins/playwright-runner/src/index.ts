@@ -1,8 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { JsonObject, JsonValue, ValidationReport } from '../../../packages/shared-types/src';
-import { createValidationReport } from '../../../packages/validation-core/src';
-import type { ProjectScanReport } from '../../project-scanner/src';
+import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import { createValidationReport } from '@ai-engineering-agent/validation-core';
+import type { ProjectScanReport } from '@ai-engineering-agent/project-scanner';
 
 export interface PlaywrightRunnerInput {
   targetProfileId: string;

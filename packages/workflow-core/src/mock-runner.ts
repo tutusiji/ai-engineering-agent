@@ -1,21 +1,21 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { JsonObject, JsonValue, ValidationReport } from '../../shared-types/src';
-import { FileSchemaRegistry } from '../../contract-schema/src';
-import { FilePolicyRegistry } from '../../policy-engine/src';
+import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import { FileSchemaRegistry } from '@ai-engineering-agent/contract-schema';
+import { FilePolicyRegistry } from '@ai-engineering-agent/policy-engine';
 import { WorkflowExecutor } from './executor';
 import { loadWorkflowRegistry } from './loader';
 import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types';
 import {
   runMockValidationPlugin,
   runMockValidationSuite,
-} from '../../validation-core/src';
-import { scanProject } from '../../../plugins/project-scanner/src';
-import { runRuleChecker } from '../../../plugins/rule-checkers/src';
-import { buildUiContract } from '../../../plugins/navigation-decider/src';
-import { buildGenerationReport } from '../../../plugins/page-generator/src';
-import { buildPlaywrightValidation } from '../../../plugins/playwright-runner/src';
-import { buildVisualRegressionValidation } from '../../../plugins/visual-regression-runner/src';
+} from '@ai-engineering-agent/validation-core';
+import { scanProject } from '@ai-engineering-agent/project-scanner';
+import { runRuleChecker } from '@ai-engineering-agent/rule-checkers';
+import { buildUiContract } from '@ai-engineering-agent/navigation-decider';
+import { buildGenerationReport } from '@ai-engineering-agent/page-generator';
+import { buildPlaywrightValidation } from '@ai-engineering-agent/playwright-runner';
+import { buildVisualRegressionValidation } from '@ai-engineering-agent/visual-regression-runner';
 
 function createMockResult(node: WorkflowNodeDef, state: WorkflowRunState, input: JsonObject): WorkflowNodeResult {
   const handledBy = node.skill ?? node.plugin ?? node.plugins ?? 'mock-runner';

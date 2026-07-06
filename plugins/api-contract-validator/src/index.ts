@@ -1,4 +1,4 @@
-import type { JsonObject } from '../../../packages/shared-types/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
 
 export interface ValidationInput {
   apiContract: JsonObject;

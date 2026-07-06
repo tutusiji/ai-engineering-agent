@@ -6,8 +6,8 @@
  * Users can click through tabs, open modals, fill forms, and see state changes.
  */
 
-import type { JsonObject } from '../../../shared-types/src';
-import type { SkillContext, SkillDefinition, SkillPrompt } from '../../../skill-sdk/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
 
 export const designGenerationSkill: SkillDefinition = {
   name: 'design-generation',

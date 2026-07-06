@@ -5,8 +5,8 @@
  * 根据实体特征推荐最合适的数据库。
  */
 
-import type { JsonObject } from '../../../shared-types/src';
-import type { SkillContext, SkillDefinition, SkillPrompt } from '../../../skill-sdk/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
 
 export const dataModelingSkill: SkillDefinition = {
   name: 'data-modeling',

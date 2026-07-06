@@ -10,6 +10,29 @@
     "skipLibCheck": true,
     "declaration": true,
     "resolveJsonModule": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@ai-engineering-agent/shared-types": ["packages/shared-types/src"],
+      "@ai-engineering-agent/skill-sdk": ["packages/skill-sdk/src"],
+      "@ai-engineering-agent/agent-runtime": ["packages/agent-runtime/src"],
+      "@ai-engineering-agent/workflow-core": ["packages/workflow-core/src"],
+      "@ai-engineering-agent/persistence": ["packages/persistence/src"],
+      "@ai-engineering-agent/contract-schema": ["packages/contract-schema/src"],
+      "@ai-engineering-agent/policy-engine": ["packages/policy-engine/src"],
+      "@ai-engineering-agent/validation-core": ["packages/validation-core/src"],
+      "@ai-engineering-agent/plugin-sdk": ["packages/plugin-sdk/src"],
+      "@ai-engineering-agent/project-scanner": ["plugins/project-scanner/src"],
+      "@ai-engineering-agent/page-generator": ["plugins/page-generator/src"],
+      "@ai-engineering-agent/playwright-runner": ["plugins/playwright-runner/src"],
+      "@ai-engineering-agent/navigation-decider": ["plugins/navigation-decider/src"],
+      "@ai-engineering-agent/rule-checkers": ["plugins/rule-checkers/src"],
+      "@ai-engineering-agent/visual-regression-runner": ["plugins/visual-regression-runner/src"],
+      "@ai-engineering-agent/plugin-api-contract-validator": ["plugins/api-contract-validator/src"],
+      "@ai-engineering-agent/plugin-api-scaffold": ["plugins/api-scaffold/src"],
+      "@ai-engineering-agent/plugin-db-migration": ["plugins/db-migration/src"],
+      "@ai-engineering-agent/plugin-docker-generator": ["plugins/docker-generator/src"]
+    }
   }
 }

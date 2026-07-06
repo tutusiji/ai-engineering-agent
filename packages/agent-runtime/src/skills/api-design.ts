@@ -4,8 +4,8 @@
  * 基于 DataModel + 需求规格，设计 RESTful API 契约。
  */
 
-import type { JsonObject } from '../../../shared-types/src';
-import type { SkillContext, SkillDefinition, SkillPrompt } from '../../../skill-sdk/src';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
+import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
 
 export const apiDesignSkill: SkillDefinition = {
   name: 'api-design',

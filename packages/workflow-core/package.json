@@ -4,5 +4,19 @@
   "private": true,
   "type": "module",
   "main": "src/index.ts",
-  "types": "src/index.ts"
+  "types": "src/index.ts",
+  "dependencies": {
+    "@ai-engineering-agent/shared-types": "workspace:*",
+    "@ai-engineering-agent/skill-sdk": "workspace:*",
+    "@ai-engineering-agent/contract-schema": "workspace:*",
+    "@ai-engineering-agent/policy-engine": "workspace:*",
+    "@ai-engineering-agent/validation-core": "workspace:*",
+    "@ai-engineering-agent/agent-runtime": "workspace:*",
+    "@ai-engineering-agent/project-scanner": "workspace:*",
+    "@ai-engineering-agent/page-generator": "workspace:*",
+    "@ai-engineering-agent/playwright-runner": "workspace:*",
+    "@ai-engineering-agent/navigation-decider": "workspace:*",
+    "@ai-engineering-agent/rule-checkers": "workspace:*",
+    "@ai-engineering-agent/visual-regression-runner": "workspace:*"
+  }
 }

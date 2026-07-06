@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { parse } from 'yaml';
-import type { JsonObject, TargetProfileRef } from '../../shared-types/src';
+import type { JsonObject, TargetProfileRef } from '@ai-engineering-agent/shared-types';
 
 export interface PolicyRegistryOptions {
   policiesDir: string;
