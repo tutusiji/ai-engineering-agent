@@ -10,3 +10,4 @@ playwright-report/
 !.env.example
 *.tsbuildinfo
 .gstack/
+.claude/settings.local.json
