@@ -76,8 +76,8 @@ ${currentMarkdown}
     const profileDatabase = profileHint?.database as JsonObject | undefined;
     const profileDeployment = profileHint?.deployment as JsonObject | undefined;
 
-    // Build preference section if profile exists
-    let preferenceSection = '';
+    // 构建偏好部分（仅当 profile 存在时填充）
+    let preferenceSection: string;
     if (profileHint) {
       preferenceSection = `
 ## 用户偏好（可选参考）

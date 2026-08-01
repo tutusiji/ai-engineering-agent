@@ -14,8 +14,9 @@ export interface AuthUser {
   username: string;
 }
 
-// Extend Express Request to include user
+// 扩展 Express Request 类型，挂载已认证用户信息
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       user?: AuthUser;
