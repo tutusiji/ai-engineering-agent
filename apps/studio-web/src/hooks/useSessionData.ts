@@ -45,6 +45,8 @@ export function useSessionData(
         if (activeId) {
           const active = data.versions?.find((v: DesignVersion) => v.id === activeId);
           studio.setDesignHtml(active?.html ?? null);
+          studio.setDesignDraft(null);
+          studio.setDesignDraftMeta(null);
         } else {
           studio.setDesignHtml(null);
         }
@@ -125,6 +127,8 @@ export function useSessionData(
         const data = await res.json();
         if (data.ok) {
           studio.setActiveDesignId(designId);
+          studio.setDesignDraft(null);
+          studio.setDesignDraftMeta(null);
           await loadDesignVersions(activeSessionId);
         }
       } catch {

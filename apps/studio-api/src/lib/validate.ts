@@ -60,6 +60,12 @@ export const SaveArchitectureSchema = z.object({
   model: z.string().optional(),
 });
 
+export const SaveDesignSchema = z.object({
+  design: z.record(z.unknown()),
+  htmlContent: z.string().min(1, 'htmlContent required'),
+  model: z.string().optional(),
+});
+
 export const WorkflowRunSchema = z.object({
   profileId: z.string().optional(),
   sessionId: z.string().optional(),

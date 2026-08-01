@@ -65,7 +65,7 @@ app.use('/api/catalog/ui', createUiCatalogRouter());
 
 // Sessions
 app.use('/api/sessions', createSessionsRouter(sessionStore));
-app.use('/api/sessions/:id/designs', createDesignVersionsRouter(sessionStore));
+app.use('/api/sessions/:id/designs', createDesignVersionsRouter(sessionStore, artifactStore, llmConfig));
 app.use('/api/sessions/:id/architectures', createArchitectureVersionsRouter(sessionStore, artifactStore, llmConfig));
 
 // Chat
