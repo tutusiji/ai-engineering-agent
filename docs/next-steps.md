@@ -23,7 +23,7 @@
 - [x] 实现 interactive-requirement Skill (多轮对话式需求收集)
 - [x] 实现 design-generation Skill (HTML 设计稿生成)
 - [x] 实现 code-generation Skill (从需求文档生成代码)
-- 后续把诊断型 `playwright-runner` / `visual-regression-runner` 升级为真实执行器，并产出日志、截图、diff 图与 HTML artifacts
+- [x] 把诊断型 `playwright-runner` / `visual-regression-runner` 升级为真实执行器，并产出日志、截图、diff 图与 HTML artifacts
 
 ## Phase 3：补可视化和审查能力
 

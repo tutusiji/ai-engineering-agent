@@ -15,6 +15,9 @@ export async function buildPlaywrightValidation(input: PlaywrightRunnerInput): P
   const supportsPlaywright = input.targetValidation?.playwright !== false;
   const targetProject = input.targetProject;
 
+  // 真实执行条件：仅当 targetValidation 明确要求执行时标记可执行
+  // 诊断模式保持向后兼容：ready 状态表示"具备条件"，由调用方决定是否真实执行
+
   if (!supportsPlaywright) {
     return toJsonObject({
       ...createValidationReport([]),
@@ -138,3 +141,6 @@ function detectPlaywrightTests(projectScan?: ProjectScanReport): string[] {
   const files = projectScan?.files ?? [];
   return files.filter((file) => /playwright|e2e|smoke/i.test(file)).slice(0, 20);
 }
+
+export { executePlaywrightValidation } from './execute.js';
+export type { PlaywrightExecuteInput, PlaywrightExecuteResult, PlaywrightFailure } from './execute.js';

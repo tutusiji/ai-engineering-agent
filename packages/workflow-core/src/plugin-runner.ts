@@ -19,10 +19,15 @@ import { scanProject } from '@ai-engineering-agent/project-scanner';
 import { runRuleChecker } from '@ai-engineering-agent/rule-checkers';
 import { buildUiContract } from '@ai-engineering-agent/navigation-decider';
 import { buildGenerationReport } from '@ai-engineering-agent/page-generator';
-import { buildPlaywrightValidation } from '@ai-engineering-agent/playwright-runner';
-import { buildVisualRegressionValidation } from '@ai-engineering-agent/visual-regression-runner';
+import { buildPlaywrightValidation, executePlaywrightValidation } from '@ai-engineering-agent/playwright-runner';
+import { buildVisualRegressionValidation, executeVisualRegression } from '@ai-engineering-agent/visual-regression-runner';
 import { runMockValidationPlugin, runMockValidationSuite } from '@ai-engineering-agent/validation-core';
 import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types.js';
+
+/** 是否启用真实执行器（默认开启；可通过环境变量 AIEA_EXEC_REAL=0 关闭以强制走诊断） */
+function isRealExecutionEnabled(): boolean {
+  return process.env.AIEA_EXEC_REAL !== '0';
+}
 
 /** 构建验证上下文（供 mock validation plugin 使用） */
 function createValidationContext(node: WorkflowNodeDef, state: WorkflowRunState) {
@@ -71,6 +76,97 @@ export async function runPluginNode(
   return createMockResult(node, state, state.context.input);
 }
 
+/**
+ * Playwright 节点执行：优先真实执行（仓库具备条件时），否则降级诊断
+ */
+async function runPlaywrightNode(
+  state: WorkflowRunState,
+  scanReport: Awaited<ReturnType<typeof scanProject>> | undefined,
+): Promise<JsonObject> {
+  const baseInput = {
+    targetProfileId: state.context.targetProfile?.id ?? 'unknown',
+    targetProject: state.context.targetProject,
+    projectScan: scanReport,
+    targetValidation: state.context.resolvedTargetProfile?.validation,
+  };
+
+  if (isRealExecutionEnabled()) {
+    try {
+      const result = await executePlaywrightValidation({
+        ...baseInput,
+        outputDir: state.context.targetProject
+          ? pathJoin(state.context.targetProject, 'artifacts', 'playwright')
+          : undefined,
+      });
+      // 真实执行器自己会降级（executed=false 时返回诊断），无需在此重复降级
+      return result;
+    } catch (err) {
+      // 执行器内部异常：降级为诊断，避免阻断工作流
+      const diagnostic = await buildPlaywrightValidation(baseInput);
+      return {
+        ...diagnostic,
+        executed: false,
+        summary: `${String(diagnostic.summary ?? '')}（真实执行异常，已降级: ${err instanceof Error ? err.message : String(err)}）`,
+      };
+    }
+  }
+  return buildPlaywrightValidation(baseInput);
+}
+
+/**
+ * 视觉回归节点执行：优先真实执行（提供页面时），否则降级诊断
+ */
+async function runVisualRegressionNode(
+  state: WorkflowRunState,
+  scanReport: Awaited<ReturnType<typeof scanProject>> | undefined,
+  generationReport: JsonObject | undefined,
+): Promise<JsonObject> {
+  const baseInput = {
+    targetProfileId: state.context.targetProfile?.id ?? 'unknown',
+    targetProject: state.context.targetProject,
+    projectScan: scanReport,
+    generationReport,
+    targetValidation: state.context.resolvedTargetProfile?.validation,
+  };
+
+  // 从生成报告或工作流上下文推导待截图页面
+  const generatedFiles = Array.isArray(generationReport?.generatedFiles)
+    ? (generationReport.generatedFiles as Array<{ path?: string }>)
+        .map((item) => item.path)
+        .filter((p): p is string => Boolean(p))
+    : [];
+  const htmlPages = generatedFiles.filter((p) => p.endsWith('.html')).slice(0, 5);
+
+  const pages = htmlPages.length > 0
+    ? htmlPages.map((filePath, index) => ({
+        name: (filePath.split('/').pop() ?? `page-${index}`).replace(/\.html$/, ''),
+        url: filePath,
+      }))
+    : undefined;
+
+  if (isRealExecutionEnabled() && pages) {
+    try {
+      return await executeVisualRegression({
+        ...baseInput,
+        pages,
+      });
+    } catch (err) {
+      const diagnostic = await buildVisualRegressionValidation(baseInput);
+      return {
+        ...diagnostic,
+        executed: false,
+        summary: `${String(diagnostic.summary ?? '')}（真实执行异常，已降级: ${err instanceof Error ? err.message : String(err)}）`,
+      };
+    }
+  }
+  return buildVisualRegressionValidation(baseInput);
+}
+
+/** 安全拼接路径（避免引入未使用的 path 包依赖） */
+function pathJoin(...parts: Array<string | undefined>): string {
+  return parts.filter(Boolean).join('/');
+}
+
 /** 执行 pluginGroup 节点（批量规则检查） */
 async function runPluginGroupNode(
   node: WorkflowNodeDef,
@@ -89,12 +185,7 @@ async function runPluginGroupNode(
 
       // Playwright E2E
       if (pluginName === 'playwright-runner') {
-        const report = await buildPlaywrightValidation({
-          targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-          targetProject: state.context.targetProject,
-          projectScan: scanReport,
-          targetValidation: state.context.resolvedTargetProfile?.validation,
-        });
+        const report = await runPlaywrightNode(state, scanReport);
         return {
           name: pluginName,
           report: report as unknown as ValidationReport,
@@ -105,13 +196,7 @@ async function runPluginGroupNode(
       // 视觉回归
       if (pluginName === 'visual-regression-runner') {
         const generationReport = state.nodeResults.code_generation?.output as JsonObject | undefined;
-        const report = await buildVisualRegressionValidation({
-          targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-          targetProject: state.context.targetProject,
-          projectScan: scanReport,
-          generationReport,
-          targetValidation: state.context.resolvedTargetProfile?.validation,
-        });
+        const report = await runVisualRegressionNode(state, scanReport, generationReport);
         return {
           name: pluginName,
           report: report as unknown as ValidationReport,
@@ -208,12 +293,7 @@ async function runSinglePluginNode(
     const scanReport = state.context.targetProject
       ? await scanProject({ rootDir: state.context.targetProject })
       : undefined;
-    const report = await buildPlaywrightValidation({
-      targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-      targetProject: state.context.targetProject,
-      projectScan: scanReport,
-      targetValidation: state.context.resolvedTargetProfile?.validation,
-    });
+    const report = await runPlaywrightNode(state, scanReport);
     const runnerStatus = typeof report.runnerStatus === 'string' ? report.runnerStatus : 'unknown';
     return { ok: !['failed'].includes(runnerStatus), output: report, raw: toJsonValue(report) };
   }
@@ -224,13 +304,7 @@ async function runSinglePluginNode(
       ? await scanProject({ rootDir: state.context.targetProject })
       : undefined;
     const generationReport = state.nodeResults.code_generation?.output as JsonObject | undefined;
-    const report = await buildVisualRegressionValidation({
-      targetProfileId: state.context.targetProfile?.id ?? 'unknown',
-      targetProject: state.context.targetProject,
-      projectScan: scanReport,
-      generationReport,
-      targetValidation: state.context.resolvedTargetProfile?.validation,
-    });
+    const report = await runVisualRegressionNode(state, scanReport, generationReport);
     const runnerStatus = typeof report.runnerStatus === 'string' ? report.runnerStatus : 'unknown';
     return { ok: !['failed'].includes(runnerStatus), output: report, raw: toJsonValue(report) };
   }

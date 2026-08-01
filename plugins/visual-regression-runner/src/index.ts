@@ -133,6 +133,14 @@ function detectVisualFiles(projectScan?: ProjectScanReport): string[] {
   return files.filter((file) => /visual|screenshot|snapshot|pixelmatch|diff/i.test(file)).slice(0, 20);
 }
 
+export { executeVisualRegression } from './execute.js';
+export type {
+  VisualTargetPage,
+  VisualRegressionExecuteInput,
+  VisualDiffResult,
+  VisualRegressionExecuteResult,
+} from './execute.js';
+
 function toJsonObject<T>(value: T): JsonObject {
   return JSON.parse(JSON.stringify(value)) as JsonObject;
 }
