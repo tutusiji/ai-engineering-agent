@@ -117,7 +117,7 @@ export function useGeneration(
     }
   }, [activeSessionId, profileId, studio]);
 
-  // ── 生成可交互 UI 预览 ────────────────────────────────────
+  // ── 生成可交互 UI 预览草稿 ────────────────────────────────
   const generateDesign = useCallback(
     async (onComplete?: () => void): Promise<boolean> => {
       if (!activeSessionId) return false;
@@ -131,7 +131,10 @@ export function useGeneration(
         });
         const data = await res.json();
         if (data.ok && data.htmlContent) {
-          studio.setDesignHtml(data.htmlContent);
+          studio.setDesignDraft(data.htmlContent);
+          studio.setDesignDraftMeta({ design: data.design, model: data.model });
+          studio.setDesignHtml(null);
+          studio.setActiveDesignId(null);
           onComplete?.();
           return true;
         }
@@ -146,6 +149,34 @@ export function useGeneration(
     },
     [activeSessionId, profileId, studio],
   );
+
+  // ── 保存 UI 预览到数据库 ────────────────────────────────────
+  const saveDesign = useCallback(async (): Promise<boolean> => {
+    if (!activeSessionId || !studio.designDraft || !studio.designDraftMeta) return false;
+    try {
+      const res = await fetch(`${API}/sessions/${activeSessionId}/designs/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          design: studio.designDraftMeta.design,
+          htmlContent: studio.designDraft,
+          model: studio.designDraftMeta.model,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        studio.setDesignHtml(studio.designDraft);
+        studio.setDesignDraft(null);
+        studio.setDesignDraftMeta(null);
+        return true;
+      }
+      return false;
+    } catch {
+      console.error('保存失败');
+      return false;
+    }
+  }, [activeSessionId, studio]);
 
   // ── 生成全栈代码 ──────────────────────────────────────────
   const generateCode = useCallback(
@@ -188,6 +219,7 @@ export function useGeneration(
     saveArchitecture,
     refineArchitecture,
     generateDesign,
+    saveDesign,
     generateCode,
   };
 }

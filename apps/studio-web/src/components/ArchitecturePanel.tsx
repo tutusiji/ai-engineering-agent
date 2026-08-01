@@ -139,11 +139,7 @@ export function ArchitecturePanel({
         {/* Left: version indicator + dropdown */}
         <div className="flex items-center gap-2 min-w-0">
           <Layers className="w-4 h-4 text-blue-500 shrink-0" />
-          {isDraft ? (
-            <span className="text-sm text-amber-600 font-medium whitespace-nowrap">
-              未保存的草稿
-            </span>
-          ) : versions.length > 0 ? (
+          {versions.length > 0 && (
             <div className="relative">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
@@ -194,7 +190,12 @@ export function ArchitecturePanel({
                 </>
               )}
             </div>
-          ) : null}
+          )}
+          {isDraft && (
+            <span className="text-xs text-amber-600 font-medium whitespace-nowrap px-2 py-0.5 bg-amber-50 rounded">
+              未保存的草稿
+            </span>
+          )}
         </div>
 
         {/* Right: actions */}

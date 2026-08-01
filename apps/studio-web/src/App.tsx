@@ -221,14 +221,16 @@ export default function App() {
                 )}
                 {activeChatTab === 'design' && (
                   <DesignPanel
-                    html={studio.designHtml}
+                    html={studio.designDraft ?? studio.designHtml}
                     completeness={completeness}
                     loading={generation.designLoading}
                     versions={studio.designVersions}
                     activeDesignId={studio.activeDesignId}
+                    isDraft={!!studio.designDraft}
                     onGenerate={() =>
                       generation.generateDesign(() => setActiveChatTab('design'))
                     }
+                    onSave={generation.saveDesign}
                     onSwitchVersion={sessionData.switchDesignVersion}
                   />
                 )}

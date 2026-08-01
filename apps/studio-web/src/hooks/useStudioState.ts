@@ -22,6 +22,8 @@ export function useStudioState() {
   const [designHtml, setDesignHtml] = useState<string | null>(null);
   const [designVersions, setDesignVersions] = useState<DesignVersion[]>([]);
   const [activeDesignId, setActiveDesignId] = useState<string | null>(null);
+  const [designDraft, setDesignDraft] = useState<string | null>(null);
+  const [designDraftMeta, setDesignDraftMeta] = useState<{ design: unknown; model: string } | null>(null);
   const [generatedFiles, setGeneratedFiles] = useState<Array<{ path: string; kind: string; content?: string }>>([]);
   const [archMarkdown, setArchMarkdown] = useState<string | null>(null);
   const [archVersions, setArchVersions] = useState<ArchVersion[]>([]);
@@ -33,6 +35,8 @@ export function useStudioState() {
     setDesignHtml(null);
     setDesignVersions([]);
     setActiveDesignId(null);
+    setDesignDraft(null);
+    setDesignDraftMeta(null);
     setGeneratedFiles([]);
     setArchMarkdown(null);
     setArchVersions([]);
@@ -48,6 +52,10 @@ export function useStudioState() {
     setDesignVersions,
     activeDesignId,
     setActiveDesignId,
+    designDraft,
+    setDesignDraft,
+    designDraftMeta,
+    setDesignDraftMeta,
     generatedFiles,
     setGeneratedFiles,
     archMarkdown,
