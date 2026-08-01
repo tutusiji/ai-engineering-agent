@@ -81,3 +81,7 @@ export const ArtifactDownloadSchema = z.object({
   id: z.string().optional(),
   ids: z.string().optional(),
 });
+
+export const BaselineQuerySchema = z.object({
+  project: z.string().optional(),
+});

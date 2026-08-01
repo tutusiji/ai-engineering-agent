@@ -23,6 +23,7 @@ import { createRunsRouter } from './routes/runs.js';
 import { createArtifactsRouter } from './routes/artifacts.js';
 import { createMetricsRouter } from './routes/metrics.js';
 import { createAuthRouter } from './routes/auth.js';
+import { createBaselinesRouter } from './routes/baselines.js';
 
 const llmConfig = loadLlmConfigFromEnv();
 
@@ -83,6 +84,9 @@ app.use('/api/sessions/:id/artifacts', createArtifactsRouter(sessionStore, artif
 
 // Metrics
 app.use('/api/metrics', createMetricsRouter(metricsStore));
+
+// Visual baselines
+app.use('/api/baselines', createBaselinesRouter());
 
 // Global error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

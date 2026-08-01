@@ -42,7 +42,8 @@ export function validateQuery<T extends Record<string, string>>(schema: ZodSchem
         details: formatZodError(parsed.error),
       });
     }
-    req.query = parsed.data as Record<string, string>;
+    // 注意：Express 5 中 req.query 是只读 getter，不能赋值；
+    // 校验通过后 handler 直接使用 req.query（类型已在 schema 中约束）
     return next();
   };
 }

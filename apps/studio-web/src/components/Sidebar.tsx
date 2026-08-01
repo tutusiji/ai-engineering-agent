@@ -19,10 +19,11 @@ import {
   MessageSquare,
   History,
   LayoutGrid,
+  Image as ImageIcon,
 } from 'lucide-react';
 import type { Session } from '../hooks/useSessions';
 
-type NavKey = 'chat' | 'workflows' | 'history';
+type NavKey = 'chat' | 'workflows' | 'history' | 'baselines';
 
 interface SidebarProps {
   sessions: Session[];
@@ -104,6 +105,13 @@ export function Sidebar({
             onPress={() => onNavigate('history')}
           >
             <History size={16} className="inline mr-1.5" /> 运行历史
+          </Button>
+          <Button
+            variant={activeNav === 'baselines' ? 'primary' : 'ghost'}
+            className="w-full justify-start"
+            onPress={() => onNavigate('baselines')}
+          >
+            <ImageIcon size={16} className="inline mr-1.5" /> 视觉基线
           </Button>
         </div>
       </div>
