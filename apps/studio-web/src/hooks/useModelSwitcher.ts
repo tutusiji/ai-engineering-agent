@@ -25,6 +25,10 @@ export function useModelSwitcher() {
     try {
       const res = await fetch(`${API}/models`, { credentials: 'include' });
       const data = await res.json();
+      if (!Array.isArray(data)) {
+        // API 返回了非数组（如认证错误），保持默认空列表
+        return;
+      }
       setModels(data);
       const active = data.find((m: ModelOption) => m.active);
       if (active) setCurrentModel(active.label);
