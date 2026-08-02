@@ -20,6 +20,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # 后端测试依赖真实 PostgreSQL(server-artifacts.test.ts 会执行 SQL),
+    # CI 上没有数据库导致测试失败、部署被卡在 SSH 之前。这里起一个临时实例。
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
@@ -40,7 +57,12 @@ jobs:
         run: pnpm --filter @ai-engineering-agent/studio-web build
 
       - name: 🧪 Run backend tests
-        run: pnpm --filter @ai-engineering-agent/studio-api test run
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: |
+          # 先应用迁移建表,再跑测试(迁移幂等,可安全重复执行)
+          pnpm exec tsx scripts/migrate.ts
+          pnpm --filter @ai-engineering-agent/studio-api test run
 
       - name: 🔑 Setup SSH
         uses: shimataro/ssh-key-action@v2
