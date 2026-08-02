@@ -50,10 +50,13 @@ jobs:
           VERSION="${LATEST_TAG#v}"
           MAJOR=$(echo "$VERSION" | cut -d. -f1)
           MINOR=$(echo "$VERSION" | cut -d. -f2)
-          PATCH=$(echo "$VERSION" | cut -d. -f3)
+          # 去掉 prerelease 后缀(如 1-rc1 → 1),避免算术报错
+          PATCH=$(echo "$VERSION" | cut -d. -f3 | cut -d- -f1)
 
           # Get commits since last tag
-          COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s")
+          # 仓库没有任何 tag 时 LATEST_TAG 回退为 v0.0.0,git log 会因 ref 不存在而失败;
+          # Actions 的 run 步骤默认 bash -e,失败会直接中止,必须兜底
+          COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || true)
 
           # Determine bump based on conventional commits
           BUMP="patch"
