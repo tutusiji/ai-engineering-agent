@@ -235,7 +235,23 @@ export default function App() {
                     onSwitchVersion={sessionData.switchDesignVersion}
                   />
                 )}
-                {activeChatTab === 'code' && <CodePanel files={studio.generatedFiles} />}
+                {activeChatTab === 'code' && (
+                  <CodePanel
+                    files={studio.generatedFiles}
+                    onGenerate={(phaseId) => generation.generateCode(phaseId, () => setActiveChatTab('code'))}
+                    loading={generation.codeLoading}
+                    refining={generation.codeRefining}
+                    phases={docHook.document?.phases}
+                    selectedPhaseId={generation.codePhaseId}
+                    onPhaseChange={generation.setCodePhaseId}
+                    codeProgress={generation.codeProgress}
+                    codeWarning={generation.codeWarning}
+                    onCancel={generation.abortCodeGeneration}
+                    onRefine={studio.generatedFiles?.length
+                      ? (feedback: string) => generation.refineCode(feedback)
+                      : undefined}
+                  />
+                )}
               </div>
             </div>
           )}

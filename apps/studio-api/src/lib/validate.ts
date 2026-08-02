@@ -85,3 +85,11 @@ export const ArtifactDownloadSchema = z.object({
 export const BaselineQuerySchema = z.object({
   project: z.string().optional(),
 });
+
+export const CodeRefineSchema = z.object({
+  sessionId: z.string().min(1, 'sessionId required'),
+  currentFiles: z.array(z.object({
+    path: z.string(), kind: z.string().optional(), content: z.string(),
+  })).min(1, 'currentFiles required'),
+  feedback: z.string().min(1, 'feedback required'),
+});

@@ -17,7 +17,7 @@ export const codeGenerationSkill: SkillDefinition = {
   defaultModel: {
     model: 'auto',
     temperature: 0.15,
-    maxTokens: 16384,
+    maxTokens: 65536,
   },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
