@@ -132,6 +132,8 @@ interface PptSourceInput {
 interface OutlineParams {
   source: PptSourceInput;
   theme: PptThemeData;
+  /** 主题行 id — 构建时服务端按此解析上传模板的资产目录（theme JSON 本身不携带路径） */
+  themeId: string;
   preferences: { targetPages: number; audience: string };
 }
 
@@ -289,6 +291,8 @@ export function PptPanel() {
 
   // ── 完成（done 视图）──
   const [content, setContent] = useState<PptContent | null>(null);
+  // 构建成功但个别页超预算的温和告警（pptx-builder ok:true 时经 output.warnings 透传，1-2 处放行）
+  const [doneWarnings, setDoneWarnings] = useState<string[]>([]);
 
   /** 「生成大纲」时的参数快照 — 精炼携带原 params 重跑、构建复用 theme/preferences */
   const outlineParamsRef = useRef<OutlineParams | null>(null);
@@ -610,10 +614,16 @@ export function PptPanel() {
     cancelPoll();
     setOutlineLoading(true);
     setOutlineError(null);
-    outlineParamsRef.current = { source, theme: themeRow.theme ?? {}, preferences };
+    // themeId 随参数快照 — 构建时 plugin-runner 按行 id 在服务端解析模板资产路径（theme JSON 不携带路径）
+    outlineParamsRef.current = {
+      source,
+      theme: themeRow.theme ?? {},
+      themeId: themeRow.id,
+      preferences,
+    };
     startWorkflowRun(
       'ppt-outline',
-      { source, theme: themeRow.theme ?? {}, preferences },
+      { source, theme: themeRow.theme ?? {}, themeId: themeRow.id, preferences },
       {
         onCompleted: (run) => {
           setOutlineLoading(false);
@@ -725,7 +735,8 @@ export function PptPanel() {
     setBuildWarnings([]);
     startWorkflowRun(
       'ppt-build',
-      { outline: editedOutline, theme: base.theme, preferences: base.preferences },
+      // themeId 透传 — plugin-runner 在服务端按行 id 解析模板资产路径（theme JSON 不携带路径）
+      { outline: editedOutline, theme: base.theme, themeId: base.themeId, preferences: base.preferences },
       {
         onCompleted: (run) => {
           setBuildRunning(false);
@@ -736,6 +747,15 @@ export function PptPanel() {
             return;
           }
           setContent(normalizeContent(raw));
+          // 放行的超预算告警（ok:true 时 1-2 处）随 pptx_build.output.warnings 透传，完成视图展示
+          const buildOutput = run.result?.pptx_build?.output;
+          const okWarnings =
+            buildOutput && typeof buildOutput === 'object' && 'warnings' in buildOutput
+              ? (buildOutput as { warnings?: unknown }).warnings
+              : undefined;
+          setDoneWarnings(
+            Array.isArray(okWarnings) ? okWarnings.filter((w): w is string => typeof w === 'string') : []
+          );
           setView('done');
         },
         onFailed: (run) => {
@@ -776,6 +796,7 @@ export function PptPanel() {
     setView('pick');
     setEditedOutline(null);
     setContent(null);
+    setDoneWarnings([]);
     setFeedback('');
     setBuildRunId(null);
     setBuildRunning(false);
@@ -1399,6 +1420,21 @@ export function PptPanel() {
             </a>
           )}
         </div>
+
+        {/* 放行的超预算告警（ok:true 但 1-2 处超字数预算，温和提示不阻断） */}
+        {doneWarnings.length > 0 && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+              <span className="text-sm font-medium text-amber-700">部分页面超出字数预算，已放行生成</span>
+            </div>
+            {doneWarnings.map((warning, index) => (
+              <p key={index} className="ml-6 mt-1 break-words text-xs text-amber-600">
+                · {warning}
+              </p>
+            ))}
+          </div>
+        )}
 
         {/* slides 只读预览 */}
         <div className="mt-4 flex flex-col gap-3">

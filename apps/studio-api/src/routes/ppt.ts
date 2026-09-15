@@ -81,11 +81,12 @@ export function createPptRouter(): Router {
         }
         const row = await templateStore.create({
           // theme.name 覆盖 — parseTemplate 取的是临时文件名（恒为 'template'），必须用上传文件名重建，
-          // 否则所有上传模板在主题选择器里同名不可区分，且污染 LLM prompt 中的主题描述
+          // 否则所有上传模板在主题选择器里同名不可区分，且污染 LLM prompt 中的主题描述。
+          // assetBasePath 不入库（合约约定为运行时注入字段）：绝对路径会经 GET /themes 下发浏览器
+          // 并被 JSON.stringify 进 LLM prompt；构建时由 plugin-runner 按 themeId 从 assetPaths 解析
           theme: {
             ...parsed.theme,
             name: safeName.replace(/\.pptx$/i, '') || '我的模板',
-            assetBasePath: `${artifactStore.getBaseDir()}/${assetRelDir}`,
           },
           ownerId: req.user.id, // ownerId 非空（req.user 已校验），否则 listByOwner 中不可见
           name: safeName,

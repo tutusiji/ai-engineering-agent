@@ -112,9 +112,12 @@ export async function parseTemplate(filePath: string): Promise<ParsedTemplate> {
     assets[path.basename(name)] = buf;
   }
 
-  // 背景图 = 最大的图片（≥30KB）
+  // 背景图 = 最大的栅格图片（≥30KB）— 仅接受图片扩展名，视频/WMF 等媒体误选会产出损坏封面
   const themeAssets: PptThemeAssets = {};
-  const largest = Object.entries(assets).sort((a, b) => b[1].length - a[1].length)[0];
+  const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.bmp']);
+  const largest = Object.entries(assets)
+    .filter(([name]) => IMAGE_EXTS.has(path.extname(name).toLowerCase()))
+    .sort((a, b) => b[1].length - a[1].length)[0];
   if (largest && largest[1].length >= 30 * 1024) {
     themeAssets.backgroundPath = largest[0];
   }

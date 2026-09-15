@@ -336,6 +336,18 @@ async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunStat
     if (!content || !theme) throw new Error('pptx-builder 缺少 content 或 theme');
     // 注入真实 artifact 存储：.pptx 落 ArtifactStore，经现有 runs artifacts 路由下载
     const artifactStore = new ArtifactStore();
+    // 资产路径按 themeId 运行时解析 — theme JSON 内不携带任何路径（不入库/不入 prompt/不下发浏览器），
+    // 此处 join 后必须 confinement 校验：input 为未校验 JSON，themeId 不能作为任意目录读取的入口
+    let themeForBuild = theme;
+    const themeId = state.context.input?.themeId;
+    if (typeof themeId === 'string' && themeId) {
+      const baseDir = path.resolve(artifactStore.getBaseDir());
+      const assetsRoot = path.resolve(baseDir, 'templates') + path.sep;
+      const assetBasePath = path.resolve(baseDir, 'templates', themeId, 'assets');
+      if (assetBasePath.startsWith(assetsRoot)) {
+        themeForBuild = { ...theme, assetBasePath };
+      }
+    }
     const result = await pptxBuilderPlugin.execute(
       {
         runId: state.context.runId,
@@ -349,7 +361,7 @@ async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunStat
           saveBinary: (runId: string, filePath: string, buf: Buffer) => artifactStore.saveBinary(runId, filePath, buf),
         },
       },
-      { content, theme }
+      { content, theme: themeForBuild }
     );
     // PluginResult 的 validation/artifacts 原样透传，供 run result 展示 fitting 告警
     return result;

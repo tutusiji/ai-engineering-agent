@@ -5,12 +5,20 @@ import { join } from 'node:path';
 import type { PptContent, PptContentSlide } from './types.js';
 import type { PptTheme } from './types.js';
 
-/** 解析资产文件为 data URI（图片以 base64 内嵌，避免文件路径问题） */
-async function toDataUri(path: string | undefined, mime = 'image/png'): Promise<string | undefined> {
+/**
+ * 解析资产文件为 data URI（图片以 base64 内嵌，避免文件路径问题）
+ * MIME 按扩展名推断（默认 png）—— JPEG 字节误标为 image/png 会被 PowerPoint 判定需修复或渲染失败
+ */
+async function toDataUri(path: string | undefined): Promise<string | undefined> {
   if (!path) return undefined;
-  const { readFile } = await import('node:fs/promises');
+  const { readFile, } = await import('node:fs/promises');
   try {
     const buf = await readFile(path);
+    const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
+    const mime =
+      ext === 'jpg' || ext === 'jpeg'
+        ? 'image/jpeg'
+        : ext === 'gif' ? 'image/gif' : ext === 'bmp' ? 'image/bmp' : 'image/png';
     return `data:${mime};base64,${buf.toString('base64')}`;
   } catch {
     return undefined; // 资产缺失时静默降级为纯色版式
