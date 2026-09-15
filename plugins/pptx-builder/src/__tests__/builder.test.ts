@@ -88,7 +88,12 @@ describe('pptxBuilderPlugin execute', () => {
     expect(published[0].kind).toBe('pptx');
     expect(published[0].path).toBe(outPath);
     expect(published[0].metadata).toEqual({ pageCount: 2, sizeBytes: file.size });
-    expect(result.output).toEqual({ ok: true, artifactId: 'artifact-fit-1', path: outPath, pageCount: 2 });
+    expect(result.output).toEqual({
+      ok: true,
+      artifactId: 'artifact-fit-1',
+      pageCount: 2,
+      warnings: ['第 2 页：要点 6 条超出预算 5 条'],
+    });
     expect(result.artifacts?.[0]?.id).toBe('artifact-fit-1');
   });
 

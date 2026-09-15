@@ -29,17 +29,20 @@ export function computeFitting(content: PptContent, theme: PptTheme): string[] {
     // 按页面类型 + 密度查询该页字数预算
     const b = getSlideBudget(slide.pageType, theme.layoutDensity);
     const bullets = slide.polishedBullets ?? [];
-    // 封面/结尾等版式不排要点：出现要点即告警
+    // 封面/结尾等版式不排要点：出现要点即记一处告警，跳过该页其余比对（同一问题不重复计数）
     if (b.bulletCount === 0 && bullets.length > 0) {
       warnings.push(`第 ${slide.pageNo} 页：${slide.pageType} 页不应有要点`);
+      continue;
     }
     if (bullets.length > b.bulletCount) {
       warnings.push(`第 ${slide.pageNo} 页：要点 ${bullets.length} 条超出预算 ${b.bulletCount} 条`);
-    }
-    for (const line of bullets) {
-      if (line.length > b.bulletChars) {
-        warnings.push(`第 ${slide.pageNo} 页：单条要点 ${line.length} 字超出预算 ${b.bulletChars} 字`);
-        break; // 每页最多记一条单条超长警告
+    } else {
+      // 条数达标才检查单条超长 — 每页最多记一处告警，对齐「超过 2 处」的页数语义
+      for (const line of bullets) {
+        if (line.length > b.bulletChars) {
+          warnings.push(`第 ${slide.pageNo} 页：单条要点 ${line.length} 字超出预算 ${b.bulletChars} 字`);
+          break; // 每页最多记一条单条超长警告
+        }
       }
     }
   }
@@ -94,7 +97,8 @@ export const pptxBuilderPlugin: PluginDefinition = {
     });
     return {
       ok: true,
-      output: { ok: true, artifactId: artifact.id, path: outPath, pageCount: content.slides.length },
+      // 不透出服务器绝对路径（run result 会被 API 原样下发）；warnings 透传供前端完成视图展示超预算页
+      output: { ok: true, artifactId: artifact.id, pageCount: content.slides.length, warnings },
       artifacts: [artifact],
     };
   },
