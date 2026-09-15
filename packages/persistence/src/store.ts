@@ -150,7 +150,7 @@ export class ArtifactStore {
     return this.baseDir;
   }
 
-  /** Save a binary artifact file for a run. */
+  /** 为 run 保存二进制产物文件。 */
   saveBinary(runId: string, filePath: string, content: Buffer): string {
     const artifactDir = join(this.baseDir, runId);
     if (!existsSync(artifactDir)) {
@@ -162,7 +162,7 @@ export class ArtifactStore {
     return fullPath;
   }
 
-  /** Read a binary artifact file. */
+  /** 读取二进制产物文件。 */
   readBinary(runId: string, filePath: string): Buffer | undefined {
     const fullPath = join(this.baseDir, runId, filePath);
     if (!existsSync(fullPath)) return undefined;
