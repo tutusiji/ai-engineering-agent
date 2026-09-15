@@ -23,6 +23,9 @@ export const pptOutlinePlanningSkill: SkillDefinition = {
       const b = getSlideBudget(t, density);
       return `- ${t}: 标题≤${b.titleMax}字, 要点≤${b.bulletCount}条, 单条≤${b.bulletChars}字`;
     });
+    // 大纲反馈修订：携带 feedback + previousOutline 时，在 user 提示中切换为修订模式
+    const feedback = typeof input.feedback === 'string' ? input.feedback : '';
+    const previousOutline = input.previousOutline;
     return {
       system: `你是一位资深 PPT 策划专家。根据素材与受众，产出结构化 PPT 大纲 JSON。
 你必须输出一个合法的 JSON 对象，格式如下：
@@ -44,7 +47,17 @@ ${budgetLines.join('\n')}
       user: `素材：
 ${input.markdown ?? (input.source as Record<string, unknown> | undefined)?.markdown ?? ''}
 主题：${JSON.stringify(theme)}
-偏好：${JSON.stringify(prefs)}`,
+偏好：${JSON.stringify(prefs)}${
+        feedback && previousOutline
+          ? `
+
+## 反馈修订
+这是对已有大纲的修订重跑，请输出修订后的完整大纲（同样遵守字数预算）。
+用户反馈：${feedback}
+原大纲 JSON：
+${JSON.stringify(previousOutline)}`
+          : ''
+      }`,
     };
   },
   async normalize(raw: JsonObject): Promise<JsonObject> {

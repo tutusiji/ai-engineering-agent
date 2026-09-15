@@ -1,0 +1,27 @@
+id: ppt-build
+name: PPT Build
+version: 0.1.0
+description: 依据审批后大纲美化文字并构建 .pptx（大纲来自 ppt-outline run 结果，可页内编辑后传入）
+
+input:
+  fields:
+    - { name: outline, type: object, required: true } # 审批后的 ppt-outline JSON
+    - { name: theme, type: object, required: true }
+    - { name: preferences, type: object, required: false }
+
+nodes:
+  - id: content_polish
+    type: agent
+    name: 文字美化
+    skill: ppt-content-polish
+    outputSchema: ppt-content
+
+  - id: pptx_build
+    type: plugin
+    name: PPTX 构建
+    plugin: pptx-builder
+    dependsOn: [content_polish]
+    outputSchema: generation-report
+
+output:
+  primaryFrom: pptx_build

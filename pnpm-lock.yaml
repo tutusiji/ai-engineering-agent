@@ -370,6 +370,10 @@ importers:
       '@ai-engineering-agent/visual-regression-runner':
         specifier: workspace:*
         version: link:../../plugins/visual-regression-runner
+    devDependencies:
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@25.6.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.3(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
   plugins/api-contract-validator:
     dependencies:

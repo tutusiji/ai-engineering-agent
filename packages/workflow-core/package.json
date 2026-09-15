@@ -5,6 +5,9 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest"
+  },
   "dependencies": {
     "@ai-engineering-agent/shared-types": "workspace:*",
     "@ai-engineering-agent/skill-sdk": "workspace:*",
@@ -20,5 +23,8 @@
     "@ai-engineering-agent/navigation-decider": "workspace:*",
     "@ai-engineering-agent/rule-checkers": "workspace:*",
     "@ai-engineering-agent/visual-regression-runner": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
   }
 }
