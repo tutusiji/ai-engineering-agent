@@ -19,6 +19,17 @@ interface UploadBody {
   fileBase64?: unknown;
 }
 
+/**
+ * 文件名清洗 — basename 归一后拒绝空名与路径段（'.'/'..'）
+ * @param name 用户输入的原始文件名
+ * @returns 清洗后的安全文件名；非法时返回空串
+ */
+function sanitizeFileName(name: string): string {
+  const base = path.basename(name);
+  if (!base || base === '.' || base === '..') return '';
+  return base;
+}
+
 /** 创建 /api/ppt 路由 */
 export function createPptRouter(): Router {
   const router = express.Router();
@@ -45,8 +56,8 @@ export function createPptRouter(): Router {
     if (typeof name !== 'string' || !name || typeof fileBase64 !== 'string' || !fileBase64 || !req.user) {
       return res.status(400).json({ error: '缺少 name、fileBase64 或未认证' });
     }
-    // name 来自带认证的用户输入，basename 归一防路径穿越（与 runs.ts 遍历守卫同标准）
-    const safeName = path.basename(name);
+    // name 来自带认证的用户输入，basename 归一 + 路径段拒绝（'..' 会经 saveBinary 的 join 逃逸到父目录）
+    const safeName = sanitizeFileName(name);
     if (!safeName) return res.status(400).json({ error: '非法的模板名称' });
     const tmpDir = mkdtempSync(path.join(tmpdir(), 'aiea-ppt-'));
     try {
@@ -69,10 +80,16 @@ export function createPptRouter(): Router {
           artifactStore.saveBinary('templates', `${templateId}/assets/${assetName}`, buf);
         }
         const row = await templateStore.create({
+          // theme.name 覆盖 — parseTemplate 取的是临时文件名（恒为 'template'），必须用上传文件名重建，
+          // 否则所有上传模板在主题选择器里同名不可区分，且污染 LLM prompt 中的主题描述
+          theme: {
+            ...parsed.theme,
+            name: safeName.replace(/\.pptx$/i, '') || '我的模板',
+            assetBasePath: `${artifactStore.getBaseDir()}/${assetRelDir}`,
+          },
           ownerId: req.user.id, // ownerId 非空（req.user 已校验），否则 listByOwner 中不可见
           name: safeName,
           source: 'uploaded',
-          theme: { ...parsed.theme, assetBasePath: `${artifactStore.getBaseDir()}/${assetRelDir}` },
           assetPaths: Object.fromEntries(Object.keys(parsed.assets).map((k) => [k, `${assetRelDir}/${k}`])),
         });
         res.json(row);
@@ -111,8 +128,8 @@ export function createPptRouter(): Router {
     if (typeof name !== 'string' || !name || typeof fileBase64 !== 'string' || !fileBase64) {
       return res.status(400).json({ error: '缺少 name 或 fileBase64' });
     }
-    // name 来自带认证的用户输入，basename 归一防路径穿越
-    const safeName = path.basename(name);
+    // name 来自带上传接口的用户输入，basename 归一 + 路径段拒绝
+    const safeName = sanitizeFileName(name);
     if (!safeName) return res.status(400).json({ error: '非法的文件名' });
     try {
       const uploadId = randomUUID();
