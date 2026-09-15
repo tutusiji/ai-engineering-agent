@@ -63,6 +63,10 @@ ${JSON.stringify(previousOutline)}`
   async normalize(raw: JsonObject): Promise<JsonObject> {
     // 结构兜底：slides 数组校验、pageType 枚举兜底、pageNo 重排、totalPages 收敛
     const slides = Array.isArray(raw.slides) ? raw.slides : [];
+    // 空大纲防线：LLM 返回空 slides 会让后续美化/构建链路产出 0 页损坏 pptx，直接判节点失败
+    if (slides.length === 0) {
+      throw new Error('大纲规划输出为空（无任何页面），请重试或补充素材后重试');
+    }
     const VALID = ['cover', 'toc', 'section', 'content-bullets', 'content-two-col', 'quote', 'ending'];
     const normalized = slides.map((s, i) => {
       const obj = (s ?? {}) as Record<string, unknown>;

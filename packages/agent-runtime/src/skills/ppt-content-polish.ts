@@ -42,11 +42,23 @@ ${budgetLines.join('\n')}
   async normalize(raw: JsonObject): Promise<JsonObject> {
     // 结构兜底：字段补全与数组归一化（fitting 预算比对由 pptx-builder 的 computeFitting 承担）
     const slides = Array.isArray(raw.slides) ? raw.slides : [];
+    // 空大纲防线：LLM 返回空 slides（或形状漂移归一为空）会产出 0 页损坏 pptx 且被误报成功，直接判节点失败
+    if (slides.length === 0) {
+      throw new Error('文字美化输出为空（无任何页面），请重试或调整素材后重新生成大纲');
+    }
+    // pageType 枚举兜底 — 与大纲 skill 同标准：LLM 输出漂移（如 content_bullet）会让预算表查
+    // undefined 导致整次构建以内部错误崩掉，这里钳回合法枚举
+    const VALID = ['cover', 'toc', 'section', 'content-bullets', 'content-two-col', 'quote', 'ending'];
     const normalized = slides.map((s, i) => {
       const obj = (s ?? {}) as Record<string, unknown>;
+      const pageType = VALID.includes(String(obj.pageType))
+        ? String(obj.pageType)
+        : i === 0
+          ? 'cover'
+          : 'content-bullets';
       return {
         pageNo: i + 1,
-        pageType: String(obj.pageType ?? 'content-bullets'),
+        pageType,
         title: String(obj.title ?? ''),
         polishedTitle: String(obj.polishedTitle ?? obj.title ?? ''),
         bullets: Array.isArray(obj.bullets) ? obj.bullets.map(String) : [],
