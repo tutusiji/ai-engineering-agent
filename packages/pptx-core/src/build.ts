@@ -1,4 +1,6 @@
-import PptxGenJS from 'pptxgenjs';
+// 类型仅作标注用（type 导入在运行时被擦除）；运行时改为 buildPptx 内动态导入，以兼容 tsx 运行时
+// （tsx 下对 pptxgenjs 的静态默认导入会得到非构造函数对象，详见 task-3 报告）
+import type PptxGenJS from 'pptxgenjs';
 import { join } from 'node:path';
 import type { PptContent, PptContentSlide } from './types.js';
 import type { PptTheme } from './types.js';
@@ -176,7 +178,9 @@ function renderSlide(pptx: PptxGenJS, slide: PptContentSlide, theme: PptTheme, c
  * 幻灯片顺序 = content.slides 顺序；演讲备注写入 notes。
  */
 export async function buildPptx(content: PptContent, theme: PptTheme): Promise<Buffer> {
-  const pptx = new PptxGenJS();
+  // 动态导入 pptxgenjs：tsx 运行时下静态默认导入会得到非构造函数（vitest / node ESM 下两种写法均正常）
+  const { default: PptxGenJSCtor } = await import('pptxgenjs');
+  const pptx = new PptxGenJSCtor();
   pptx.defineLayout({
     name: theme.slideSize === '16:9' ? 'W16x9' : 'W4x3',
     width: theme.slideSize === '16:9' ? 10 : 10,
