@@ -34,6 +34,9 @@ const POLL_INTERVAL_MS = 2000;
 /** PPT 工作流自身 id — 平台项目素材过滤时排除，防止把大纲/构建 run 当作素材递归选自己 */
 const PPT_WORKFLOW_IDS = new Set(['ppt-outline', 'ppt-build']);
 
+/** 流程步骤标签 — 顺序与四视图状态机（pick/outline/building/done）一一对应 */
+const STEP_LABELS = ['主题与素材', '编辑大纲', '构建', '完成'] as const;
+
 // ── 类型定义 ─────────────────────────────────────────────────────────────
 
 /** PPT 主题色板（六键，色值存储不带 # 前缀） */
@@ -336,6 +339,8 @@ export function PptPanel() {
       cancelPoll();
       const token = { cancelled: false };
       pollTokenRef.current = token;
+      /** 连续轮询失败计数 — 容忍瞬态网络/代理错误，连续超限才报错放弃 */
+      let consecutiveFailures = 0;
       /** 单次轮询 tick：请求完成后按状态决定续轮询或回调终态 */
       const tick = async () => {
         if (token.cancelled) return;
@@ -345,17 +350,28 @@ export function PptPanel() {
           // 响应返回时轮询已被取消则直接丢弃，避免竞态写入
           if (token.cancelled) return;
           if (!res.ok || !run) {
-            onPollError('获取运行状态失败');
-            return;
-          }
-          if (run.status === 'completed' || run.status === 'failed') {
-            onSettled(run);
-            return;
+            // 瞬态失败不终止轮询（远端 run 仍在执行，放弃会白白浪费一次 LLM 构建）
+            consecutiveFailures += 1;
+            if (consecutiveFailures >= 3) {
+              onPollError('获取运行状态失败，请稍后重试');
+              return;
+            }
+          } else {
+            consecutiveFailures = 0;
+            if (run.status === 'completed' || run.status === 'failed') {
+              onSettled(run);
+              return;
+            }
           }
           pollTimerRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
         } catch {
           if (token.cancelled) return;
-          onPollError('获取运行状态失败，请稍后重试');
+          consecutiveFailures += 1;
+          if (consecutiveFailures >= 3) {
+            onPollError('获取运行状态失败，请稍后重试');
+            return;
+          }
+          pollTimerRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
         }
       };
       void tick();
@@ -379,6 +395,12 @@ export function PptPanel() {
     }
   ) => {
     void (async () => {
+      // 启动 POST 阶段同样纳入取消令牌：发起后用户立即回退视图时，
+      // cancelPoll 能取消在途 POST 的后续处理，否则响应到达仍会拉起轮询，
+      // 把用户从大纲编辑拽回 done 视图（孤儿轮询竞态）
+      cancelPoll();
+      const startToken = { cancelled: false };
+      pollTokenRef.current = startToken;
       try {
         const res = await fetch(`${API}/workflows/${workflowId}/run`, {
           method: 'POST',
@@ -387,12 +409,12 @@ export function PptPanel() {
           body: JSON.stringify({ params }),
         });
         const data = (await res.json().catch(() => null)) as { ok?: boolean; runId?: string; error?: string } | null;
+        // 响应返回时已取消（回退视图/发起新请求）或组件卸载，丢弃响应防止孤儿轮询
+        if (startToken.cancelled || !mountedRef.current) return;
         if (!res.ok || !data?.ok || !data.runId) {
           handlers.onError(data?.error || '启动工作流失败，请稍后重试');
           return;
         }
-        // POST 响应返回时组件已卸载（如用户切走导航），丢弃响应，防止启动无人清理的孤儿轮询
-        if (!mountedRef.current) return;
         pollRun(
           data.runId,
           (run) => (run.status === 'completed' ? handlers.onCompleted(run) : handlers.onFailed(run)),
@@ -868,20 +890,22 @@ export function PptPanel() {
           (confirmDeleteId === row.id ? (
             /* 删除二次确认条 */
             <div
-              className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg bg-white px-2 py-1 shadow-md border border-gray-100"
+              className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 shadow-md border border-gray-100"
               onClick={(e) => e.stopPropagation()}
             >
-              <span className="text-[11px] text-gray-500">确认删除?</span>
+              <span className="text-xs text-gray-500">确认删除?</span>
               <button
                 onClick={() => void handleDeleteTemplate(row)}
                 disabled={deletingId === row.id}
-                className="rounded px-1.5 py-0.5 text-[11px] font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition"
+                aria-label="确认删除此模板"
+                className="rounded-md px-2.5 py-1 text-xs font-medium bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition"
               >
                 删除
               </button>
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="rounded px-1.5 py-0.5 text-[11px] font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition"
+                aria-label="取消删除"
+                className="rounded-md px-2.5 py-1 text-xs font-medium bg-gray-200 text-gray-600 hover:bg-gray-300 transition"
               >
                 取消
               </button>
@@ -893,7 +917,8 @@ export function PptPanel() {
                 setConfirmDeleteId(row.id);
               }}
               title="删除模板"
-              className="absolute right-2 top-2 rounded-md p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+              aria-label="删除此模板"
+              className="absolute right-2 top-2 rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
             >
               <Trash2 size={13} />
             </button>
@@ -1067,7 +1092,8 @@ export function PptPanel() {
                   setUploadedFileName('');
                 }}
                 title="移除"
-                className="ml-0.5 rounded p-0.5 text-gray-300 hover:text-gray-500 transition"
+                aria-label="移除已上传文件"
+                className="ml-0.5 rounded p-1.5 text-gray-300 hover:text-gray-500 transition"
               >
                 <X size={12} />
               </button>
@@ -1502,6 +1528,39 @@ export function PptPanel() {
           PPT 工坊
         </h3>
         <p className="mt-1 text-sm text-gray-400">选择主题与素材，生成并编辑大纲，一键美化构建并下载 .pptx。</p>
+      </div>
+
+      {/* 流程步骤指示器 — 标示四步状态机当前位置，已完成步骤打勾 */}
+      <div className="shrink-0 border-b border-gray-100 px-6 py-3">
+        <ol className="flex items-center gap-3 text-xs" aria-label="生成流程进度">
+          {(['pick', 'outline', 'building', 'done'] as const).map((stepView, index) => {
+            const currentIndex = ['pick', 'outline', 'building', 'done'].indexOf(view);
+            const isDone = index < currentIndex;
+            const isActive = stepView === view;
+            return (
+              <li key={stepView} className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5">
+                  <span
+                    aria-current={isActive ? 'step' : undefined}
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium transition-colors ${
+                      isDone
+                        ? 'bg-emerald-100 text-emerald-600'
+                        : isActive
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
+                    {isDone ? <CheckCircle2 size={12} /> : index + 1}
+                  </span>
+                  <span className={isActive ? 'font-medium text-gray-800' : 'text-gray-400'}>
+                    {STEP_LABELS[index]}
+                  </span>
+                </span>
+                {index < STEP_LABELS.length - 1 && <span className="h-px w-6 bg-gray-200" aria-hidden="true" />}
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
       {/* 构建警示条（outline / building 视图顶部，构建失败时展示错误与 fitting 警告） */}

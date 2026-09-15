@@ -30,6 +30,18 @@
   background: transparent;
 }
 
+/* 键盘可达性 — 统一焦点环：Tab 导航可见、鼠标点击不触发（focus-visible 只命中键盘焦点）。
+   蓝色 2px 外描边 + 2px 偏移，与既有输入框 focus 样式同族 */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 /* Reset */
 html, body, #root {
   margin: 0;
