@@ -44,9 +44,10 @@ import { CodePanel } from './components/CodePanel';
 import { WorkflowPanel } from './components/WorkflowPanel';
 import { RunHistory } from './components/RunHistory';
 import { VisualBaselines } from './components/VisualBaselines';
+import { PptPanel } from './components/PptPanel';
 import { LoginPage } from './components/LoginPage';
 
-type NavKey = 'chat' | 'workflows' | 'history' | 'baselines';
+type NavKey = 'chat' | 'workflows' | 'history' | 'baselines' | 'ppt';
 type ChatTab = 'chat' | 'architecture' | 'design' | 'code' | 'document';
 
 export default function App() {
@@ -263,6 +264,8 @@ export default function App() {
           {activeNav === 'history' && <RunHistory />}
 
           {activeNav === 'baselines' && <VisualBaselines />}
+
+          {activeNav === 'ppt' && <PptPanel />}
         </main>
 
         {/* Right sidebar — Artifacts + Document panel (only in chat mode) */}

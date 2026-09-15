@@ -20,10 +20,11 @@ import {
   History,
   LayoutGrid,
   Image as ImageIcon,
+  Presentation,
 } from 'lucide-react';
 import type { Session } from '../hooks/useSessions';
 
-type NavKey = 'chat' | 'workflows' | 'history' | 'baselines';
+type NavKey = 'chat' | 'workflows' | 'history' | 'baselines' | 'ppt';
 
 interface SidebarProps {
   sessions: Session[];
@@ -112,6 +113,13 @@ export function Sidebar({
             onPress={() => onNavigate('baselines')}
           >
             <ImageIcon size={16} className="inline mr-1.5" /> 视觉基线
+          </Button>
+          <Button
+            variant={activeNav === 'ppt' ? 'primary' : 'ghost'}
+            className="w-full justify-start"
+            onPress={() => onNavigate('ppt')}
+          >
+            <Presentation size={16} className="inline mr-1.5" /> PPT 工坊
           </Button>
         </div>
       </div>
