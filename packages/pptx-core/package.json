@@ -1,0 +1,21 @@
+{
+  "name": "@ai-engineering-agent/pptx-core",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^5.2.5",
+    "jszip": "^3.10.1",
+    "pptxgenjs": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "vitest": "^4.1.9"
+  }
+}

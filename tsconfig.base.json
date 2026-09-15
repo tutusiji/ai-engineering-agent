@@ -23,6 +23,7 @@
       "@ai-engineering-agent/policy-engine": ["packages/policy-engine/src"],
       "@ai-engineering-agent/validation-core": ["packages/validation-core/src"],
       "@ai-engineering-agent/plugin-sdk": ["packages/plugin-sdk/src"],
+      "@ai-engineering-agent/pptx-core": ["packages/pptx-core/src"],
       "@ai-engineering-agent/project-scanner": ["plugins/project-scanner/src"],
       "@ai-engineering-agent/page-generator": ["plugins/page-generator/src"],
       "@ai-engineering-agent/playwright-runner": ["plugins/playwright-runner/src"],
