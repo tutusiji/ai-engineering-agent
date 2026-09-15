@@ -5,13 +5,14 @@
  * 连接 localhost:5432 开发库（vitest.setup.ts 负责 initPool/closePool）。
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { readFileSync, rmSync } from 'node:fs';
+import JSZip from 'jszip';
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { PptTemplateStore } from '@ai-engineering-agent/persistence';
+import { ArtifactStore, PptTemplateStore } from '@ai-engineering-agent/persistence';
 import { createPptRouter } from '../routes/ppt.js';
 import { requireAuth, getJwtSecret } from '../middleware/auth.js';
 
@@ -20,6 +21,25 @@ const JWT_SECRET = getJwtSecret();
 /** 签发测试用 JWT（与 middleware/auth 的 requireAuth 校验逻辑配套） */
 function tokenFor(userId: string): string {
   return jwt.sign({ id: userId, username: userId }, JWT_SECRET, { expiresIn: '1h' });
+}
+
+/**
+ * 构造最小可解析的内存 .pptx（仅 theme1.xml + presentation.xml + 一张媒体图），
+ * 用于驱动 parseTemplate 成功以覆盖入库失败分支；不引入 pptxgenjs。
+ */
+async function buildMinimalPptx(): Promise<Buffer> {
+  const zip = new JSZip();
+  zip.file(
+    'ppt/theme/theme1.xml',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"></a:theme>'
+  );
+  zip.file(
+    'ppt/presentation.xml',
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"></p:presentation>'
+  );
+  // 非空媒体文件使 saveBinary 真实落盘，从而可断言孤儿资产清理
+  zip.file('ppt/media/image1.png', Buffer.alloc(64, 1));
+  return zip.generateAsync({ type: 'nodebuffer' });
 }
 
 describe('ppt routes', () => {
@@ -36,7 +56,7 @@ describe('ppt routes', () => {
   beforeAll(() => {
     app = express();
     app.use(express.json());
-    // Apply auth middleware like server.ts does
+    // 与 server.ts 一致：/api 全局挂载认证中间件
     app.use('/api', requireAuth);
     app.use('/api/ppt', createPptRouter());
   });
@@ -147,6 +167,34 @@ describe('ppt routes', () => {
       .set('Authorization', `Bearer ${tokenFor(userA)}`)
       .send({ name: '只有名字' });
     expect(res.status).toBe(400);
+  });
+
+  it('POST /templates 入库失败 → 500 通用文案且孤儿资产已清理', async () => {
+    const beforeRows = (await templateStore.listByOwner(userA)).filter((t) => t.source === 'uploaded').length;
+    // 通过原型 spy 注入 DB 故障（路由内部 store 实例与测试共享同一原型）
+    const createSpy = vi.spyOn(PptTemplateStore.prototype, 'create').mockRejectedValueOnce(new Error('模拟 DB 故障'));
+    // 记录落盘快照：失败后不应残留新的 templates/<templateId>/ 目录
+    const artifactBase = new ArtifactStore().getBaseDir();
+    const templateRoot = path.join(artifactBase, 'templates');
+    const before = existsSync(templateRoot) ? readdirSync(templateRoot).sort() : [];
+    try {
+      const pptx = await buildMinimalPptx();
+      const res = await request(app)
+        .post('/api/ppt/templates')
+        .set('Authorization', `Bearer ${tokenFor(userA)}`)
+        .send({ name: '存储故障模板', fileBase64: pptx.toString('base64') });
+      expect(res.status).toBe(500);
+      // 500 分支返回通用文案，不透出内部错误
+      expect(res.body.error).toBe('模板保存失败，请稍后重试');
+      expect(res.body.error).not.toContain('模拟 DB 故障');
+      const after = existsSync(templateRoot) ? readdirSync(templateRoot).sort() : [];
+      expect(after).toEqual(before);
+      // 不入库：uploaded 行数与请求前一致
+      const afterRows = (await templateStore.listByOwner(userA)).filter((t) => t.source === 'uploaded').length;
+      expect(afterRows).toBe(beforeRows);
+    } finally {
+      createSpy.mockRestore();
+    }
   });
 
   it('POST /uploads 素材落盘可读（往返）', async () => {

@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { ArtifactStore, PptTemplateStore } from '@ai-engineering-agent/persistence';
-import { parseTemplate } from '@ai-engineering-agent/pptx-core';
+import { parseTemplate, type ParsedTemplate } from '@ai-engineering-agent/pptx-core';
 
 /** /templates 与 /uploads 共用的请求体形状（字段来自用户输入，先做类型与非空校验再使用） */
 interface UploadBody {
@@ -39,7 +39,7 @@ export function createPptRouter(): Router {
     }
   });
 
-  // 上传模板：上传即解析，解析失败当场 400 不入库
+  // 上传模板：上传即解析（失败 400 不入库）；资产落盘/入库失败返回 500（不透出内部错误）
   router.post('/templates', async (req, res) => {
     const { name, fileBase64 } = (req.body ?? {}) as UploadBody;
     if (typeof name !== 'string' || !name || typeof fileBase64 !== 'string' || !fileBase64 || !req.user) {
@@ -50,25 +50,40 @@ export function createPptRouter(): Router {
     if (!safeName) return res.status(400).json({ error: '非法的模板名称' });
     const tmpDir = mkdtempSync(path.join(tmpdir(), 'aiea-ppt-'));
     try {
+      // ── 第一段：解析。失败属客户端输入问题（非 OOXML/加密 pptx），返回 400 不入库 ──
       const filePath = path.join(tmpDir, 'template.pptx');
       writeFileSync(filePath, Buffer.from(fileBase64, 'base64'));
-      const parsed = await parseTemplate(filePath); // 非 OOXML/加密 pptx 在此抛错
-      // 模板资产（logo/背景图）落 ArtifactStore：runId='templates'，filePath=<templateId>/assets/<资产名>
+      let parsed: ParsedTemplate;
+      try {
+        parsed = await parseTemplate(filePath);
+      } catch (err) {
+        return res.status(400).json({ error: err instanceof Error ? err.message : '仅支持未加密的 .pptx 模板' });
+      }
+
+      // ── 第二段：资产落盘 + 入库。失败属服务端问题，返回 500 通用文案 ──
       const templateId = randomUUID();
       const assetRelDir = `templates/${templateId}/assets`;
-      for (const [assetName, buf] of Object.entries(parsed.assets)) {
-        artifactStore.saveBinary('templates', `${templateId}/assets/${assetName}`, buf);
+      try {
+        // 模板资产（logo/背景图）落 ArtifactStore：runId='templates'，filePath=<templateId>/assets/<资产名>
+        for (const [assetName, buf] of Object.entries(parsed.assets)) {
+          artifactStore.saveBinary('templates', `${templateId}/assets/${assetName}`, buf);
+        }
+        const row = await templateStore.create({
+          ownerId: req.user.id, // ownerId 非空（req.user 已校验），否则 listByOwner 中不可见
+          name: safeName,
+          source: 'uploaded',
+          theme: { ...parsed.theme, assetBasePath: `${artifactStore.getBaseDir()}/${assetRelDir}` },
+          assetPaths: Object.fromEntries(Object.keys(parsed.assets).map((k) => [k, `${assetRelDir}/${k}`])),
+        });
+        res.json(row);
+      } catch {
+        // 入库失败时清理已落盘资产，避免孤儿目录（templates/<templateId>/）
+        rmSync(path.join(artifactStore.getBaseDir(), 'templates', templateId), { recursive: true, force: true });
+        res.status(500).json({ error: '模板保存失败，请稍后重试' });
       }
-      const row = await templateStore.create({
-        ownerId: req.user.id, // ownerId 非空（req.user 已校验），否则 listByOwner 中不可见
-        name: safeName,
-        source: 'uploaded',
-        theme: { ...parsed.theme, assetBasePath: `${artifactStore.getBaseDir()}/${assetRelDir}` },
-        assetPaths: Object.fromEntries(Object.keys(parsed.assets).map((k) => [k, `${assetRelDir}/${k}`])),
-      });
-      res.json(row);
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : '仅支持未加密的 .pptx 模板' });
+    } catch {
+      // 临时文件写入等意外失败：同样按服务端错误处理
+      res.status(500).json({ error: '模板保存失败，请稍后重试' });
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }
