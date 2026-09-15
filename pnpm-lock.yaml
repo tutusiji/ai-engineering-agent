@@ -242,12 +242,19 @@ importers:
 
   packages/agent-runtime:
     dependencies:
+      '@ai-engineering-agent/pptx-core':
+        specifier: workspace:*
+        version: link:../pptx-core
       '@ai-engineering-agent/shared-types':
         specifier: workspace:*
         version: link:../shared-types
       '@ai-engineering-agent/skill-sdk':
         specifier: workspace:*
         version: link:../skill-sdk
+    devDependencies:
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@25.6.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.3(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
 
   packages/contract-schema:
     dependencies:

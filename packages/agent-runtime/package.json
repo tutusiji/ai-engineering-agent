@@ -4,8 +4,15 @@
   "private": true,
   "type": "module",
   "main": "src/index.ts",
+  "scripts": {
+    "test": "vitest"
+  },
   "dependencies": {
+    "@ai-engineering-agent/pptx-core": "workspace:*",
     "@ai-engineering-agent/shared-types": "workspace:*",
     "@ai-engineering-agent/skill-sdk": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
   }
 }
