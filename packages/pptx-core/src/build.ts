@@ -17,9 +17,17 @@ async function toDataUri(path: string | undefined, mime = 'image/png'): Promise<
   }
 }
 
-/** 将字符串数组转为 pptxgenjs 的 TextProps[]（v4 的 addText 不接受裸字符串数组） */
-function toTextProps(items: string[]): PptxGenJS.TextProps[] {
-  return items.map((text) => ({ text }));
+/**
+ * 将字符串数组转为 pptxgenjs 的 TextProps[]（v4 的 addText 不接受裸字符串数组）。
+ * 每项携带 breakLine: true 确保逐项分段 —— 否则多项会被合并进单个 <a:p>（pptxgenjs 仅在
+ * 项间存在 bullet/align 变化/breakLine 时切分段落）。withBullet 为 true 时逐项携带项目符号：
+ * bullet 继承只作用于首项，后续段落必须自带才会渲染符号。
+ */
+function toTextProps(items: string[], withBullet = false): PptxGenJS.TextProps[] {
+  return items.map((text) => ({
+    text,
+    options: withBullet ? { bullet: true, breakLine: true } : { breakLine: true },
+  }));
 }
 
 /** 渲染单页：按 pageType 分派到对应版式 */
@@ -158,7 +166,8 @@ function renderSlide(pptx: PptxGenJS, slide: PptContentSlide, theme: PptTheme, c
       lineSpacingMultiple: 1.35,
     });
   } else {
-    s.addText(toTextProps(bullets), {
+    // bullet 页逐项携带项目符号（调用级的 bullet: true 只影响首项，见 toTextProps 注释）
+    s.addText(toTextProps(bullets, true), {
       x: 0.8,
       y: 1.4,
       w: 8.4,
