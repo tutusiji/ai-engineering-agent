@@ -13,7 +13,7 @@ export interface PptTemplateRow {
   createdAt: number;
 }
 
-/** Map a DB row to PptTemplateRow. */
+/** 将数据库行映射为 PptTemplateRow。 */
 function rowToTemplate(row: Record<string, unknown>): PptTemplateRow {
   const parse = (v: unknown, fallback: unknown) => (typeof v === 'string' ? JSON.parse(v as string) : (v ?? fallback));
   return {
