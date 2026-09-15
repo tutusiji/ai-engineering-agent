@@ -34,6 +34,38 @@ export interface PptThemeAssets {
   coverImagePath?: string;
 }
 
+/** PPT 内容单页 — pageType 决定版式，polished* 为润色后要渲染的文本 */
+export interface PptContentSlide {
+  /** 页码（1 起） */
+  pageNo: number;
+  /** 页面类型（7 种版式之一） */
+  pageType: PptPageType;
+  /** 原始标题 */
+  title: string;
+  /** 润色后的标题（渲染使用） */
+  polishedTitle: string;
+  /** 原始要点 */
+  bullets?: string[];
+  /** 润色后的要点（渲染使用） */
+  polishedBullets?: string[];
+  /** 金句/钩子行（quote 页正文或内容页标题栏右侧强调） */
+  hookLine?: string;
+  /** 演讲者备注 */
+  notes?: string;
+}
+
+/** PPT 全文内容 — buildPptx 的渲染输入 */
+export interface PptContent {
+  /** 演示文稿标题（写入元数据与封面标题） */
+  deckTitle: string;
+  /** 副标题 */
+  subtitle?: string;
+  /** 目标受众 */
+  audience?: string;
+  /** 幻灯片列表，顺序即生成顺序 */
+  slides: PptContentSlide[];
+}
+
 /** PPT 主题 — skill 提示词与 pptx 渲染共用的唯一事实来源 */
 export interface PptTheme {
   name: string;
