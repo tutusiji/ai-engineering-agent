@@ -10,16 +10,16 @@
 
 系统不依赖硬编码的技术模板。每个项目根据实际需求**动态生成全栈架构方案**，独立做出所有技术选型：
 
-| 层级 | 可选方案 |
-|------|----------|
-| **前端框架** | React, Vue3, Svelte, Solid, Angular |
-| **UI 组件库** | Ant Design, Element Plus, shadcn/ui, Material UI, Naive UI |
-| **后端框架** | NestJS, Express, FastAPI, Gin, Spring Boot, Actix-Web |
-| **后端语言** | TypeScript, Python, Go, Java, Rust |
-| **ORM** | Prisma, TypeORM, SQLAlchemy, GORM, Drizzle |
-| **数据库** | PostgreSQL, MySQL, MongoDB, SQLite, CockroachDB |
-| **缓存** | Redis, Memcached |
-| **部署** | Docker Compose, Kubernetes, Serverless (Vercel/Netlify), 静态托管 |
+| 层级          | 可选方案                                                          |
+| ------------- | ----------------------------------------------------------------- |
+| **前端框架**  | React, Vue3, Svelte, Solid, Angular                               |
+| **UI 组件库** | Ant Design, Element Plus, shadcn/ui, Material UI, Naive UI        |
+| **后端框架**  | NestJS, Express, FastAPI, Gin, Spring Boot, Actix-Web             |
+| **后端语言**  | TypeScript, Python, Go, Java, Rust                                |
+| **ORM**       | Prisma, TypeORM, SQLAlchemy, GORM, Drizzle                        |
+| **数据库**    | PostgreSQL, MySQL, MongoDB, SQLite, CockroachDB                   |
+| **缓存**      | Redis, Memcached                                                  |
+| **部署**      | Docker Compose, Kubernetes, Serverless (Vercel/Netlify), 静态托管 |
 
 架构生成流程：`需求对话 → 架构方案生成 → 对话精炼 → 保存 → 方案驱动代码生成`
 
@@ -141,16 +141,16 @@ ai-engineering-agent/
 
 ## 技术栈（平台本身）
 
-| 组件 | 技术 |
-|------|------|
+| 组件       | 技术                                                 |
+| ---------- | ---------------------------------------------------- |
 | Studio Web | React 18 + TypeScript + Vite + HeroUI + Tailwind CSS |
-| Studio API | Express + TypeScript + tsx |
-| LLM 推理 | DeepSeek V4 Pro (兼容 OpenAI SDK) |
-| 持久化 | PostgreSQL (JSONB 文档存储) |
-| 进程管理 | PM2 |
-| 反向代理 | Nginx + SSL (joox.cc) |
-| 部署 | GitHub Actions → rsync + SSH → 火山服务器 |
-| 包管理 | pnpm workspace (22 packages) |
+| Studio API | Express + TypeScript + tsx                           |
+| LLM 推理   | DeepSeek V4 Pro (兼容 OpenAI SDK)                    |
+| 持久化     | PostgreSQL (JSONB 文档存储)                          |
+| 进程管理   | PM2                                                  |
+| 反向代理   | Nginx + SSL (joox.cc)                                |
+| 部署       | GitHub Actions → rsync + SSH → 火山服务器            |
+| 包管理     | pnpm workspace (22 packages)                         |
 
 ## 项目特色
 
@@ -160,6 +160,7 @@ ai-engineering-agent/
 4. **交互规则强制** — loading/empty/error 状态、debounce、确认弹窗、防重复提交自动注入生成的代码
 5. **框架中立** — 平台层不绑定任何具体框架，架构方案动态决定技术栈
 6. **显式保存** — 架构方案不会自动入库，需要用户确认后保存，支持草稿-保存工作流
+7. **PPT 工坊** — 选择内置主题或上传 .pptx 模板 → 粘贴/上传/平台项目三源输入 → AI 大纲（可编辑精炼）→ 文字美化 → 下载原生 .pptx
 
 ## 本地开发
 
