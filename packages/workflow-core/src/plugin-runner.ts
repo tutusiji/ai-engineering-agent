@@ -16,6 +16,7 @@
  * - 其他未识别的 plugin: 回退到 mock validation
  */
 
+import path from 'node:path';
 import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
 import { ArtifactStore } from '@ai-engineering-agent/persistence';
 import { collectSource, type CollectInput } from '@ai-engineering-agent/ppt-source-collector';
@@ -313,6 +314,15 @@ async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunStat
   if (plugin === 'ppt-source-collector') {
     const src = state.context.input?.source as JsonObject | undefined;
     if (!src) throw new Error('PPT 工作流缺少 source 输入');
+    // 任意文件读取防护：file 来源的 filePath 必须位于 ArtifactStore uploads 目录内（resolve + 前缀校验）
+    if (src.sourceType === 'file') {
+      const rawPath = typeof src.filePath === 'string' ? src.filePath : '';
+      const uploadsRoot = path.resolve(new ArtifactStore().getBaseDir(), 'uploads') + path.sep;
+      const resolved = rawPath ? path.resolve(rawPath) : '';
+      if (!resolved.startsWith(uploadsRoot)) {
+        throw new Error('素材文件路径非法：仅允许使用上传接口返回的文件');
+      }
+    }
     // 工作流 input 为未校验 JSON，sourceType 合法性由 collectSource 内部校验
     const result = await collectSource(src as unknown as CollectInput);
     return { ok: true, output: toJsonValue(result) as JsonObject };
