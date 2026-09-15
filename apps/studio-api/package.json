@@ -14,6 +14,7 @@
     "@ai-engineering-agent/persistence": "workspace:*",
     "@ai-engineering-agent/plugin-sdk": "workspace:*",
     "@ai-engineering-agent/policy-engine": "workspace:*",
+    "@ai-engineering-agent/pptx-core": "workspace:*",
     "@ai-engineering-agent/shared-types": "workspace:*",
     "@ai-engineering-agent/skill-sdk": "workspace:*",
     "@ai-engineering-agent/validation-core": "workspace:*",

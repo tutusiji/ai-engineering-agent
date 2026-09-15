@@ -4,7 +4,16 @@
  * 路由已拆分到 src/routes/ 下，server.ts 仅负责组装。
  */
 
-import { initPool, closePool, runMigrations, SessionStore, RunStore, ArtifactStore, MetricsStore, UserStore } from '@ai-engineering-agent/persistence';
+import {
+  initPool,
+  closePool,
+  runMigrations,
+  SessionStore,
+  RunStore,
+  ArtifactStore,
+  MetricsStore,
+  UserStore,
+} from '@ai-engineering-agent/persistence';
 import { loadLlmConfigFromEnv } from '@ai-engineering-agent/agent-runtime';
 import express from 'express';
 import { setupSecurityMiddleware } from './middleware/security.js';
@@ -24,6 +33,7 @@ import { createArtifactsRouter } from './routes/artifacts.js';
 import { createMetricsRouter } from './routes/metrics.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createBaselinesRouter } from './routes/baselines.js';
+import { createPptRouter } from './routes/ppt.js';
 
 const llmConfig = loadLlmConfigFromEnv();
 
@@ -81,6 +91,9 @@ app.use('/api/runs', createRunsRouter(runStore, artifactStore));
 
 // Session artifacts
 app.use('/api/sessions/:id/artifacts', createArtifactsRouter(sessionStore, artifactStore));
+
+// PPT 生成（主题列表/模板上传解析/删除/素材上传）
+app.use('/api/ppt', createPptRouter());
 
 // Metrics
 app.use('/api/metrics', createMetricsRouter(metricsStore));

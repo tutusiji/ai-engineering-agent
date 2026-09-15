@@ -90,6 +90,9 @@ importers:
       '@ai-engineering-agent/policy-engine':
         specifier: workspace:*
         version: link:../../packages/policy-engine
+      '@ai-engineering-agent/pptx-core':
+        specifier: workspace:*
+        version: link:../../packages/pptx-core
       '@ai-engineering-agent/project-scanner':
         specifier: workspace:*
         version: link:../../plugins/project-scanner
