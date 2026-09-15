@@ -17,6 +17,7 @@
  */
 
 import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import { ArtifactStore } from '@ai-engineering-agent/persistence';
 import { collectSource, type CollectInput } from '@ai-engineering-agent/ppt-source-collector';
 import { pptxBuilderPlugin } from '@ai-engineering-agent/pptx-builder';
 import { scanProject } from '@ai-engineering-agent/project-scanner';
@@ -323,6 +324,8 @@ async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunStat
     const content = state.nodeResults?.content_polish?.output as JsonObject | undefined;
     const theme = state.context.input?.theme as JsonObject | undefined;
     if (!content || !theme) throw new Error('pptx-builder 缺少 content 或 theme');
+    // 注入真实 artifact 存储：.pptx 落 ArtifactStore，经现有 runs artifacts 路由下载
+    const artifactStore = new ArtifactStore();
     const result = await pptxBuilderPlugin.execute(
       {
         runId: state.context.runId,
@@ -331,7 +334,10 @@ async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunStat
         workspaceRoot: state.context.targetProject ?? process.cwd(),
         env: process.env,
         logger: console,
-        artifacts: { publish: async (a) => ({ id: crypto.randomUUID(), ...a }) },
+        artifacts: {
+          publish: async (a) => ({ id: crypto.randomUUID(), ...a }),
+          saveBinary: (runId: string, filePath: string, buf: Buffer) => artifactStore.saveBinary(runId, filePath, buf),
+        },
       },
       { content, theme }
     );

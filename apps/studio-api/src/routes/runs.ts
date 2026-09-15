@@ -17,6 +17,7 @@ const CONTENT_TYPES: Record<string, string> = {
   tsx: 'text/typescript',
   vue: 'text/plain',
   md: 'text/markdown',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
 
 export function createRunsRouter(runStore: RunStore, artifactStore: ArtifactStore) {
@@ -24,7 +25,7 @@ export function createRunsRouter(runStore: RunStore, artifactStore: ArtifactStor
 
   router.get('/', async (_req, res) => {
     try {
-      const list = (await runStore.list()).map(r => ({
+      const list = (await runStore.list()).map((r) => ({
         id: r.id,
         workflowId: r.workflowId,
         workflowName: r.workflowName,
@@ -51,35 +52,45 @@ export function createRunsRouter(runStore: RunStore, artifactStore: ArtifactStor
     }
   });
 
-  router.post('/:id/approve', validateParams(SessionIdParamSchema), validateBody(RunApprovalSchema), async (req, res) => {
-    try {
-      const run = await runStore.get(req.params.id);
-      if (!run) return res.status(404).json({ error: 'Run not found' });
-      if (run.status !== 'waiting-approval') {
-        return res.status(400).json({ error: `Run is not waiting for approval (current: ${run.status})` });
+  router.post(
+    '/:id/approve',
+    validateParams(SessionIdParamSchema),
+    validateBody(RunApprovalSchema),
+    async (req, res) => {
+      try {
+        const run = await runStore.get(req.params.id);
+        if (!run) return res.status(404).json({ error: 'Run not found' });
+        if (run.status !== 'waiting-approval') {
+          return res.status(400).json({ error: `Run is not waiting for approval (current: ${run.status})` });
+        }
+        const { by = 'user', comment } = req.body;
+        await runStore.addApproval(req.params.id, { action: 'approved', by, at: Date.now(), comment });
+        res.json({ ok: true, status: 'approved' });
+      } catch (err) {
+        res.status(500).json({ error: String(err) });
       }
-      const { by = 'user', comment } = req.body;
-      await runStore.addApproval(req.params.id, { action: 'approved', by, at: Date.now(), comment });
-      res.json({ ok: true, status: 'approved' });
-    } catch (err) {
-      res.status(500).json({ error: String(err) });
     }
-  });
+  );
 
-  router.post('/:id/reject', validateParams(SessionIdParamSchema), validateBody(RunApprovalSchema), async (req, res) => {
-    try {
-      const run = await runStore.get(req.params.id);
-      if (!run) return res.status(404).json({ error: 'Run not found' });
-      if (run.status !== 'waiting-approval') {
-        return res.status(400).json({ error: `Run is not waiting for approval (current: ${run.status})` });
+  router.post(
+    '/:id/reject',
+    validateParams(SessionIdParamSchema),
+    validateBody(RunApprovalSchema),
+    async (req, res) => {
+      try {
+        const run = await runStore.get(req.params.id);
+        if (!run) return res.status(404).json({ error: 'Run not found' });
+        if (run.status !== 'waiting-approval') {
+          return res.status(400).json({ error: `Run is not waiting for approval (current: ${run.status})` });
+        }
+        const { by = 'user', comment } = req.body;
+        await runStore.addApproval(req.params.id, { action: 'rejected', by, at: Date.now(), comment });
+        res.json({ ok: true, status: 'rejected' });
+      } catch (err) {
+        res.status(500).json({ error: String(err) });
       }
-      const { by = 'user', comment } = req.body;
-      await runStore.addApproval(req.params.id, { action: 'rejected', by, at: Date.now(), comment });
-      res.json({ ok: true, status: 'rejected' });
-    } catch (err) {
-      res.status(500).json({ error: String(err) });
     }
-  });
+  );
 
   router.get('/:id/artifacts', validateParams(SessionIdParamSchema), async (req, res) => {
     try {
@@ -105,10 +116,21 @@ export function createRunsRouter(runStore: RunStore, artifactStore: ArtifactStor
         return res.status(400).json({ error: 'Invalid file path' });
       }
 
+      // 二进制产物（pptx 等）走 Buffer 通道，避免 utf-8 字符串往返损坏文件
+      const BINARY_EXTS = new Set(['pptx', 'zip', 'png', 'jpg', 'jpeg', 'gif', 'woff2']);
+      const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+      if (BINARY_EXTS.has(ext)) {
+        const buf = artifactStore.readBinary(req.params.id, filePath);
+        if (buf === undefined) return res.status(404).json({ error: 'Artifact not found' });
+        res.setHeader('Content-Type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${path.basename(filePath)}"`);
+        res.send(buf);
+        return;
+      }
+
       const content = artifactStore.read(req.params.id, filePath);
       if (content === undefined) return res.status(404).json({ error: 'Artifact not found' });
 
-      const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
       res.setHeader('Content-Type', CONTENT_TYPES[ext] ?? 'text/plain');
       res.send(content);
     } catch (err) {

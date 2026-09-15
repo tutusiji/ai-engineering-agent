@@ -76,11 +76,16 @@ export const pptxBuilderPlugin: PluginDefinition = {
     }
     // 2) 构建二进制
     const buffer = await buildPptx(content, theme);
-    // 3) 写入 run 目录（workspaceRoot/artifacts-ppt/<runId>.pptx）
-    const outDir = path.join(ctx.workspaceRoot ?? process.cwd(), 'artifacts-ppt');
-    await mkdir(outDir, { recursive: true });
-    const outPath = path.join(outDir, `${ctx.runId}.pptx`);
-    await writeFile(outPath, buffer);
+    // 3) 落盘：优先 ArtifactStore（生产路径），无注入时回退本地目录（单测）
+    const outPath = ctx.artifacts.saveBinary
+      ? ctx.artifacts.saveBinary(ctx.runId, 'deck.pptx', buffer)
+      : await (async () => {
+          const outDir = path.join(ctx.workspaceRoot ?? process.cwd(), 'artifacts-ppt');
+          await mkdir(outDir, { recursive: true });
+          const fallback = path.join(outDir, `${ctx.runId}.pptx`);
+          await writeFile(fallback, buffer);
+          return fallback;
+        })();
     // 4) 发布 artifact
     const artifact = await ctx.artifacts.publish({
       kind: 'pptx',

@@ -340,6 +340,9 @@ importers:
       '@ai-engineering-agent/page-generator':
         specifier: workspace:*
         version: link:../../plugins/page-generator
+      '@ai-engineering-agent/persistence':
+        specifier: workspace:*
+        version: link:../persistence
       '@ai-engineering-agent/playwright-runner':
         specifier: workspace:*
         version: link:../../plugins/playwright-runner
