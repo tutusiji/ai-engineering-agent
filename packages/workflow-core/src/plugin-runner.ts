@@ -11,10 +11,12 @@
  * - playwright-runner: E2E 测试验证
  * - visual-regression-runner: 视觉回归验证
  * - rule-checkers (pluginGroup): loading/debounce/delete-confirm 规则检查
+ * - ppt-source-collector: PPT 素材归一化（粘贴 / 文档 / 平台项目 → ppt-source）
  * - 其他未识别的 plugin: 回退到 mock validation
  */
 
 import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import { collectSource, type CollectInput } from '@ai-engineering-agent/ppt-source-collector';
 import { scanProject } from '@ai-engineering-agent/project-scanner';
 import { runRuleChecker } from '@ai-engineering-agent/rule-checkers';
 import { buildUiContract } from '@ai-engineering-agent/navigation-decider';
@@ -307,6 +309,15 @@ async function runSinglePluginNode(
     const report = await runVisualRegressionNode(state, scanReport, generationReport);
     const runnerStatus = typeof report.runnerStatus === 'string' ? report.runnerStatus : 'unknown';
     return { ok: !['failed'].includes(runnerStatus), output: report, raw: toJsonValue(report) };
+  }
+
+  // PPT 素材归一化 — 从工作流 input 取 source，执行收集器并返回 ppt-source
+  if (plugin === 'ppt-source-collector') {
+    const src = state.context.input?.source as JsonObject | undefined;
+    if (!src) throw new Error('PPT 工作流缺少 source 输入');
+    // 工作流 input 为未校验 JSON，sourceType 合法性由 collectSource 内部校验
+    const result = await collectSource(src as unknown as CollectInput);
+    return { ok: true, output: toJsonValue(result) as JsonObject };
   }
 
   // 兜底：mock validation

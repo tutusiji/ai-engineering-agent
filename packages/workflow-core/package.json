@@ -12,6 +12,7 @@
     "@ai-engineering-agent/policy-engine": "workspace:*",
     "@ai-engineering-agent/validation-core": "workspace:*",
     "@ai-engineering-agent/agent-runtime": "workspace:*",
+    "@ai-engineering-agent/ppt-source-collector": "workspace:*",
     "@ai-engineering-agent/project-scanner": "workspace:*",
     "@ai-engineering-agent/page-generator": "workspace:*",
     "@ai-engineering-agent/playwright-runner": "workspace:*",
