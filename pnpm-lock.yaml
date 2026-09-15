@@ -349,6 +349,9 @@ importers:
       '@ai-engineering-agent/ppt-source-collector':
         specifier: workspace:*
         version: link:../../plugins/ppt-source-collector
+      '@ai-engineering-agent/pptx-builder':
+        specifier: workspace:*
+        version: link:../../plugins/pptx-builder
       '@ai-engineering-agent/project-scanner':
         specifier: workspace:*
         version: link:../../plugins/project-scanner
@@ -435,6 +438,25 @@ importers:
       pdfjs-dist:
         specifier: ^5.4.149
         version: 5.7.284
+    devDependencies:
+      '@types/node':
+        specifier: ^25.6.0
+        version: 25.6.0
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@25.6.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(vite@7.3.3(@types/node@25.6.0)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.3))
+
+  plugins/pptx-builder:
+    dependencies:
+      '@ai-engineering-agent/plugin-sdk':
+        specifier: workspace:*
+        version: link:../../packages/plugin-sdk
+      '@ai-engineering-agent/pptx-core':
+        specifier: workspace:*
+        version: link:../../packages/pptx-core
+      '@ai-engineering-agent/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
     devDependencies:
       '@types/node':
         specifier: ^25.6.0

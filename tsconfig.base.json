@@ -34,7 +34,8 @@
       "@ai-engineering-agent/plugin-api-scaffold": ["plugins/api-scaffold/src"],
       "@ai-engineering-agent/plugin-db-migration": ["plugins/db-migration/src"],
       "@ai-engineering-agent/plugin-docker-generator": ["plugins/docker-generator/src"],
-      "@ai-engineering-agent/ppt-source-collector": ["plugins/ppt-source-collector/src"]
+      "@ai-engineering-agent/ppt-source-collector": ["plugins/ppt-source-collector/src"],
+      "@ai-engineering-agent/pptx-builder": ["plugins/pptx-builder/src"]
     }
   }
 }

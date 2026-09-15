@@ -12,17 +12,22 @@
  * - visual-regression-runner: 视觉回归验证
  * - rule-checkers (pluginGroup): loading/debounce/delete-confirm 规则检查
  * - ppt-source-collector: PPT 素材归一化（粘贴 / 文档 / 平台项目 → ppt-source）
+ * - pptx-builder: PPT 构建发布（content_polish 产出 + 主题 → .pptx artifact）
  * - 其他未识别的 plugin: 回退到 mock validation
  */
 
 import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
 import { collectSource, type CollectInput } from '@ai-engineering-agent/ppt-source-collector';
+import { pptxBuilderPlugin } from '@ai-engineering-agent/pptx-builder';
 import { scanProject } from '@ai-engineering-agent/project-scanner';
 import { runRuleChecker } from '@ai-engineering-agent/rule-checkers';
 import { buildUiContract } from '@ai-engineering-agent/navigation-decider';
 import { buildGenerationReport } from '@ai-engineering-agent/page-generator';
 import { buildPlaywrightValidation, executePlaywrightValidation } from '@ai-engineering-agent/playwright-runner';
-import { buildVisualRegressionValidation, executeVisualRegression } from '@ai-engineering-agent/visual-regression-runner';
+import {
+  buildVisualRegressionValidation,
+  executeVisualRegression,
+} from '@ai-engineering-agent/visual-regression-runner';
 import { runMockValidationPlugin, runMockValidationSuite } from '@ai-engineering-agent/validation-core';
 import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types.js';
 
@@ -60,10 +65,7 @@ const SUPPORTED_RULE_PLUGINS = new Set([
  *
  * 这是唯一的 plugin 执行入口，CLI runner 和 API 共用此实现。
  */
-export async function runPluginNode(
-  node: WorkflowNodeDef,
-  state: WorkflowRunState,
-): Promise<WorkflowNodeResult> {
+export async function runPluginNode(node: WorkflowNodeDef, state: WorkflowRunState): Promise<WorkflowNodeResult> {
   // ── pluginGroup: 批量执行规则检查 ────────────────────────
   if (node.type === 'pluginGroup' && node.plugins?.length) {
     return runPluginGroupNode(node, state);
@@ -83,7 +85,7 @@ export async function runPluginNode(
  */
 async function runPlaywrightNode(
   state: WorkflowRunState,
-  scanReport: Awaited<ReturnType<typeof scanProject>> | undefined,
+  scanReport: Awaited<ReturnType<typeof scanProject>> | undefined
 ): Promise<JsonObject> {
   const baseInput = {
     targetProfileId: state.context.targetProfile?.id ?? 'unknown',
@@ -121,7 +123,7 @@ async function runPlaywrightNode(
 async function runVisualRegressionNode(
   state: WorkflowRunState,
   scanReport: Awaited<ReturnType<typeof scanProject>> | undefined,
-  generationReport: JsonObject | undefined,
+  generationReport: JsonObject | undefined
 ): Promise<JsonObject> {
   const baseInput = {
     targetProfileId: state.context.targetProfile?.id ?? 'unknown',
@@ -139,12 +141,13 @@ async function runVisualRegressionNode(
     : [];
   const htmlPages = generatedFiles.filter((p) => p.endsWith('.html')).slice(0, 5);
 
-  const pages = htmlPages.length > 0
-    ? htmlPages.map((filePath, index) => ({
-        name: (filePath.split('/').pop() ?? `page-${index}`).replace(/\.html$/, ''),
-        url: filePath,
-      }))
-    : undefined;
+  const pages =
+    htmlPages.length > 0
+      ? htmlPages.map((filePath, index) => ({
+          name: (filePath.split('/').pop() ?? `page-${index}`).replace(/\.html$/, ''),
+          url: filePath,
+        }))
+      : undefined;
 
   if (isRealExecutionEnabled() && pages) {
     try {
@@ -170,10 +173,7 @@ function pathJoin(...parts: Array<string | undefined>): string {
 }
 
 /** 执行 pluginGroup 节点（批量规则检查） */
-async function runPluginGroupNode(
-  node: WorkflowNodeDef,
-  state: WorkflowRunState,
-): Promise<WorkflowNodeResult> {
+async function runPluginGroupNode(node: WorkflowNodeDef, state: WorkflowRunState): Promise<WorkflowNodeResult> {
   const targetProject = state.context.targetProject;
   const scanReport = targetProject ? await scanProject({ rootDir: targetProject }) : undefined;
 
@@ -208,7 +208,7 @@ async function runPluginGroupNode(
 
       // 未识别的 plugin: 回退到 mock
       return runMockValidationPlugin(pluginName, createValidationContext(node, state));
-    }),
+    })
   );
 
   const suiteResult = runMockValidationSuite([], createValidationContext(node, state));
@@ -236,10 +236,7 @@ async function runPluginGroupNode(
 }
 
 /** 执行单个 plugin 节点 */
-async function runSinglePluginNode(
-  node: WorkflowNodeDef,
-  state: WorkflowRunState,
-): Promise<WorkflowNodeResult> {
+async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunState): Promise<WorkflowNodeResult> {
   const plugin = node.plugin!;
 
   // 项目扫描
@@ -320,6 +317,28 @@ async function runSinglePluginNode(
     return { ok: true, output: toJsonValue(result) as JsonObject };
   }
 
+  // PPT 构建发布 — content_polish 节点产出内容、工作流 input 携带主题，构建 .pptx 并发布 artifact
+  if (plugin === 'pptx-builder') {
+    // 工作流 JSON 边界处无类型保证，以工作流合约（ppt-content / theme 完整 JSON）为结构依据
+    const content = state.nodeResults?.content_polish?.output as JsonObject | undefined;
+    const theme = state.context.input?.theme as JsonObject | undefined;
+    if (!content || !theme) throw new Error('pptx-builder 缺少 content 或 theme');
+    const result = await pptxBuilderPlugin.execute(
+      {
+        runId: state.context.runId,
+        nodeId: node.id,
+        // run 目录挂在工作区根下（artifacts-ppt/<runId>.pptx），无 targetProject 时退回进程 cwd
+        workspaceRoot: state.context.targetProject ?? process.cwd(),
+        env: process.env,
+        logger: console,
+        artifacts: { publish: async (a) => ({ id: crypto.randomUUID(), ...a }) },
+      },
+      { content, theme }
+    );
+    // PluginResult 的 validation/artifacts 原样透传，供 run result 展示 fitting 告警
+    return result;
+  }
+
   // 兜底：mock validation
   const check = runMockValidationPlugin(plugin, createValidationContext(node, state));
   return {
@@ -333,7 +352,7 @@ async function runSinglePluginNode(
 export function createMockResult(
   node: WorkflowNodeDef,
   state: WorkflowRunState,
-  input: JsonObject,
+  input: JsonObject
 ): WorkflowNodeResult {
   const handledBy = node.skill ?? node.plugin ?? node.plugins ?? 'mock-runner';
 
