@@ -691,9 +691,11 @@ export function PptPanel() {
             setRefineError('运行完成但未返回大纲数据，请重试');
             return;
           }
-          // 新大纲覆盖编辑态
+          // 新大纲覆盖编辑态；同步清除上一轮构建的过期警示条
           setEditedOutline(normalizeOutline(deepClone(raw)));
           setFeedback('');
+          setBuildError(null);
+          setBuildWarnings([]);
         },
         onFailed: (run) => {
           setRefining(false);
@@ -727,6 +729,7 @@ export function PptPanel() {
       {
         onCompleted: (run) => {
           setBuildRunning(false);
+          setBuildRunId(run.id); // 记录构建 run id，供 building 展示与 done 下载链接使用
           const raw = run.result?.content_polish?.output;
           if (!raw) {
             setBuildError('运行完成但未返回内容数据，请重试');
@@ -737,6 +740,7 @@ export function PptPanel() {
         },
         onFailed: (run) => {
           setBuildRunning(false);
+          setBuildRunId(run.id); // 失败 run 同样记录，便于关联日志排查
           setBuildError(run.error || 'PPT 构建失败，请修改大纲后重试');
           // pptx-builder ok:false 时 fitting 逐条警告经 validation.issues 透传
           const issues = run.result?.pptx_build?.validation?.issues;
@@ -1144,7 +1148,8 @@ export function PptPanel() {
               value={targetPages}
               onChange={(e) => {
                 const next = Number(e.target.value);
-                if (!Number.isNaN(next)) setTargetPages(next);
+                // NaN 防护 + 钳位 [1, 50]（Number('') === 0 也会被钳到 1）
+                if (!Number.isNaN(next)) setTargetPages(Math.min(50, Math.max(1, next)));
               }}
               className="w-24 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50 transition"
             />
