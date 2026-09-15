@@ -186,7 +186,8 @@ async function readMarkdownFile(filePath: string, deps?: CollectorDeps): Promise
   } catch (err) {
     // 文件不存在时给出可读错误，其余 IO 错误原样抛出
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw new Error(`文档不存在: ${filePath}`);
+      // 携带原始错误作为 cause，保留完整错误链
+      throw new Error(`文档不存在: ${filePath}`, { cause: err });
     }
     throw err;
   }
@@ -208,7 +209,8 @@ async function readMarkdownFile(filePath: string, deps?: CollectorDeps): Promise
  * @returns ppt-source 结构：sourceType + markdown + meta（字数/告警/来源标识）
  */
 export async function collectSource(input: CollectInput, deps?: CollectorDeps): Promise<CollectResult> {
-  let markdown = '';
+  // switch 全分支（含 default 抛错）必然赋值，无需初始化占位
+  let markdown: string;
   let fileName: string | undefined;
   let projectRunId: string | undefined;
 
