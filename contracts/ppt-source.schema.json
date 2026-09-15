@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PptSource",
+  "type": "object",
+  "required": ["sourceType", "markdown"],
+  "properties": {
+    "sourceType": { "type": "string", "enum": ["paste", "file", "platform-project"] },
+    "markdown": { "type": "string" },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "fileName": { "type": "string" },
+        "projectRunId": { "type": "string" },
+        "wordCount": { "type": "number" },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PptTheme",
+  "type": "object",
+  "required": ["name", "mode", "colors", "fonts", "slideSize", "layoutDensity"],
+  "properties": {
+    "name": { "type": "string" },
+    "mode": { "type": "string", "enum": ["preset", "extracted"] },
+    "colors": {
+      "type": "object",
+      "required": ["primary", "secondary", "background", "surface", "text", "accent"],
+      "properties": {
+        "primary": { "type": "string" },
+        "secondary": { "type": "string" },
+        "background": { "type": "string" },
+        "surface": { "type": "string" },
+        "text": { "type": "string" },
+        "accent": { "type": "string" }
+      }
+    },
+    "fonts": {
+      "type": "object",
+      "required": ["title", "body"],
+      "properties": { "title": { "type": "string" }, "body": { "type": "string" } }
+    },
+    "assets": {
+      "type": "object",
+      "properties": {
+        "logoPath": { "type": "string" },
+        "backgroundPath": { "type": "string" },
+        "coverImagePath": { "type": "string" }
+      }
+    },
+    "slideSize": { "type": "string", "enum": ["16:9", "4:3"] },
+    "layoutDensity": { "type": "string", "enum": ["compact", "standard", "spacious"] }
+  }
+}
