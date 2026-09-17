@@ -24,9 +24,9 @@ export function ThemeToggle() {
     <button
       onClick={toggle}
       title={isDark ? '切换到亮色模式' : '切换到暗色模式'}
-      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all
-        bg-white/10 hover:bg-white/20 text-white/80 hover:text-white
-        border border-white/10 hover:border-white/20"
+      className="flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 cursor-pointer
+        bg-surface-sunken border border-line-soft text-slate-500 dark:text-slate-400
+        hover:text-accent-600 hover:border-accent-300 dark:hover:text-accent-300 dark:hover:border-accent-500/40"
     >
       {isDark ? (
         <Sun size={16} className="transition-transform hover:rotate-90" />

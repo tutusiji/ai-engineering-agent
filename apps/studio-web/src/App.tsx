@@ -23,7 +23,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Zap, Image, Code, Layers } from 'lucide-react';
+import { Zap, Image, Code, Layers, FileText } from 'lucide-react';
 import { useSessions } from './hooks/useSessions';
 import { useChat } from './hooks/useChat';
 import { useDocument } from './hooks/useDocument';
@@ -113,12 +113,12 @@ export default function App() {
   // ── Auth 加载中 ───────────────────────────────────────────
   if (auth.loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center bg-surface-soft dark:bg-surface-sunken">
         <div className="text-center">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent-500 to-violet-500 flex items-center justify-center mx-auto mb-4 animate-pulse">
             <Zap className="w-6 h-6 text-white" />
           </div>
-          <p className="text-sm text-gray-400">加载中...</p>
+          <p className="text-sm text-slate-400">加载中...</p>
         </div>
       </div>
     );
@@ -144,7 +144,7 @@ export default function App() {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className="w-[280px] shrink-0 bg-gray-50 dark:bg-gray-900 overflow-auto h-full border-r border-divider dark:border-gray-800">
+        <aside className="w-[280px] shrink-0 overflow-auto h-full border-r border-line">
           <Sidebar
             sessions={sessions}
             activeSessionId={activeSessionId}
@@ -162,11 +162,15 @@ export default function App() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 flex flex-col bg-white dark:bg-gray-950 h-full overflow-hidden">
+        <main className="flex-1 flex flex-col bg-surface dark:bg-surface-sunken h-full overflow-hidden">
           {activeNav === 'chat' && (
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
               {/* Tab bar */}
-              <div className="flex gap-0 px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0">
+              <div
+                role="tablist"
+                aria-label="内容页签"
+                className="flex gap-0 px-4 bg-surface border-b border-line shrink-0"
+              >
                 {(
                   [
                     ['chat', Zap, '需求对话'],
@@ -178,11 +182,11 @@ export default function App() {
                   <button
                     key={key}
                     onClick={() => setActiveChatTab(key)}
-                    className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all border-b-2 -mb-[1px]
+                    className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-all duration-200 border-b-2 -mb-[1px]
                       ${
                         activeChatTab === key
-                          ? 'text-blue-600 border-blue-600'
-                          : 'text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-300'
+                          ? 'text-accent-600 border-accent-500'
+                          : 'text-slate-400 border-transparent hover:text-slate-600 hover:border-line'
                       }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -228,9 +232,7 @@ export default function App() {
                     versions={studio.designVersions}
                     activeDesignId={studio.activeDesignId}
                     isDraft={!!studio.designDraft}
-                    onGenerate={() =>
-                      generation.generateDesign(() => setActiveChatTab('design'))
-                    }
+                    onGenerate={() => generation.generateDesign(() => setActiveChatTab('design'))}
                     onSave={generation.saveDesign}
                     onSwitchVersion={sessionData.switchDesignVersion}
                   />
@@ -247,18 +249,16 @@ export default function App() {
                     codeProgress={generation.codeProgress}
                     codeWarning={generation.codeWarning}
                     onCancel={generation.abortCodeGeneration}
-                    onRefine={studio.generatedFiles?.length
-                      ? (feedback: string) => generation.refineCode(feedback)
-                      : undefined}
+                    onRefine={
+                      studio.generatedFiles?.length ? (feedback: string) => generation.refineCode(feedback) : undefined
+                    }
                   />
                 )}
               </div>
             </div>
           )}
 
-          {activeNav === 'workflows' && (
-            <WorkflowPanel profileId={profileId} sessionId={activeSessionId} />
-          )}
+          {activeNav === 'workflows' && <WorkflowPanel profileId={profileId} sessionId={activeSessionId} />}
 
           {activeNav === 'history' && <RunHistory />}
 
@@ -267,14 +267,15 @@ export default function App() {
 
         {/* Right sidebar — Artifacts + Document panel (only in chat mode) */}
         {activeNav === 'chat' && (
-          <aside className="w-[360px] shrink-0 bg-white dark:bg-gray-900 border-l border-divider dark:border-gray-800 flex flex-col h-full overflow-hidden">
+          <aside className="w-[360px] shrink-0 bg-surface dark:bg-surface border-l border-line flex flex-col h-full overflow-hidden">
             {activeSession && (
-              <div className="px-4 py-4 shrink-0 bg-gradient-to-b from-blue-50/70 via-blue-50/20 to-white dark:from-blue-950/30 dark:via-blue-950/10 dark:to-gray-900 border-b-2 border-gray-200 dark:border-gray-700">
-                <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 leading-tight break-words">
-                  📋 {activeSession.name}
+              <div className="px-4 py-4 shrink-0 bg-gradient-to-b from-accent-50/70 via-accent-50/20 to-surface dark:from-accent-50/70 dark:via-accent-50/20 dark:to-surface border-b border-line">
+                <h3 className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-100 leading-tight break-words">
+                  <FileText className="w-4 h-4 shrink-0 text-accent-500" />
+                  {activeSession.name}
                 </h3>
                 {activeSession.featureName && (
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 break-words">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 break-words">
                     {activeSession.featureName}
                   </p>
                 )}

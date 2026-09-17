@@ -1,13 +1,104 @@
-@import "tailwindcss";
-@import "@heroui/styles";
+@import 'tailwindcss';
+@import '@heroui/styles';
 
 /* 启用基于 .dark 类的暗色模式（HeroUI useTheme 在 <html> 上添加 .dark 类） */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ─── 设计令牌（明亮轻奢极简）────────────────────────────────────────────
+ * accent —— 靛蓝主色系（从既有 blue 精炼而来，更沉稳高级）
+ * surface —— 语义表面色（亮/暗自动切换，供新版组件使用，避免与旧暗色补丁冲突）
+ * line —— 语义描边色
+ * shadow-luxe-* —— 轻奢多层阴影（低透明度、大扩散、两层叠加）
+ * ease-luxe / animate-rise —— 统一动效节奏
+ * ──────────────────────────────────────────────────────────────────── */
+@theme {
+  /* 靛蓝主色阶 */
+  --color-accent-50: #eef2ff;
+  --color-accent-100: #e0e7ff;
+  --color-accent-200: #c7d2fe;
+  --color-accent-300: #a5b4fc;
+  --color-accent-400: #818cf8;
+  --color-accent-500: #6366f1;
+  --color-accent-600: #4f46e5;
+  --color-accent-700: #4338ca;
+
+  /* 语义表面与线条（html.dark 中覆盖即实现整站暗色适配） */
+  --color-surface: #ffffff;
+  --color-surface-soft: #f8fafc;
+  --color-surface-sunken: #f1f5f9;
+  --color-line: #e2e8f0;
+  --color-line-soft: #eef2f7;
+
+  /* 轻奢阴影 */
+  --shadow-luxe-sm: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+  --shadow-luxe-md: 0 2px 4px rgb(15 23 42 / 0.03), 0 8px 24px -6px rgb(15 23 42 / 0.1);
+  --shadow-luxe-lg: 0 4px 8px rgb(15 23 42 / 0.04), 0 20px 48px -12px rgb(15 23 42 / 0.16);
+
+  /* 统一缓动与入场动画 */
+  --ease-luxe: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-rise: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-pulse-ring: pulse-ring 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      box-shadow: 0 0 0 0 rgb(99 102 241 / 0.35);
+    }
+    70% {
+      box-shadow: 0 0 0 8px rgb(99 102 241 / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgb(99 102 241 / 0);
+    }
+  }
+}
+
+/* 暗色模式下的语义表面覆盖（配合上方 @theme 令牌） */
+html.dark {
+  --color-surface: #1e293b;
+  --color-surface-soft: #172234;
+  --color-surface-sunken: #0f172a;
+  --color-line: #2c3a52;
+  --color-line-soft: #22304a;
+}
+
+/* 键盘导航焦点环（全局可达性） */
+:where(button, a, input, textarea, select, [role='tab']):focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
+
+/* 尊重用户减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Blinking cursor for streaming text */
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Smooth scrolling */
@@ -31,11 +122,21 @@
 }
 
 /* Reset */
-html, body, #root {
+html,
+body,
+#root {
   margin: 0;
   padding: 0;
   height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
 }
 
 /* ─── Chat Markdown Styles ─────────────────────────────────────────────── */
@@ -71,10 +172,18 @@ html, body, #root {
   margin-top: 0;
 }
 
-.chat-markdown h1 { font-size: 1.3em; }
-.chat-markdown h2 { font-size: 1.15em; }
-.chat-markdown h3 { font-size: 1.05em; }
-.chat-markdown h4 { font-size: 1em; }
+.chat-markdown h1 {
+  font-size: 1.3em;
+}
+.chat-markdown h2 {
+  font-size: 1.15em;
+}
+.chat-markdown h3 {
+  font-size: 1.05em;
+}
+.chat-markdown h4 {
+  font-size: 1em;
+}
 
 .chat-markdown ul,
 .chat-markdown ol {
@@ -181,57 +290,30 @@ html.dark #root {
   color: #e2e8f0;
 }
 
-/* ── 侧边栏 ── */
-html.dark .w-\[280px\].bg-\[\#fafafa\] {
-  background-color: #111827 !important;
-}
-
-html.dark .border-\[\#e8e8e8\] {
-  border-color: #1e293b !important;
-}
-
-/* 侧边栏中的会话卡片 */
-html.dark aside [class*="bg-white"] {
-  background-color: #1e293b !important;
-}
-
-html.dark aside [class*="border-gray-200"] {
-  border-color: #334155 !important;
-}
-
-html.dark aside [class*="text-gray-800"] {
-  color: #e2e8f0 !important;
-}
-
-/* 侧边栏中 HeroUI button ghost variant 悬停 */
-html.dark aside button[class*="ghost"]:hover {
-  background-color: #1e293b !important;
-}
-
 /* ── 主内容区 ── */
 html.dark main.bg-white,
-html.dark main > [class*="bg-white"] {
+html.dark main > [class*='bg-white'] {
   background-color: #0f172a !important;
 }
 
 /* ── 聊天面板 ── */
 /* 消息区背景 */
-html.dark [class*="bg-default-50"] {
+html.dark [class*='bg-default-50'] {
   background-color: #0f172a !important;
 }
 
 /* 助手气泡 */
-html.dark [class*="rounded-\\[12px_12px_12px_4px\\]"] {
+html.dark [class*='rounded-\\[12px_12px_12px_4px\\]'] {
   background-color: #1e293b !important;
   color: #e2e8f0 !important;
 }
 
 /* 输入区域 */
-html.dark [class*="border-default-200"] {
+html.dark [class*='border-default-200'] {
   border-color: #334155 !important;
 }
 
-html.dark textarea[class*="border-default-300"] {
+html.dark textarea[class*='border-default-300'] {
   background-color: #1e293b !important;
   border-color: #475569 !important;
   color: #e2e8f0 !important;
@@ -242,29 +324,63 @@ html.dark textarea::placeholder {
 }
 
 /* ── 通用文本颜色 ── */
-html.dark .text-gray-800 { color: #f1f5f9 !important; }
-html.dark .text-gray-700 { color: #e2e8f0 !important; }
-html.dark .text-gray-600 { color: #cbd5e1 !important; }
-html.dark .text-gray-500 { color: #94a3b8 !important; }
-html.dark .text-gray-400 { color: #64748b !important; }
-html.dark .text-gray-300 { color: #475569 !important; }
+html.dark .text-gray-800 {
+  color: #f1f5f9 !important;
+}
+html.dark .text-gray-700 {
+  color: #e2e8f0 !important;
+}
+html.dark .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+html.dark .text-gray-500 {
+  color: #94a3b8 !important;
+}
+html.dark .text-gray-400 {
+  color: #64748b !important;
+}
+html.dark .text-gray-300 {
+  color: #475569 !important;
+}
 
-html.dark .text-\[\#888\] { color: #94a3b8 !important; }
+html.dark .text-\[\#888\] {
+  color: #94a3b8 !important;
+}
 
 /* ── 通用边框 ── */
-html.dark .border-gray-200 { border-color: #334155 !important; }
-html.dark .border-gray-100 { border-color: #1e293b !important; }
-html.dark .border-gray-300 { border-color: #475569 !important; }
-html.dark .border-divider  { border-color: #334155 !important; }
+html.dark .border-gray-200 {
+  border-color: #334155 !important;
+}
+html.dark .border-gray-100 {
+  border-color: #1e293b !important;
+}
+html.dark .border-gray-300 {
+  border-color: #475569 !important;
+}
+html.dark .border-divider {
+  border-color: #334155 !important;
+}
 
 /* ── 通用背景色（非侧边栏）── */
-html.dark .bg-gray-50  { background-color: #1e293b !important; }
-html.dark .bg-gray-100 { background-color: #334155 !important; }
-html.dark .bg-gray-200 { background-color: #475569 !important; }
+html.dark .bg-gray-50 {
+  background-color: #1e293b !important;
+}
+html.dark .bg-gray-100 {
+  background-color: #334155 !important;
+}
+html.dark .bg-gray-200 {
+  background-color: #475569 !important;
+}
 
-html.dark .hover\:bg-gray-50:hover  { background-color: #1e293b !important; }
-html.dark .hover\:bg-gray-100:hover { background-color: #334155 !important; }
-html.dark .hover\:bg-gray-200:hover { background-color: #475569 !important; }
+html.dark .hover\:bg-gray-50:hover {
+  background-color: #1e293b !important;
+}
+html.dark .hover\:bg-gray-100:hover {
+  background-color: #334155 !important;
+}
+html.dark .hover\:bg-gray-200:hover {
+  background-color: #475569 !important;
+}
 
 /* ── 通用白色背景 ── */
 html.dark .bg-white {
@@ -311,20 +427,20 @@ html.dark * {
 }
 
 /* ── 弹窗/模态框 ── */
-html.dark [class*="fixed"][class*="inset-0"] [class*="bg-white"] {
+html.dark [class*='fixed'][class*='inset-0'] [class*='bg-white'] {
   background-color: #1e293b !important;
 }
 
 /* ── 表格 ── */
-html.dark thead[class*="bg-gray-50"] {
+html.dark thead[class*='bg-gray-50'] {
   background-color: #1e293b !important;
 }
 
-html.dark tbody[class*="bg-white"] {
+html.dark tbody[class*='bg-white'] {
   background-color: #111827 !important;
 }
 
-html.dark tbody [class*="hover:bg-gray"]:hover {
+html.dark tbody [class*='hover:bg-gray']:hover {
   background-color: #1e293b !important;
 }
 
