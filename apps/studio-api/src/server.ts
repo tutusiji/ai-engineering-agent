@@ -4,9 +4,20 @@
  * 路由已拆分到 src/routes/ 下，server.ts 仅负责组装。
  */
 
-import { initPool, closePool, runMigrations, SessionStore, RunStore, ArtifactStore, MetricsStore, UserStore } from '@ai-engineering-agent/persistence';
+import {
+  initPool,
+  closePool,
+  runMigrations,
+  SessionStore,
+  RunStore,
+  ArtifactStore,
+  MetricsStore,
+  UserStore,
+} from '@ai-engineering-agent/persistence';
 import { loadLlmConfigFromEnv } from '@ai-engineering-agent/agent-runtime';
 import express from 'express';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { setupSecurityMiddleware } from './middleware/security.js';
 import { requireAuth } from './middleware/auth.js';
 import { PORT, checkDatabaseHealth } from './lib/config.js';
@@ -87,6 +98,22 @@ app.use('/api/metrics', createMetricsRouter(metricsStore));
 
 // Visual baselines
 app.use('/api/baselines', createBaselinesRouter());
+
+// ── 生产模式：托管 studio-web 构建产物（单进程同时提供前端与 API）──
+const webDist = fileURLToPath(new URL('../../studio-web/dist', import.meta.url));
+const webDistIndex = fileURLToPath(new URL('../../studio-web/dist/index.html', import.meta.url));
+if (existsSync(webDist)) {
+  // 静态资源（assets、favicon 等）
+  app.use(express.static(webDist, { index: 'index.html' }));
+  // SPA 回退：GET 非 /api 路径统一返回 index.html（Express 5 不支持 '*' 通配，用中间件实现）
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api/')) {
+      res.sendFile(webDistIndex);
+    } else {
+      next();
+    }
+  });
+}
 
 // Global error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
