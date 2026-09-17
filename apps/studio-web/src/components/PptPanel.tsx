@@ -498,9 +498,9 @@ export function PptPanel() {
         credentials: 'include',
         body: JSON.stringify({ name: file.name, fileBase64 }),
       });
-      // 413：请求体超出 10MB 上限，映射为友好提示
+      // 413：base64 编码后请求体超出 10MB 上限，映射为友好提示
       if (res.status === 413) {
-        setTemplateError('文件过大：模板超出 10MB 上限，请压缩后再试');
+        setTemplateError('文件过大：模板 base64 编码后超出 10MB 上限（约对应 7.5MB 原始文件），请压缩后再试');
         return;
       }
       if (!res.ok) {
@@ -562,7 +562,7 @@ export function PptPanel() {
         body: JSON.stringify({ name: file.name, fileBase64 }),
       });
       if (res.status === 413) {
-        setDocError('文件过大：超出 10MB 上限，请压缩后再试');
+        setDocError('文件过大：素材 base64 编码后超出 10MB 上限（约对应 7.5MB 原始文件），请压缩后再试');
         return;
       }
       if (!res.ok) {

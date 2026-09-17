@@ -200,7 +200,8 @@ export async function buildPptx(content: PptContent, theme: PptTheme): Promise<B
   const pptx = new PptxGenJSCtor();
   pptx.defineLayout({
     name: theme.slideSize === '16:9' ? 'W16x9' : 'W4x3',
-    width: theme.slideSize === '16:9' ? 10 : 10,
+    // 宽固定 10 英寸，4:3 仅高度不同
+    width: 10,
     height: theme.slideSize === '16:9' ? 5.625 : 7.5,
   });
   pptx.layout = theme.slideSize === '16:9' ? 'W16x9' : 'W4x3';

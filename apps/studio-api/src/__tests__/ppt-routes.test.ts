@@ -10,7 +10,7 @@ import request from 'supertest';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import JSZip from 'jszip';
-import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { ArtifactStore, PptTemplateStore } from '@ai-engineering-agent/persistence';
 import { createPptRouter } from '../routes/ppt.js';
@@ -147,6 +147,31 @@ describe('ppt routes', () => {
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(await templateStore.get(row.id)).toBeUndefined();
+  });
+
+  it('DELETE 本人 uploaded 模板 → 200 且资产目录一并清理', async () => {
+    const row = await templateStore.create({
+      ownerId: userA,
+      name: 'A 带资产的模板',
+      source: 'uploaded',
+      theme: { name: 'a-assets' },
+    });
+    // 手工落一个资产目录，模拟上传模板时写入的 templates/<templateId>/assets
+    const assetDir = path.join(new ArtifactStore().getBaseDir(), 'templates', row.id, 'assets');
+    mkdirSync(assetDir, { recursive: true });
+    writeFileSync(path.join(assetDir, 'logo.png'), Buffer.alloc(8, 1));
+    try {
+      const res = await request(app)
+        .delete(`/api/ppt/templates/${row.id}`)
+        .set('Authorization', `Bearer ${tokenFor(userA)}`);
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      // 删除成功后 templates/<templateId>/ 不应残留
+      expect(existsSync(assetDir)).toBe(false);
+    } finally {
+      // 兜底清理父目录（路由已删则 rmSync force 静默通过），避免污染共享 ArtifactStore
+      rmSync(path.dirname(assetDir), { recursive: true, force: true });
+    }
   });
 
   it('POST /templates 非法 base64（非 pptx）→ 400 且不入库', async () => {

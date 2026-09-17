@@ -46,7 +46,9 @@ export function createPptRouter(): Router {
         uploaded: all.filter((t) => t.source === 'uploaded'),
       });
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      // 500 通用文案防内部错误泄露，原始错误仅记录到服务端日志
+      console.error('获取主题列表失败:', err);
+      res.status(500).json({ error: '主题列表加载失败，请稍后重试' });
     }
   });
 
@@ -117,17 +119,26 @@ export function createPptRouter(): Router {
         return res.status(403).json({ error: '仅能删除本人上传的模板' });
       }
       await templateStore.delete(req.params.id, userId);
+      // 清理该模板的资产目录（templates/<templateId>/），防止 ArtifactStore 中遗留孤儿目录
+      try {
+        rmSync(path.join(artifactStore.getBaseDir(), 'templates', req.params.id), { recursive: true, force: true });
+      } catch (cleanupErr) {
+        // 资产清理失败不应让已成功的删除回滚为 500，仅记录告警
+        console.warn(`清理模板资产目录失败（templateId=${req.params.id}）:`, cleanupErr);
+      }
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      // 500 通用文案防内部错误泄露，原始错误仅记录到服务端日志
+      console.error('删除模板失败:', err);
+      res.status(500).json({ error: '模板删除失败，请稍后重试' });
     }
   });
 
   // 素材文件上传：落 ArtifactStore uploads/<uuid>/<name>，返回 file 来源 source 对象（工作流输入直接可用）
   router.post('/uploads', async (req, res) => {
     const { name, fileBase64 } = (req.body ?? {}) as UploadBody;
-    if (typeof name !== 'string' || !name || typeof fileBase64 !== 'string' || !fileBase64) {
-      return res.status(400).json({ error: '缺少 name 或 fileBase64' });
+    if (typeof name !== 'string' || !name || typeof fileBase64 !== 'string' || !fileBase64 || !req.user) {
+      return res.status(400).json({ error: '缺少 name、fileBase64 或未认证' });
     }
     // name 来自带上传接口的用户输入，basename 归一 + 路径段拒绝
     const safeName = sanitizeFileName(name);
@@ -137,7 +148,9 @@ export function createPptRouter(): Router {
       const filePath = artifactStore.saveBinary(`uploads/${uploadId}`, safeName, Buffer.from(fileBase64, 'base64'));
       res.json({ source: { sourceType: 'file', filePath } });
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      // 500 通用文案防内部错误泄露，原始错误仅记录到服务端日志
+      console.error('素材上传失败:', err);
+      res.status(500).json({ error: '素材上传失败，请稍后重试' });
     }
   });
 

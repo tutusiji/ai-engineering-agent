@@ -135,4 +135,17 @@ describe('parseTemplate 模板主题提取', () => {
       fs.unlinkSync(p);
     }
   });
+
+  it('缺少 ppt/presentation.xml 的合法 zip 报出明确错误', async () => {
+    const zip = new JSZip();
+    zip.file('ppt/theme/theme1.xml', '<a:theme/>');
+    const buf = (await zip.generateAsync({ type: 'nodebuffer' })) as Buffer;
+    const p = path.join(os.tmpdir(), `ppt-nopres-${Date.now()}.pptx`);
+    fs.writeFileSync(p, buf);
+    try {
+      await expect(parseTemplate(p)).rejects.toThrow(/presentation\.xml/);
+    } finally {
+      fs.unlinkSync(p);
+    }
+  });
 });

@@ -94,7 +94,11 @@ export async function parseTemplate(filePath: string): Promise<ParsedTemplate> {
   const bodyFont = String(minor?.['@_typeface'] ?? 'Arial');
 
   // ── 4. 画幅比例 ──
-  const presXml = await zip.file('ppt/presentation.xml')!.async('string');
+  const presFile = zip.file('ppt/presentation.xml');
+  if (!presFile) {
+    throw new Error('无效的 .pptx 模板：缺少 ppt/presentation.xml（仅支持未加密的 OOXML 格式）');
+  }
+  const presXml = await presFile.async('string');
   const presObj = parser.parse(presXml);
   const sldSz = presObj?.['p:presentation']?.['p:sldSz'] ?? {};
   const cx = Number(sldSz['@_cx'] ?? 12192000);

@@ -108,26 +108,31 @@ async function defaultParsePdf(buffer: Buffer): Promise<string> {
     verbosity: 0,
   }).promise;
   const lines: string[] = [];
-  for (let pageNo = 1; pageNo <= doc.numPages; pageNo++) {
-    const page = await doc.getPage(pageNo);
-    const content = await page.getTextContent();
-    // 同一 y 坐标的文本项按序拼接，y 变化即换行（与 pdf-parse 的提取行为一致）
-    let line = '';
-    let lastY: number | undefined;
-    for (const item of content.items) {
-      if (!('str' in item)) continue;
-      const y = item.transform[5];
-      if (lastY !== undefined && y !== lastY) {
-        lines.push(line);
-        line = '';
+  try {
+    for (let pageNo = 1; pageNo <= doc.numPages; pageNo++) {
+      const page = await doc.getPage(pageNo);
+      const content = await page.getTextContent();
+      // 同一 y 坐标的文本项按序拼接，y 变化即换行（与 pdf-parse 的提取行为一致）
+      let line = '';
+      let lastY: number | undefined;
+      for (const item of content.items) {
+        if (!('str' in item)) continue;
+        const y = item.transform[5];
+        // 0.5pt 容差吸收 pdf.js 亚像素抖动（1e-10 级），正常行距远大于该值，避免同一行被拆成多段
+        if (lastY !== undefined && Math.abs(y - lastY) > 0.5) {
+          lines.push(line);
+          line = '';
+        }
+        line += item.str;
+        lastY = y;
       }
-      line += item.str;
-      lastY = y;
+      if (line.length > 0) lines.push(line);
+      page.cleanup();
     }
-    if (line.length > 0) lines.push(line);
-    page.cleanup();
+  } finally {
+    // 页循环任一页抛错时也必须销毁文档，避免 pdf.js worker 资源泄漏（错误原样向上传播）
+    await doc.destroy();
   }
-  await doc.destroy();
   return lines.join('\n');
 }
 

@@ -20,6 +20,9 @@ const CONTENT_TYPES: Record<string, string> = {
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
 
+/** 二进制产物扩展名 — 命中走 Buffer 通道，避免 utf-8 字符串往返损坏文件 */
+const BINARY_EXTS = new Set(['pptx', 'zip', 'png', 'jpg', 'jpeg', 'gif', 'woff2']);
+
 export function createRunsRouter(runStore: RunStore, artifactStore: ArtifactStore) {
   const router = Router();
 
@@ -116,8 +119,7 @@ export function createRunsRouter(runStore: RunStore, artifactStore: ArtifactStor
         return res.status(400).json({ error: 'Invalid file path' });
       }
 
-      // 二进制产物（pptx 等）走 Buffer 通道，避免 utf-8 字符串往返损坏文件
-      const BINARY_EXTS = new Set(['pptx', 'zip', 'png', 'jpg', 'jpeg', 'gif', 'woff2']);
+      // 二进制产物走 Buffer 通道读取（BINARY_EXTS 为模块级常量，见文件顶部定义）
       const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
       if (BINARY_EXTS.has(ext)) {
         const buf = artifactStore.readBinary(req.params.id, filePath);

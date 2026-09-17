@@ -381,12 +381,15 @@ async function main(): Promise<void> {
 
   if (failed > 0) {
     console.log(`❌ 端到端验证失败：${failed} 个步骤未通过`);
-    process.exit(1);
+    // 置退出码后自然返回，避免 stdout 缓冲区未刷新即退出导致结尾日志丢失
+    process.exitCode = 1;
+    return;
   }
   console.log('✅ 端到端验证通过（SKIP 不计入失败）');
 }
 
 main().catch((err: unknown) => {
   console.error('\n❌ 端到端验证脚本异常退出:', err instanceof Error ? err.message : String(err));
-  process.exit(1);
+  // 置退出码后让事件循环自然排空退出，避免 stdout/stderr 缓冲区未刷新即退出导致结尾日志丢失
+  process.exitCode = 1;
 });
