@@ -29,4 +29,33 @@ describe('PptTemplateStore', () => {
     expect(await store.delete(created.id, 'user-b')).toBe(false);
     expect(await store.delete(created.id, 'user-a')).toBe(true);
   });
+
+  it('读侧剥离存量 theme.assetBasePath（a4c11f0 前的存量行不再下发服务器绝对路径）', async () => {
+    const store = new PptTemplateStore();
+    const created = await store.create({
+      ownerId: 'user-a',
+      name: '存量路径模板',
+      source: 'uploaded',
+      theme: {
+        name: 'legacy',
+        mode: 'extracted',
+        colors: {},
+        fonts: {},
+        slideSize: '16:9',
+        layoutDensity: 'standard',
+        assetBasePath: '/abs/legacy/artifacts/templates/legacy/assets',
+      },
+    });
+    try {
+      const row = await store.get(created.id);
+      const theme = row?.theme as Record<string, unknown> | undefined;
+      expect(theme).toBeDefined();
+      // 读侧剥离：存量行携带的服务器绝对路径不得透出
+      expect(theme?.assetBasePath).toBeUndefined();
+      // 剥离只针对 assetBasePath，其余键原样保留
+      expect(theme?.name).toBe('legacy');
+    } finally {
+      await store.delete(created.id, 'user-a');
+    }
+  });
 });

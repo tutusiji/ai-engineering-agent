@@ -32,10 +32,48 @@ import {
 } from '@ai-engineering-agent/visual-regression-runner';
 import { runMockValidationPlugin, runMockValidationSuite } from '@ai-engineering-agent/validation-core';
 import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types.js';
+import { BUILTIN_PPT_TEMPLATE_IDS } from '@ai-engineering-agent/persistence';
 
 /** 是否启用真实执行器（默认开启；可通过环境变量 AIEA_EXEC_REAL=0 关闭以强制走诊断） */
 function isRealExecutionEnabled(): boolean {
   return process.env.AIEA_EXEC_REAL !== '0';
+}
+
+/** themeId 注入白名单的 UUID 形态（randomUUID 产物，大小写不敏感） */
+const PPT_THEME_ID_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 组装构建用主题 — 主题资产读取的第一道闸（闸 A）+ themeId 形态钳制：
+ * 1. 无条件剥离客户端 theme.assetBasePath — 工作流 input 为未校验 JSON，该键原样透传即可指定
+ *    任意读取起点；剥离后仅当 themeId 注入成功时才写入服务端派生的 assetBasePath，
+ *    注入失败/无 themeId 时 theme 不含该键，构建侧读不到资产即走纯色兜底
+ * 2. themeId 仅接受内置主题 id（与迁移 002_ppt_templates.sql 种子一致，见 persistence 的
+ *    BUILTIN_PPT_TEMPLATE_IDS）或 UUID 形态，其余一律视为注入失败 — 封死 'x/../../templates/y'
+ *    这类折叠后仍合规的形态（执行状态机不携带 run 归属用户，无法廉价做归属校验，故取格式钳制）
+ * 3. 注入落点仍做 confinement 校验（resolve + 尾随 path.sep 前缀），与格式钳制互为纵深防御
+ * @param theme 工作流 input 携带的客户端 theme JSON
+ * @param themeId 工作流 input 携带的 themeId（未校验 JSON，类型不可信）
+ * @param artifactBaseDir ArtifactStore 根目录
+ * @returns 构建侧可用的 theme（含服务端派生 assetBasePath 或不含该键）
+ */
+export function resolveThemeForBuild(theme: JsonObject, themeId: unknown, artifactBaseDir: string): JsonObject {
+  // 闸 A：先整体拷贝并剥离客户端 assetBasePath，杜绝「客户端 assetBasePath 原样透传」子向量
+  const themeForBuild: JsonObject = { ...theme };
+  delete themeForBuild.assetBasePath;
+  // themeId 形态钳制：内置主题名或 UUID 之外直接视为注入失败，走无资产构建（纯色兜底）
+  if (
+    typeof themeId === 'string' &&
+    themeId !== '' &&
+    (BUILTIN_PPT_TEMPLATE_IDS.has(themeId) || PPT_THEME_ID_UUID_RE.test(themeId))
+  ) {
+    const baseDir = path.resolve(artifactBaseDir);
+    const assetsRoot = path.resolve(baseDir, 'templates') + path.sep;
+    const assetBasePath = path.resolve(baseDir, 'templates', themeId, 'assets');
+    if (assetBasePath.startsWith(assetsRoot)) {
+      themeForBuild.assetBasePath = assetBasePath;
+    }
+  }
+  return themeForBuild;
 }
 
 /** 构建验证上下文（供 mock validation plugin 使用） */
@@ -336,18 +374,10 @@ async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunStat
     if (!content || !theme) throw new Error('pptx-builder 缺少 content 或 theme');
     // 注入真实 artifact 存储：.pptx 落 ArtifactStore，经现有 runs artifacts 路由下载
     const artifactStore = new ArtifactStore();
-    // 资产路径按 themeId 运行时解析 — theme JSON 内不携带任何路径（不入库/不入 prompt/不下发浏览器），
-    // 此处 join 后必须 confinement 校验：input 为未校验 JSON，themeId 不能作为任意目录读取的入口
-    let themeForBuild = theme;
-    const themeId = state.context.input?.themeId;
-    if (typeof themeId === 'string' && themeId) {
-      const baseDir = path.resolve(artifactStore.getBaseDir());
-      const assetsRoot = path.resolve(baseDir, 'templates') + path.sep;
-      const assetBasePath = path.resolve(baseDir, 'templates', themeId, 'assets');
-      if (assetBasePath.startsWith(assetsRoot)) {
-        themeForBuild = { ...theme, assetBasePath };
-      }
-    }
+    // 资产路径按 themeId 运行时解析 — theme JSON 内不携带任何路径（不入库/不入 prompt/不下发浏览器）。
+    // resolveThemeForBuild 内完成闸 A（无条件剥离客户端 assetBasePath）、themeId 形态钳制与
+    // 注入路径 confinement 校验；input 为未校验 JSON，themeId/assetBasePath 均不能作为任意目录读取的入口
+    const themeForBuild = resolveThemeForBuild(theme, state.context.input?.themeId, artifactStore.getBaseDir());
     const result = await pptxBuilderPlugin.execute(
       {
         runId: state.context.runId,

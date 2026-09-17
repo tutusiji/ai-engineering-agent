@@ -13,6 +13,26 @@ export interface PptTemplateRow {
   createdAt: number;
 }
 
+/** 内置预设模板 id 集合（与迁移 002_ppt_templates.sql 种子行一致，供 themeId 注入白名单等场景使用） */
+export const BUILTIN_PPT_TEMPLATE_IDS: ReadonlySet<string> = new Set([
+  'theme-business-blue',
+  'theme-tech-dark',
+  'theme-minimal-light',
+]);
+
+/**
+ * 剥离 theme JSONB 中的 assetBasePath 键 — a4c11f0 之前的存量行带服务器绝对路径，
+ * 读侧统一剥离：服务端构建路径由 plugin-runner 按 themeId 派生注入，该键不下发浏览器/不进 prompt
+ * @param theme 数据库读出的 theme JSON 值
+ * @returns 去除 assetBasePath 后的 theme（非普通对象时原样返回）
+ */
+function stripAssetBasePath(theme: unknown): unknown {
+  if (theme === null || typeof theme !== 'object' || Array.isArray(theme)) return theme;
+  const copy: Record<string, unknown> = { ...(theme as Record<string, unknown>) };
+  delete copy.assetBasePath;
+  return copy;
+}
+
 /** 将数据库行映射为 PptTemplateRow。 */
 function rowToTemplate(row: Record<string, unknown>): PptTemplateRow {
   const parse = (v: unknown, fallback: unknown) => (typeof v === 'string' ? JSON.parse(v as string) : (v ?? fallback));
@@ -21,7 +41,7 @@ function rowToTemplate(row: Record<string, unknown>): PptTemplateRow {
     ownerId: (row.owner_id as string | null) ?? null,
     name: row.name as string,
     source: row.source as 'builtin' | 'uploaded',
-    theme: parse(row.theme, {}),
+    theme: stripAssetBasePath(parse(row.theme, {})),
     assetPaths: parse(row.asset_paths, {}) as Record<string, string>,
     createdAt: Number(row.created_at ?? 0),
   };

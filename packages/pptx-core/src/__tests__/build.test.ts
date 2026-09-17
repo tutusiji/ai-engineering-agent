@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { buildPptx, type PptContent } from '../index.js';
 import type { PptTheme } from '../types.js';
 
@@ -54,6 +57,60 @@ describe('buildPptx', () => {
     const buf = await buildPptx(CONTENT, { ...THEME, slideSize: '4:3' });
     const zip = await JSZip.loadAsync(buf);
     expect(zip.file('ppt/slides/slide1.xml')).toBeDefined();
+  });
+
+  it('闸 B：assetName 携带 ../ 逃逸出 assetBasePath 时静默降级为纯色，合法路径仍正常嵌入', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ppt-gateb-'));
+    const base = path.join(dir, 'base');
+    fs.mkdirSync(base);
+    // 越界目标：base 之外的同级文件，内容带唯一标记
+    const ESCAPE_MARKER = 'ASSET-ESCAPE-MARKER';
+    fs.writeFileSync(path.join(dir, 'escape.txt'), ESCAPE_MARKER);
+    // 合法资产：base 内的真实 1×1 PNG
+    const PNG_1PX = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    fs.writeFileSync(path.join(base, 'ok.png'), PNG_1PX);
+    try {
+      // 越界：../ 逃逸出 base → 降级纯色，pptx 不含任何 media 条目，全包无逃逸标记字节
+      const escapeTheme: PptTheme = { ...THEME, assetBasePath: base, assets: { coverImagePath: '../escape.txt' } };
+      const escapeZip = await JSZip.loadAsync(await buildPptx(CONTENT, escapeTheme));
+      // pptxgenjs 总会写入 ppt/media/ 目录条目本身，须排除空目录条目后断言无真实媒体文件
+      expect(Object.keys(escapeZip.files).filter((n) => n.startsWith('ppt/media/') && !n.endsWith('/'))).toHaveLength(
+        0
+      );
+      for (const name of Object.keys(escapeZip.files)) {
+        if (name.endsWith('/')) continue; // 空目录条目无文件内容，zip.file() 对其返回 null
+        const content = (await escapeZip.file(name)!.async('string')).slice(0, 512);
+        expect(content.includes(ESCAPE_MARKER)).toBe(false);
+      }
+
+      // 回归底线：base 内合法文件照常嵌入（闸 B 不破坏合法形状的资产加载）
+      const okTheme: PptTheme = { ...THEME, assetBasePath: base, assets: { coverImagePath: 'ok.png' } };
+      const okZip = await JSZip.loadAsync(await buildPptx(CONTENT, okTheme));
+      const media = Object.keys(okZip.files).filter((n) => n.startsWith('ppt/media/') && !n.endsWith('/'));
+      expect(media.length).toBeGreaterThan(0);
+      const mediaBytes = await okZip.file(media[0]!)!.async('nodebuffer');
+      expect(mediaBytes.equals(PNG_1PX)).toBe(true);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('闸 B：无 assetBasePath 时不做任何资产读取（防 coverImagePath 直读 cwd 相对/绝对路径）', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ppt-gateb2-'));
+    const outside = path.join(dir, 'target.txt');
+    fs.writeFileSync(outside, 'NO-BASE-ESCAPE-MARKER');
+    try {
+      // 客户端 theme 只给 coverImagePath（绝对路径）不带 assetBasePath → 必须降级纯色
+      const theme: PptTheme = { ...THEME, assets: { coverImagePath: outside } };
+      const zip = await JSZip.loadAsync(await buildPptx(CONTENT, theme));
+      // pptxgenjs 总会写入 ppt/media/ 目录条目本身，须排除空目录条目后断言无真实媒体文件
+      expect(Object.keys(zip.files).filter((n) => n.startsWith('ppt/media/') && !n.endsWith('/'))).toHaveLength(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('列表逐项分段：每条要点独占一个 <a:p>，bullet 页逐项渲染项目符号', async () => {

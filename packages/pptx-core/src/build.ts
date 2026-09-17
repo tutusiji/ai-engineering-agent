@@ -1,7 +1,7 @@
 // 类型仅作标注用（type 导入在运行时被擦除）；运行时改为 buildPptx 内动态导入，以兼容 tsx 运行时
 // （tsx 下对 pptxgenjs 的静态默认导入会得到非构造函数对象，详见 task-3 报告）
 import type PptxGenJS from 'pptxgenjs';
-import { join } from 'node:path';
+import { resolve, sep } from 'node:path';
 import type { PptContent, PptContentSlide } from './types.js';
 import type { PptTheme } from './types.js';
 
@@ -23,6 +23,24 @@ async function toDataUri(path: string | undefined): Promise<string | undefined> 
   } catch {
     return undefined; // 资产缺失时静默降级为纯色版式
   }
+}
+
+/**
+ * 拼接资产绝对路径并做目录闭合校验 — 资产读取的最后一道闸（闸 B）。
+ * join/resolve 的归一化可被 assetName 携带的 '../' 折叠逃逸出资产目录（纵深防御：闸 A 已保证
+ * assetBasePath 为服务端派生，此处兜底防文件名穿越），故 resolve 后校验落点仍在 assetBasePath
+ * 内（含目录本身）；越界不抛错，返回 undefined 复用 toDataUri 的静默降级语义（纯色版式）
+ * @param assetBasePath 资产根目录（服务端按 themeId 派生注入）
+ * @param assetName 资产文件名（theme JSON 内的相对名，不可信）
+ * @returns 闭合校验通过的绝对路径；越界返回 undefined
+ */
+function resolveConfinedAssetPath(assetBasePath: string, assetName: string): string | undefined {
+  const base = resolve(assetBasePath);
+  const resolved = resolve(base, assetName);
+  if (resolved === base || resolved.startsWith(base + sep)) {
+    return resolved;
+  }
+  return undefined;
 }
 
 /**
@@ -207,10 +225,11 @@ export async function buildPptx(content: PptContent, theme: PptTheme): Promise<B
   pptx.layout = theme.slideSize === '16:9' ? 'W16x9' : 'W4x3';
   pptx.title = content.deckTitle;
 
-  // 封面资产一次解析：配置了 assetBasePath 时拼接目录前缀，否则按原始路径读取
+  // 封面资产解析：仅当 assetBasePath 存在时经闭合校验拼接读取；缺省一律纯色兜底，
+  // 不做无前缀的原始路径读取（防 coverImagePath 携带 cwd 相对/绝对路径直读任意文件）
   const assetName = theme.assets?.coverImagePath ?? theme.assets?.backgroundPath;
   const coverImg = await toDataUri(
-    assetName ? (theme.assetBasePath ? join(theme.assetBasePath, assetName) : assetName) : undefined
+    assetName && theme.assetBasePath ? resolveConfinedAssetPath(theme.assetBasePath, assetName) : undefined
   );
 
   for (const slide of content.slides) {

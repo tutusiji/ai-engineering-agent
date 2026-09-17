@@ -34,6 +34,21 @@ function loadWorkflows(): Array<{ id: string; name: string; description: string;
 }
 
 /**
+ * 剥离插件结果中的 artifacts 字段 — artifacts[].path 为服务器绝对路径，原样进 nodeResults 会随
+ * run result JSONB 持久化并经 GET /runs/:id 整行下发浏览器（RunHistory 详情页还会原样渲染 result）。
+ * 前端不消费该字段：PptPanel 下载链接按 runId 拼接，RunHistory 产物树走 artifactStore.list 独立端点，
+ * 故持久化前统一剥离（覆盖所有 plugin 节点，不止 pptx_build），不透出服务器绝对路径
+ * @param result 插件节点执行结果
+ * @returns 去除 artifacts 后的结果（浅拷贝，不改动 executor 持有的引用）
+ */
+function stripResultArtifacts<T extends { artifacts?: unknown }>(result: T): T {
+  if (result.artifacts === undefined) return result;
+  const rest = { ...result };
+  delete rest.artifacts;
+  return rest;
+}
+
+/**
  * 根据 skill 名构造正确的输入对象。
  *
  * 修复断裂点 #2: 不同 skill 需要不同的输入字段，之前统一传 session.document
@@ -177,7 +192,7 @@ export function createWorkflowsRouter(
             },
             runPlugin: async (node, _input, state) => {
               await runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
-              const result = await runPluginNode(node, state);
+              const result = stripResultArtifacts(await runPluginNode(node, state));
               if (result.ok) {
                 await runStore.updateStage(runId, node.id, {
                   status: 'completed',
@@ -195,7 +210,7 @@ export function createWorkflowsRouter(
             },
             runPluginGroup: async (node, _input, state) => {
               await runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
-              const result = await runPluginNode(node, state);
+              const result = stripResultArtifacts(await runPluginNode(node, state));
               if (result.ok) {
                 await runStore.updateStage(runId, node.id, {
                   status: 'completed',
