@@ -9,6 +9,10 @@ const API = '/api';
 export interface AuthUser {
   id: string;
   username: string;
+  /** 头像 seed（用户「换一个头像」后持久化的意志字段；null=按 username 派生默认脸） */
+  avatarSeed: string | null;
+  /** 头像地址（后端按 DiceBear 协议现拼下发；前端不参与协议拼接） */
+  avatarUrl: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -85,6 +89,29 @@ export function useAuth() {
     }
   }, []);
 
+  /**
+   * shuffleAvatar — 换一个头像（PATCH /api/auth/me/avatar）
+   *
+   * 无参调用：目标恒为会话用户、seed 服务端生成；成功后直接用响应里的新 user
+   * 覆盖本地状态（seed/URL 以后端为准，前端零协议参与）。
+   */
+  const shuffleAvatar = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`${API}/auth/me/avatar`, {
+        method: 'PATCH',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' });
@@ -94,5 +121,5 @@ export function useAuth() {
     setUser(null);
   }, []);
 
-  return { user, loading, error, login, register, logout };
+  return { user, loading, error, login, register, logout, shuffleAvatar };
 }

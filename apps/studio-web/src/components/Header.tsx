@@ -8,7 +8,8 @@
  * 从 App.tsx 抽取，减少 App.tsx 的渲染负担。
  */
 
-import { Zap, ChevronDown, Check, Cpu, LogOut, User } from 'lucide-react';
+import { Zap, ChevronDown, Check, Cpu, LogOut } from 'lucide-react';
+import { Avatar } from './Avatar';
 import type { ModelOption } from '../hooks/useModelSwitcher';
 import type { AuthUser } from '../hooks/useAuth';
 
@@ -27,6 +28,8 @@ interface HeaderProps {
   onSwitchModel: (modelId: string) => void;
   /** 退出登录回调 */
   onLogout: () => void;
+  /** 换一个头像回调（点击头像触发） */
+  onShuffleAvatar: () => void;
 }
 
 export function Header({
@@ -37,6 +40,7 @@ export function Header({
   onToggleModelMenu,
   onSwitchModel,
   onLogout,
+  onShuffleAvatar,
 }: HeaderProps) {
   return (
     <header className="relative z-20 flex items-center px-6 h-16 shrink-0 bg-surface/85 backdrop-blur-xl border-b border-line">
@@ -52,9 +56,17 @@ export function Header({
         {/* 用户信息胶囊 */}
         {user && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-sunken border border-line-soft">
-            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-accent-500 to-violet-500 text-white">
-              <User className="w-3 h-3" />
-            </span>
+            <button
+              onClick={onShuffleAvatar}
+              title="换一个头像"
+              className="shrink-0 rounded-full cursor-pointer transition-transform duration-150 hover:scale-110 active:scale-95"
+            >
+              <Avatar
+                src={user.avatarUrl}
+                name={user.username}
+                className="w-6 h-6 rounded-full border border-line-soft"
+              />
+            </button>
             <span className="text-xs font-medium text-slate-700 dark:text-slate-200">{user.username}</span>
             <button
               onClick={onLogout}

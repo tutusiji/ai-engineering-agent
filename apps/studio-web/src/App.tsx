@@ -140,6 +140,9 @@ export default function App() {
         onToggleModelMenu={() => modelSwitcher.setModelMenuOpen(!modelSwitcher.modelMenuOpen)}
         onSwitchModel={modelSwitcher.switchModel}
         onLogout={auth.logout}
+        onShuffleAvatar={() => {
+          void auth.shuffleAvatar();
+        }}
       />
 
       {/* Body */}

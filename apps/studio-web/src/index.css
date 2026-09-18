@@ -467,3 +467,14 @@ html.dark tbody [class*='hover:bg-gray']:hover {
     font-size: 11px;
   }
 }
+
+/* ─── DiceBear 头像裁边（Avatar 组件专用）───────────────────────────────
+   DiceBear SVG 自带大量留白（顶部至少 ~7%、底部可达 ~20%），直接放进小方框
+   脸会显得很小。CSS 放大裁边：scale 固定 1.26、锚点偏上（50% 26%）保头顶。
+   注意：scale 绝不能放进头像 URL——DiceBear 9.x/10.x 的 scale 参数语义相反，
+   切内网自建服务时会全部炸掉；裁剪必须来自父级 overflow-hidden（clip-path
+   会被同一 transform 缩放而失效）。 */
+.avatar-fill {
+  transform: scale(1.26);
+  transform-origin: 50% 26%;
+}

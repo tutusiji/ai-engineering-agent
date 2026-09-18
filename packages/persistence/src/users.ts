@@ -8,6 +8,8 @@ import { query, queryOne, queryAll } from './store.js';
 export interface User {
   id: string;
   username: string;
+  /** 头像 seed（DiceBear）：用户「换一个头像」后持久化的意志字段；NULL 时由调用方回退 username 派生 */
+  avatarSeed: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -33,6 +35,7 @@ function rowToUser(row: Record<string, unknown>): User {
   return {
     id: row.id as string,
     username: row.username as string,
+    avatarSeed: (row.avatar_seed as string | null) ?? null,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
@@ -68,7 +71,7 @@ export class UserStore {
        VALUES ($1, $2, $3, $4, $5)`,
       [id, username, passwordHash, now, now]
     );
-    return { id, username, createdAt: now, updatedAt: now };
+    return { id, username, avatarSeed: null, createdAt: now, updatedAt: now };
   }
 
   /** Get a user by ID (without password hash). */
@@ -103,5 +106,16 @@ export class UserStore {
   async exists(username: string): Promise<boolean> {
     const row = await queryOne('SELECT 1 FROM users WHERE username = $1', [username]);
     return !!row;
+  }
+
+  /** 更新头像 seed（「换一个头像」），返回更新后的用户（不含密码哈希）。 */
+  async updateAvatarSeed(id: string, seed: string): Promise<User | undefined> {
+    const result = await query(
+      `UPDATE users SET avatar_seed = $2, updated_at = $3 WHERE id = $1
+       RETURNING id, username, avatar_seed, created_at, updated_at`,
+      [id, seed, Date.now()]
+    );
+    const row = result.rows[0];
+    return row ? rowToUser(row) : undefined;
   }
 }
