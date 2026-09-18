@@ -55,6 +55,8 @@ interface PptThemeData {
   colors?: PptThemeColors;
   slideSize?: string;
   layoutDensity?: string;
+  /** 主题资产（相对 assetBasePath 的文件名，预览经 /api/ppt/themes/:id/assets/:name 读取） */
+  assets?: { backgroundPath?: string; coverImagePath?: string };
   assetBasePath?: string;
 }
 
@@ -876,6 +878,11 @@ export function PptPanel() {
    */
   const renderThemeCard = (row: ThemeRow) => {
     const selected = selectedThemeId === row.id;
+    const themeName = row.theme?.name || row.name;
+    // 封面预览：优先背景/封面资产图（经资产端点读取），无资产时用主题色渐变兜底
+    const bgAsset = row.theme?.assets?.backgroundPath || row.theme?.assets?.coverImagePath || null;
+    const palette = themeColorList(row.theme);
+    const fallbackGradient = `linear-gradient(135deg, ${palette[0] ?? '#64748B'} 0%, ${palette[1] ?? '#94A3B8'} 60%, ${palette[2] ?? '#CBD5E1'} 100%)`;
     return (
       <div
         key={row.id}
@@ -918,12 +925,27 @@ export function PptPanel() {
               }}
               title="删除模板"
               aria-label="删除此模板"
-              className="absolute right-2 top-2 rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition"
+              className={`absolute right-2 top-2 rounded-md p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition ${
+                bgAsset ? 'bg-white/75 shadow-sm' : ''
+              }`}
             >
               <Trash2 size={13} />
             </button>
           ))}
-        <div className="pr-6 text-sm font-semibold text-gray-800 truncate">{row.theme?.name || row.name}</div>
+        {/* 封面预览条：真实背景资产图或主题色渐变兜底 */}
+        <div className="-mx-3 -mt-3 mb-2.5 aspect-video overflow-hidden rounded-t-[10px] bg-gray-50">
+          {bgAsset ? (
+            <img
+              src={`${API}/ppt/themes/${row.id}/assets/${encodeURIComponent(bgAsset)}`}
+              alt={`${themeName} 封面预览`}
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="h-full w-full" style={{ background: fallbackGradient }} />
+          )}
+        </div>
+        <div className="pr-6 text-sm font-semibold text-gray-800 truncate">{themeName}</div>
         <div className="mt-2 flex items-center gap-1">
           {themeColorList(row.theme).map((color) => (
             <span
@@ -1552,9 +1574,7 @@ export function PptPanel() {
                   >
                     {isDone ? <CheckCircle2 size={12} /> : index + 1}
                   </span>
-                  <span className={isActive ? 'font-medium text-gray-800' : 'text-gray-400'}>
-                    {STEP_LABELS[index]}
-                  </span>
+                  <span className={isActive ? 'font-medium text-gray-800' : 'text-gray-400'}>{STEP_LABELS[index]}</span>
                 </span>
                 {index < STEP_LABELS.length - 1 && <span className="h-px w-6 bg-gray-200" aria-hidden="true" />}
               </li>
