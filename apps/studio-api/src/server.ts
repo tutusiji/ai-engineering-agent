@@ -35,6 +35,7 @@ import { createArtifactsRouter } from './routes/artifacts.js';
 import { createMetricsRouter } from './routes/metrics.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createBaselinesRouter } from './routes/baselines.js';
+import { createPptRouter } from './routes/ppt.js';
 
 const llmConfig = loadLlmConfigFromEnv();
 
@@ -92,6 +93,9 @@ app.use('/api/runs', createRunsRouter(runStore, artifactStore));
 
 // Session artifacts
 app.use('/api/sessions/:id/artifacts', createArtifactsRouter(sessionStore, artifactStore));
+
+// PPT 生成（主题列表/模板上传解析/删除/素材上传）
+app.use('/api/ppt', createPptRouter());
 
 // Metrics
 app.use('/api/metrics', createMetricsRouter(metricsStore));

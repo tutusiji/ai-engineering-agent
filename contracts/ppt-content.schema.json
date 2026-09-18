@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PptContent",
+  "type": "object",
+  "required": ["deckTitle", "slides"],
+  "properties": {
+    "deckTitle": { "type": "string" },
+    "subtitle": { "type": "string" },
+    "audience": { "type": "string" },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pageNo", "pageType", "polishedTitle"],
+        "properties": {
+          "pageNo": { "type": "number" },
+          "pageType": {
+            "type": "string",
+            "enum": ["cover", "toc", "section", "content-bullets", "content-two-col", "quote", "ending"]
+          },
+          "title": { "type": "string" },
+          "polishedTitle": { "type": "string" },
+          "bullets": { "type": "array", "items": { "type": "string" } },
+          "polishedBullets": { "type": "array", "items": { "type": "string" } },
+          "hookLine": { "type": "string" },
+          "notes": { "type": "string" },
+          "fitting": {
+            "type": "object",
+            "properties": {
+              "warnings": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    }
+  }
+}

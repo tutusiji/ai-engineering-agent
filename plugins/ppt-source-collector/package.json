@@ -1,0 +1,23 @@
+{
+  "name": "@ai-engineering-agent/ppt-source-collector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-engineering-agent/persistence": "workspace:*",
+    "@ai-engineering-agent/plugin-sdk": "workspace:*",
+    "@ai-engineering-agent/shared-types": "workspace:*",
+    "mammoth": "^1.9.0",
+    "pdfjs-dist": "^5.4.149"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "vitest": "^4.1.9"
+  }
+}

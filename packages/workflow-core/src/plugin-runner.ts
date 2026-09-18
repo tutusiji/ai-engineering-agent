@@ -11,22 +11,69 @@
  * - playwright-runner: E2E 测试验证
  * - visual-regression-runner: 视觉回归验证
  * - rule-checkers (pluginGroup): loading/debounce/delete-confirm 规则检查
+ * - ppt-source-collector: PPT 素材归一化（粘贴 / 文档 / 平台项目 → ppt-source）
+ * - pptx-builder: PPT 构建发布（content_polish 产出 + 主题 → .pptx artifact）
  * - 其他未识别的 plugin: 回退到 mock validation
  */
 
+import path from 'node:path';
 import type { JsonObject, JsonValue, ValidationReport } from '@ai-engineering-agent/shared-types';
+import { ArtifactStore } from '@ai-engineering-agent/persistence';
+import { collectSource, type CollectInput } from '@ai-engineering-agent/ppt-source-collector';
+import { pptxBuilderPlugin } from '@ai-engineering-agent/pptx-builder';
 import { scanProject } from '@ai-engineering-agent/project-scanner';
 import { runRuleChecker } from '@ai-engineering-agent/rule-checkers';
 import { buildUiContract } from '@ai-engineering-agent/navigation-decider';
 import { buildGenerationReport } from '@ai-engineering-agent/page-generator';
 import { buildPlaywrightValidation, executePlaywrightValidation } from '@ai-engineering-agent/playwright-runner';
-import { buildVisualRegressionValidation, executeVisualRegression } from '@ai-engineering-agent/visual-regression-runner';
+import {
+  buildVisualRegressionValidation,
+  executeVisualRegression,
+} from '@ai-engineering-agent/visual-regression-runner';
 import { runMockValidationPlugin, runMockValidationSuite } from '@ai-engineering-agent/validation-core';
 import type { WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types.js';
+import { BUILTIN_PPT_TEMPLATE_IDS } from '@ai-engineering-agent/persistence';
 
 /** 是否启用真实执行器（默认开启；可通过环境变量 AIEA_EXEC_REAL=0 关闭以强制走诊断） */
 function isRealExecutionEnabled(): boolean {
   return process.env.AIEA_EXEC_REAL !== '0';
+}
+
+/** themeId 注入白名单的 UUID 形态（randomUUID 产物，大小写不敏感） */
+const PPT_THEME_ID_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 组装构建用主题 — 主题资产读取的第一道闸（闸 A）+ themeId 形态钳制：
+ * 1. 无条件剥离客户端 theme.assetBasePath — 工作流 input 为未校验 JSON，该键原样透传即可指定
+ *    任意读取起点；剥离后仅当 themeId 注入成功时才写入服务端派生的 assetBasePath，
+ *    注入失败/无 themeId 时 theme 不含该键，构建侧读不到资产即走纯色兜底
+ * 2. themeId 仅接受内置主题 id（与迁移 002_ppt_templates.sql 种子一致，见 persistence 的
+ *    BUILTIN_PPT_TEMPLATE_IDS）或 UUID 形态，其余一律视为注入失败 — 封死 'x/../../templates/y'
+ *    这类折叠后仍合规的形态（执行状态机不携带 run 归属用户，无法廉价做归属校验，故取格式钳制）
+ * 3. 注入落点仍做 confinement 校验（resolve + 尾随 path.sep 前缀），与格式钳制互为纵深防御
+ * @param theme 工作流 input 携带的客户端 theme JSON
+ * @param themeId 工作流 input 携带的 themeId（未校验 JSON，类型不可信）
+ * @param artifactBaseDir ArtifactStore 根目录
+ * @returns 构建侧可用的 theme（含服务端派生 assetBasePath 或不含该键）
+ */
+export function resolveThemeForBuild(theme: JsonObject, themeId: unknown, artifactBaseDir: string): JsonObject {
+  // 闸 A：先整体拷贝并剥离客户端 assetBasePath，杜绝「客户端 assetBasePath 原样透传」子向量
+  const themeForBuild: JsonObject = { ...theme };
+  delete themeForBuild.assetBasePath;
+  // themeId 形态钳制：内置主题名或 UUID 之外直接视为注入失败，走无资产构建（纯色兜底）
+  if (
+    typeof themeId === 'string' &&
+    themeId !== '' &&
+    (BUILTIN_PPT_TEMPLATE_IDS.has(themeId) || PPT_THEME_ID_UUID_RE.test(themeId))
+  ) {
+    const baseDir = path.resolve(artifactBaseDir);
+    const assetsRoot = path.resolve(baseDir, 'templates') + path.sep;
+    const assetBasePath = path.resolve(baseDir, 'templates', themeId, 'assets');
+    if (assetBasePath.startsWith(assetsRoot)) {
+      themeForBuild.assetBasePath = assetBasePath;
+    }
+  }
+  return themeForBuild;
 }
 
 /** 构建验证上下文（供 mock validation plugin 使用） */
@@ -58,10 +105,7 @@ const SUPPORTED_RULE_PLUGINS = new Set([
  *
  * 这是唯一的 plugin 执行入口，CLI runner 和 API 共用此实现。
  */
-export async function runPluginNode(
-  node: WorkflowNodeDef,
-  state: WorkflowRunState,
-): Promise<WorkflowNodeResult> {
+export async function runPluginNode(node: WorkflowNodeDef, state: WorkflowRunState): Promise<WorkflowNodeResult> {
   // ── pluginGroup: 批量执行规则检查 ────────────────────────
   if (node.type === 'pluginGroup' && node.plugins?.length) {
     return runPluginGroupNode(node, state);
@@ -81,7 +125,7 @@ export async function runPluginNode(
  */
 async function runPlaywrightNode(
   state: WorkflowRunState,
-  scanReport: Awaited<ReturnType<typeof scanProject>> | undefined,
+  scanReport: Awaited<ReturnType<typeof scanProject>> | undefined
 ): Promise<JsonObject> {
   const baseInput = {
     targetProfileId: state.context.targetProfile?.id ?? 'unknown',
@@ -119,7 +163,7 @@ async function runPlaywrightNode(
 async function runVisualRegressionNode(
   state: WorkflowRunState,
   scanReport: Awaited<ReturnType<typeof scanProject>> | undefined,
-  generationReport: JsonObject | undefined,
+  generationReport: JsonObject | undefined
 ): Promise<JsonObject> {
   const baseInput = {
     targetProfileId: state.context.targetProfile?.id ?? 'unknown',
@@ -137,12 +181,13 @@ async function runVisualRegressionNode(
     : [];
   const htmlPages = generatedFiles.filter((p) => p.endsWith('.html')).slice(0, 5);
 
-  const pages = htmlPages.length > 0
-    ? htmlPages.map((filePath, index) => ({
-        name: (filePath.split('/').pop() ?? `page-${index}`).replace(/\.html$/, ''),
-        url: filePath,
-      }))
-    : undefined;
+  const pages =
+    htmlPages.length > 0
+      ? htmlPages.map((filePath, index) => ({
+          name: (filePath.split('/').pop() ?? `page-${index}`).replace(/\.html$/, ''),
+          url: filePath,
+        }))
+      : undefined;
 
   if (isRealExecutionEnabled() && pages) {
     try {
@@ -168,10 +213,7 @@ function pathJoin(...parts: Array<string | undefined>): string {
 }
 
 /** 执行 pluginGroup 节点（批量规则检查） */
-async function runPluginGroupNode(
-  node: WorkflowNodeDef,
-  state: WorkflowRunState,
-): Promise<WorkflowNodeResult> {
+async function runPluginGroupNode(node: WorkflowNodeDef, state: WorkflowRunState): Promise<WorkflowNodeResult> {
   const targetProject = state.context.targetProject;
   const scanReport = targetProject ? await scanProject({ rootDir: targetProject }) : undefined;
 
@@ -206,7 +248,7 @@ async function runPluginGroupNode(
 
       // 未识别的 plugin: 回退到 mock
       return runMockValidationPlugin(pluginName, createValidationContext(node, state));
-    }),
+    })
   );
 
   const suiteResult = runMockValidationSuite([], createValidationContext(node, state));
@@ -234,10 +276,7 @@ async function runPluginGroupNode(
 }
 
 /** 执行单个 plugin 节点 */
-async function runSinglePluginNode(
-  node: WorkflowNodeDef,
-  state: WorkflowRunState,
-): Promise<WorkflowNodeResult> {
+async function runSinglePluginNode(node: WorkflowNodeDef, state: WorkflowRunState): Promise<WorkflowNodeResult> {
   const plugin = node.plugin!;
 
   // 项目扫描
@@ -309,6 +348,55 @@ async function runSinglePluginNode(
     return { ok: !['failed'].includes(runnerStatus), output: report, raw: toJsonValue(report) };
   }
 
+  // PPT 素材归一化 — 从工作流 input 取 source，执行收集器并返回 ppt-source
+  if (plugin === 'ppt-source-collector') {
+    const src = state.context.input?.source as JsonObject | undefined;
+    if (!src) throw new Error('PPT 工作流缺少 source 输入');
+    // 任意文件读取防护：file 来源的 filePath 必须位于 ArtifactStore uploads 目录内（resolve + 前缀校验）
+    if (src.sourceType === 'file') {
+      const rawPath = typeof src.filePath === 'string' ? src.filePath : '';
+      const uploadsRoot = path.resolve(new ArtifactStore().getBaseDir(), 'uploads') + path.sep;
+      const resolved = rawPath ? path.resolve(rawPath) : '';
+      if (!resolved.startsWith(uploadsRoot)) {
+        throw new Error('素材文件路径非法：仅允许使用上传接口返回的文件');
+      }
+    }
+    // 工作流 input 为未校验 JSON，sourceType 合法性由 collectSource 内部校验
+    const result = await collectSource(src as unknown as CollectInput);
+    return { ok: true, output: toJsonValue(result) as JsonObject };
+  }
+
+  // PPT 构建发布 — content_polish 节点产出内容、工作流 input 携带主题，构建 .pptx 并发布 artifact
+  if (plugin === 'pptx-builder') {
+    // 工作流 JSON 边界处无类型保证，以工作流合约（ppt-content / theme 完整 JSON）为结构依据
+    const content = state.nodeResults?.content_polish?.output as JsonObject | undefined;
+    const theme = state.context.input?.theme as JsonObject | undefined;
+    if (!content || !theme) throw new Error('pptx-builder 缺少 content 或 theme');
+    // 注入真实 artifact 存储：.pptx 落 ArtifactStore，经现有 runs artifacts 路由下载
+    const artifactStore = new ArtifactStore();
+    // 资产路径按 themeId 运行时解析 — theme JSON 内不携带任何路径（不入库/不入 prompt/不下发浏览器）。
+    // resolveThemeForBuild 内完成闸 A（无条件剥离客户端 assetBasePath）、themeId 形态钳制与
+    // 注入路径 confinement 校验；input 为未校验 JSON，themeId/assetBasePath 均不能作为任意目录读取的入口
+    const themeForBuild = resolveThemeForBuild(theme, state.context.input?.themeId, artifactStore.getBaseDir());
+    const result = await pptxBuilderPlugin.execute(
+      {
+        runId: state.context.runId,
+        nodeId: node.id,
+        // run 目录挂在工作区根下（artifacts-ppt/<runId>.pptx），无 targetProject 时退回进程 cwd
+        workspaceRoot: state.context.targetProject ?? process.cwd(),
+        env: process.env,
+        logger: console,
+        artifacts: {
+          publish: async (a) => ({ id: crypto.randomUUID(), ...a }),
+          saveBinary: (runId: string, filePath: string, buf: Buffer) => artifactStore.saveBinary(runId, filePath, buf),
+        },
+      },
+      { content, theme: themeForBuild }
+    );
+    // PluginResult 的 validation/artifacts 原样透传，供 run result 展示 fitting 告警
+    return result;
+  }
+
   // 兜底：mock validation
   const check = runMockValidationPlugin(plugin, createValidationContext(node, state));
   return {
@@ -322,7 +410,7 @@ async function runSinglePluginNode(
 export function createMockResult(
   node: WorkflowNodeDef,
   state: WorkflowRunState,
-  input: JsonObject,
+  input: JsonObject
 ): WorkflowNodeResult {
   const handledBy = node.skill ?? node.plugin ?? node.plugins ?? 'mock-runner';
 

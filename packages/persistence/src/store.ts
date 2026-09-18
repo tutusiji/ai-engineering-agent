@@ -145,6 +145,30 @@ export class ArtifactStore {
     return true;
   }
 
+  /** 返回 artifact 根目录（供下载路由等外部读取使用）。 */
+  getBaseDir(): string {
+    return this.baseDir;
+  }
+
+  /** 为 run 保存二进制产物文件。 */
+  saveBinary(runId: string, filePath: string, content: Buffer): string {
+    const artifactDir = join(this.baseDir, runId);
+    if (!existsSync(artifactDir)) {
+      mkdirSync(artifactDir, { recursive: true });
+    }
+    const fullPath = join(artifactDir, filePath);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, content);
+    return fullPath;
+  }
+
+  /** 读取二进制产物文件。 */
+  readBinary(runId: string, filePath: string): Buffer | undefined {
+    const fullPath = join(this.baseDir, runId, filePath);
+    if (!existsSync(fullPath)) return undefined;
+    return readFileSync(fullPath);
+  }
+
   /** Get the full path for a run's artifact directory. */
   getRunDir(runId: string): string {
     return join(this.baseDir, runId);

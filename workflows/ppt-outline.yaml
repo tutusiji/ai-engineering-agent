@@ -1,0 +1,29 @@
+id: ppt-outline
+name: PPT Outline
+version: 0.1.0
+description: 从素材生成 PPT 文本大纲（携带 feedback + previousOutline 即为反馈修订重跑）
+
+input:
+  fields:
+    - { name: source, type: object, required: true } # CollectInput
+    - { name: theme, type: object, required: true } # 完整 ppt-theme JSON
+    - { name: preferences, type: object, required: false } # { targetPages?, audience?, occasion? }
+    - { name: feedback, type: string, required: false } # 精炼反馈（重跑时携带）
+    - { name: previousOutline, type: object, required: false } # 原大纲（重跑时携带）
+
+nodes:
+  - id: source_collect
+    type: plugin
+    name: 素材归一化
+    plugin: ppt-source-collector
+    outputSchema: ppt-source
+
+  - id: outline_planning
+    type: agent
+    name: 大纲规划
+    skill: ppt-outline-planning
+    dependsOn: [source_collect]
+    outputSchema: ppt-outline
+
+output:
+  primaryFrom: outline_planning

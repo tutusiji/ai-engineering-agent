@@ -27,6 +27,8 @@ export interface PluginLogger {
 
 export interface PluginArtifactStore {
   publish(artifact: Omit<ArtifactRef, 'id'>): Promise<ArtifactRef>;
+  /** 保存二进制产物（Buffer），返回落盘绝对路径；由宿主注入，插件按需使用。 */
+  saveBinary?(runId: string, filePath: string, content: Buffer): string;
 }
 
 // Plugin 负责确定性动作，例如扫描仓库、生成文件、执行规则检查。

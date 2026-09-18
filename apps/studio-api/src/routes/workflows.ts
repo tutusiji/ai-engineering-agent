@@ -18,12 +18,12 @@ import { repoRoot } from '../lib/config.js';
 function loadWorkflows(): Array<{ id: string; name: string; description: string; stages: string[] }> {
   const workflowsDir = path.join(repoRoot, 'workflows');
   if (!existsSync(workflowsDir)) return [];
-  const files = readdirSync(workflowsDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
-  return files.map(file => {
+  const files = readdirSync(workflowsDir).filter((f) => f.endsWith('.yaml') || f.endsWith('.yml'));
+  return files.map((file) => {
     const content = readFileSync(path.join(workflowsDir, file), 'utf-8');
     const nameMatch = content.match(/name:\s*(.+)/);
     const descMatch = content.match(/description:\s*(.+)/);
-    const stageMatches = [...content.matchAll(/- id:\s*(\S+)/g)].map(m => m[1]);
+    const stageMatches = [...content.matchAll(/- id:\s*(\S+)/g)].map((m) => m[1]);
     return {
       id: file.replace(/\.((yaml|yml))$/, ''),
       name: nameMatch?.[1]?.trim() ?? file,
@@ -31,6 +31,21 @@ function loadWorkflows(): Array<{ id: string; name: string; description: string;
       stages: stageMatches,
     };
   });
+}
+
+/**
+ * 剥离插件结果中的 artifacts 字段 — artifacts[].path 为服务器绝对路径，原样进 nodeResults 会随
+ * run result JSONB 持久化并经 GET /runs/:id 整行下发浏览器（RunHistory 详情页还会原样渲染 result）。
+ * 前端不消费该字段：PptPanel 下载链接按 runId 拼接，RunHistory 产物树走 artifactStore.list 独立端点，
+ * 故持久化前统一剥离（覆盖所有 plugin 节点，不止 pptx_build），不透出服务器绝对路径
+ * @param result 插件节点执行结果
+ * @returns 去除 artifacts 后的结果（浅拷贝，不改动 executor 持有的引用）
+ */
+function stripResultArtifacts<T extends { artifacts?: unknown }>(result: T): T {
+  if (result.artifacts === undefined) return result;
+  const rest = { ...result };
+  delete rest.artifacts;
+  return rest;
 }
 
 /**
@@ -49,7 +64,7 @@ function loadWorkflows(): Array<{ id: string; name: string; description: string;
 function buildSkillInput(
   skillName: string,
   input: JsonObject,
-  session: { userPrompt: string; sessionDocument: JsonObject; archDesign?: JsonObject },
+  session: { userPrompt: string; sessionDocument: JsonObject; archDesign?: JsonObject }
 ): JsonObject {
   const { userPrompt, sessionDocument } = session;
 
@@ -82,7 +97,7 @@ export function createWorkflowsRouter(
   llmConfig: LlmConfig,
   sessionStore: SessionStore,
   runStore: RunStore,
-  artifactStore: ArtifactStore,
+  artifactStore: ArtifactStore
 ) {
   const router = Router();
   const schemas = (createSkillContext().schemas as unknown as { registry: Map<string, unknown> }) ?? undefined;
@@ -111,7 +126,11 @@ export function createWorkflowsRouter(
           }
           if (definition.nodes) {
             for (const node of definition.nodes) {
-              await runStore.updateStage(runId, node.id, { name: node.name ?? node.id, nodeType: node.type, status: 'pending' });
+              await runStore.updateStage(runId, node.id, {
+                name: node.name ?? node.id,
+                nodeType: node.type,
+                status: 'pending',
+              });
             }
           }
 
@@ -124,7 +143,7 @@ export function createWorkflowsRouter(
           const sessionMessages = session?.messages ?? [];
           // 最后一条用户消息作为 userPrompt（requirement-analysis 等需要）
           const lastUserMessage = [...sessionMessages].reverse().find((m) => m.role === 'user');
-          const userPrompt = (params as JsonObject)?.userPrompt as string ?? lastUserMessage?.content ?? '';
+          const userPrompt = ((params as JsonObject)?.userPrompt as string) ?? lastUserMessage?.content ?? '';
           // 从 session 提取激活的架构方案（architecture-planning 后续 skill 需要）
           const archDesign = getActiveArchitecture(session);
 
@@ -139,7 +158,10 @@ export function createWorkflowsRouter(
               }
               const skill = getSkill(skillName);
               if (!skill) {
-                await runStore.updateStage(runId, node.id, { status: 'failed', error: `Skill not found: ${skillName}` });
+                await runStore.updateStage(runId, node.id, {
+                  status: 'failed',
+                  error: `Skill not found: ${skillName}`,
+                });
                 return { ok: false, error: `Skill not found: ${skillName}` };
               }
 
@@ -154,29 +176,53 @@ export function createWorkflowsRouter(
               const ctx = createSkillContext(dynamicProfileId, archDesign);
               const result = await runSkillThroughLlm(skill, ctx, skillInput, llmConfig);
               if (result.ok) {
-                await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now(), result: result.output });
+                await runStore.updateStage(runId, node.id, {
+                  status: 'completed',
+                  completedAt: Date.now(),
+                  result: result.output,
+                });
               } else {
-                await runStore.updateStage(runId, node.id, { status: 'failed', completedAt: Date.now(), error: result.error });
+                await runStore.updateStage(runId, node.id, {
+                  status: 'failed',
+                  completedAt: Date.now(),
+                  error: result.error,
+                });
               }
-              return { ok: result.ok, output: result.output as JsonObject ?? undefined, error: result.error };
+              return { ok: result.ok, output: (result.output as JsonObject) ?? undefined, error: result.error };
             },
             runPlugin: async (node, _input, state) => {
               await runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
-              const result = await runPluginNode(node, state);
+              const result = stripResultArtifacts(await runPluginNode(node, state));
               if (result.ok) {
-                await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now(), result: result.output });
+                await runStore.updateStage(runId, node.id, {
+                  status: 'completed',
+                  completedAt: Date.now(),
+                  result: result.output,
+                });
               } else {
-                await runStore.updateStage(runId, node.id, { status: 'failed', completedAt: Date.now(), error: result.error });
+                await runStore.updateStage(runId, node.id, {
+                  status: 'failed',
+                  completedAt: Date.now(),
+                  error: result.error,
+                });
               }
               return result;
             },
             runPluginGroup: async (node, _input, state) => {
               await runStore.updateStage(runId, node.id, { status: 'running', startedAt: Date.now() });
-              const result = await runPluginNode(node, state);
+              const result = stripResultArtifacts(await runPluginNode(node, state));
               if (result.ok) {
-                await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now(), result: result.output });
+                await runStore.updateStage(runId, node.id, {
+                  status: 'completed',
+                  completedAt: Date.now(),
+                  result: result.output,
+                });
               } else {
-                await runStore.updateStage(runId, node.id, { status: 'failed', completedAt: Date.now(), error: result.error });
+                await runStore.updateStage(runId, node.id, {
+                  status: 'failed',
+                  completedAt: Date.now(),
+                  error: result.error,
+                });
               }
               return result;
             },
@@ -193,7 +239,9 @@ export function createWorkflowsRouter(
             ...sessionDocument,
           };
           const options = {
-            targetProject: (params as JsonObject)?.targetProject as string ?? undefined,
+            // 注入持久化 run 行 id — pptx-builder 等插件用它落产物目录，保证与下载路由一致
+            runId,
+            targetProject: ((params as JsonObject)?.targetProject as string) ?? undefined,
             targetProfile: { id: profileId },
             schemas,
             policies,
@@ -201,14 +249,25 @@ export function createWorkflowsRouter(
               await runStore.update(runId, { status: 'waiting-approval' });
               return true;
             },
-            onNodeStart: async () => { await runStore.update(runId, { status: 'running' }); },
+            onNodeStart: async () => {
+              await runStore.update(runId, { status: 'running' });
+            },
             onNodeComplete: async (node, result) => {
-              if (result.ok) await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now() });
+              if (result.ok)
+                await runStore.updateStage(runId, node.id, { status: 'completed', completedAt: Date.now() });
             },
           };
 
           const executionResult = await executor.execute(definition, input, options);
-          await runStore.update(runId, { status: executionResult.status === 'completed' ? 'completed' : executionResult.status === 'waiting-approval' ? 'waiting-approval' : 'failed', result: executionResult.nodeResults as unknown as JsonObject });
+          await runStore.update(runId, {
+            status:
+              executionResult.status === 'completed'
+                ? 'completed'
+                : executionResult.status === 'waiting-approval'
+                  ? 'waiting-approval'
+                  : 'failed',
+            result: executionResult.nodeResults as unknown as JsonObject,
+          });
 
           const nodeResults = executionResult.nodeResults;
           for (const [, nodeResult] of Object.entries(nodeResults)) {
@@ -222,7 +281,16 @@ export function createWorkflowsRouter(
               }
             }
           }
-          await runStore.complete(runId);
+          // 终态收尾：completed 直接补全完成元数据；failed 必须带 error 走 complete（无参 complete 会把
+          // 上方已写入的 failed 覆盖成 completed，导致 fitting 被拒的构建在前端误报「构建完成」）；
+          // waiting-approval 非终态，不收尾（等待审批回调继续）
+          if (executionResult.status === 'completed') {
+            await runStore.complete(runId);
+          } else if (executionResult.status === 'failed') {
+            // 从节点结果中提取首个失败节点的错误信息，写入 run.error 供前端展示
+            const failedEntry = Object.entries(executionResult.nodeResults).find(([, r]) => r && r.ok === false);
+            await runStore.complete(runId, failedEntry ? `节点 ${failedEntry[0]} 执行失败` : '工作流执行失败');
+          }
         } catch (err) {
           await runStore.complete(runId, String(err));
         }

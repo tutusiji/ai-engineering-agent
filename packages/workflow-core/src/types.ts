@@ -1,4 +1,10 @@
-import type { JsonObject, JsonValue, SchemaRef, TargetProfileRef } from '@ai-engineering-agent/shared-types';
+import type {
+  JsonObject,
+  JsonValue,
+  SchemaRef,
+  TargetProfileRef,
+  ValidationReport,
+} from '@ai-engineering-agent/shared-types';
 import type { FilePolicyRegistry, TargetProfileDefinition } from '@ai-engineering-agent/policy-engine';
 import type { FileSchemaRegistry } from '@ai-engineering-agent/contract-schema';
 
@@ -78,6 +84,8 @@ export interface WorkflowNodeResult {
   error?: string;
   output?: JsonObject;
   raw?: JsonValue;
+  /** plugin 返回的校验报告 — fitting 超预算警告经此透传至前端 */
+  validation?: ValidationReport;
 }
 
 export interface WorkflowRunContext {

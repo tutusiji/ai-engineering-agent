@@ -21,10 +21,11 @@ import {
   History,
   LayoutGrid,
   Image as ImageIcon,
+  Presentation,
 } from 'lucide-react';
 import type { Session } from '../hooks/useSessions';
 
-type NavKey = 'chat' | 'workflows' | 'history' | 'baselines';
+type NavKey = 'chat' | 'workflows' | 'history' | 'baselines' | 'ppt';
 
 /** 主导航项定义（key 对应 App 层 NavKey） */
 const NAV_ITEMS: ReadonlyArray<{ key: NavKey; icon: typeof MessageSquare; label: string }> = [
@@ -32,6 +33,7 @@ const NAV_ITEMS: ReadonlyArray<{ key: NavKey; icon: typeof MessageSquare; label:
   { key: 'workflows', icon: LayoutGrid, label: '工作流' },
   { key: 'history', icon: History, label: '运行历史' },
   { key: 'baselines', icon: ImageIcon, label: '视觉基线' },
+  { key: 'ppt', icon: Presentation, label: 'PPT 工坊' },
 ];
 
 interface SidebarProps {

@@ -2,12 +2,13 @@
  * Header — 顶部导航栏
  *
  * 明亮轻奢风：磨砂玻璃表面 + 精致描边 + 靛蓝品牌渐变。
- * 包含: Logo、用户信息与登出、主题切换、模型切换器。
+ * 包含: Logo、用户信息与登出、模型切换器。
+ * 暗色模式入口已临时移除：主面板尚未完成 dark: 变体适配，锁定亮色保证体验一致；
+ * ThemeToggle 组件保留，待全部面板适配后恢复入口。
  * 从 App.tsx 抽取，减少 App.tsx 的渲染负担。
  */
 
 import { Zap, ChevronDown, Check, Cpu, LogOut, User } from 'lucide-react';
-import { ThemeToggle } from './ThemeToggle';
 import type { ModelOption } from '../hooks/useModelSwitcher';
 import type { AuthUser } from '../hooks/useAuth';
 
@@ -64,8 +65,6 @@ export function Header({
             </button>
           </div>
         )}
-
-        <ThemeToggle />
 
         {/* 模型切换器 */}
         <div className="relative">

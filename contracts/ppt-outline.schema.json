@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PptOutline",
+  "type": "object",
+  "required": ["deckTitle", "totalPages", "slides"],
+  "properties": {
+    "deckTitle": { "type": "string" },
+    "subtitle": { "type": "string" },
+    "audience": { "type": "string" },
+    "totalPages": { "type": "number" },
+    "slides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pageNo", "pageType", "title"],
+        "properties": {
+          "pageNo": { "type": "number" },
+          "pageType": {
+            "type": "string",
+            "enum": ["cover", "toc", "section", "content-bullets", "content-two-col", "quote", "ending"]
+          },
+          "title": { "type": "string" },
+          "bullets": { "type": "array", "items": { "type": "string" } },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

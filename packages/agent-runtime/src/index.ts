@@ -23,6 +23,10 @@ import { backendCodingSkill } from './skills/backend-coding';
 import { deploymentPlanningSkill } from './skills/deployment-planning';
 import { architecturePlanningSkill } from './skills/architecture-planning';
 
+// PPT 生成 skill
+import { pptOutlinePlanningSkill } from './skills/ppt-outline-planning';
+import { pptContentPolishSkill } from './skills/ppt-content-polish';
+
 export const skillRegistry: Record<string, SkillDefinition> = {
   // Original workflow skills
   'requirement-analysis': requirementAnalysisSkill,
@@ -42,6 +46,10 @@ export const skillRegistry: Record<string, SkillDefinition> = {
   'backend-coding': backendCodingSkill,
   'deployment-planning': deploymentPlanningSkill,
   'architecture-planning': architecturePlanningSkill,
+
+  // PPT 生成 skill
+  'ppt-outline-planning': pptOutlinePlanningSkill,
+  'ppt-content-polish': pptContentPolishSkill,
 };
 
 export function getSkill(name: string): SkillDefinition | undefined {
@@ -64,6 +72,8 @@ export { apiDesignSkill } from './skills/api-design';
 export { backendCodingSkill } from './skills/backend-coding';
 export { deploymentPlanningSkill } from './skills/deployment-planning';
 export { architecturePlanningSkill } from './skills/architecture-planning';
+export { pptOutlinePlanningSkill } from './skills/ppt-outline-planning';
+export { pptContentPolishSkill } from './skills/ppt-content-polish';
 export { UI_CATALOG, getCompatibleLibraries, getUiLibrary, getLibrarySummary } from './ui-catalog';
 export type { RequirementDocument } from './skills/interactive-requirement';
 export {

@@ -3,6 +3,7 @@
  */
 
 import { query, queryOne, queryAll } from './store.js';
+import type { JsonObject } from '@ai-engineering-agent/shared-types';
 
 export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'waiting-approval' | 'approved' | 'rejected';
 export type StageStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting-approval';
@@ -35,6 +36,8 @@ export interface Run {
   stages: RunStage[];
   approvalHistory: ApprovalRecord[];
   artifacts: string[];
+  /** 工作流执行结果集（executionResult.nodeResults，顶层 key 为节点 id） */
+  result?: JsonObject;
   error?: string;
   startedAt: number;
   completedAt?: number;
@@ -50,8 +53,13 @@ function rowToRun(row: Record<string, unknown>): Run {
     workflowName: row.workflow_name as string,
     status: row.status as RunStatus,
     stages: (typeof row.stages === 'string' ? JSON.parse(row.stages as string) : row.stages) as RunStage[],
-    approvalHistory: (typeof row.approval_history === 'string' ? JSON.parse(row.approval_history as string) : row.approval_history) as ApprovalRecord[],
+    approvalHistory: (typeof row.approval_history === 'string'
+      ? JSON.parse(row.approval_history as string)
+      : row.approval_history) as ApprovalRecord[],
     artifacts: (typeof row.artifacts === 'string' ? JSON.parse(row.artifacts as string) : row.artifacts) as string[],
+    // result 为节点结果集：jsonb 列驱动已解析为对象，字符串形态（历史数据）则兼容解析；NULL 归一为 undefined
+    result: (typeof row.result === 'string' ? JSON.parse(row.result) : (row.result ?? undefined)) as
+      JsonObject | undefined,
     error: row.error as string | undefined,
     startedAt: Number(row.started_at),
     completedAt: row.completed_at ? Number(row.completed_at) : undefined,
@@ -69,9 +77,15 @@ export class RunStore {
       [id, workflowId, workflowName, now, trigger]
     );
     return {
-      id, workflowId, workflowName, status: 'pending',
-      stages: [], approvalHistory: [], artifacts: [],
-      startedAt: now, trigger,
+      id,
+      workflowId,
+      workflowName,
+      status: 'pending',
+      stages: [],
+      approvalHistory: [],
+      artifacts: [],
+      startedAt: now,
+      trigger,
     };
   }
 
@@ -106,6 +120,11 @@ export class RunStore {
       sets.push(`artifacts = $${paramIdx++}::jsonb`);
       values.push(JSON.stringify(patch.artifacts));
     }
+    // result：工作流执行结果集，与 stages 同为 JSONB 整存（更新白名单新增分支）
+    if (patch.result !== undefined) {
+      sets.push(`result = $${paramIdx++}::jsonb`);
+      values.push(JSON.stringify(patch.result));
+    }
     if (patch.error !== undefined) {
       sets.push(`error = $${paramIdx++}`);
       values.push(patch.error);
@@ -136,7 +155,7 @@ export class RunStore {
     const run = await this.get(runId);
     if (!run) return undefined;
 
-    const stageIndex = run.stages.findIndex(s => s.id === stageId);
+    const stageIndex = run.stages.findIndex((s) => s.id === stageId);
     if (stageIndex === -1) {
       run.stages.push({ id: stageId, name: stageId, nodeType: 'unknown', status: 'pending', logs: [], ...patch });
     } else {

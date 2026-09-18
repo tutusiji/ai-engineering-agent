@@ -1,10 +1,5 @@
 import type { JsonObject, TargetProfileRef } from '@ai-engineering-agent/shared-types';
-import type {
-  WorkflowDefinition,
-  WorkflowNodeDef,
-  WorkflowNodeResult,
-  WorkflowRunState,
-} from './types';
+import type { WorkflowDefinition, WorkflowNodeDef, WorkflowNodeResult, WorkflowRunState } from './types';
 
 export interface WorkflowExecutorAdapters {
   runAgent(node: WorkflowNodeDef, input: JsonObject, state: WorkflowRunState): Promise<WorkflowNodeResult>;
@@ -18,6 +13,8 @@ export interface WorkflowExecutionOptions {
   schemas?: WorkflowRunState['context']['schemas'];
   policies?: WorkflowRunState['context']['policies'];
   resolvedTargetProfile?: WorkflowRunState['context']['resolvedTargetProfile'];
+  /** 运行 id 覆盖 — 调用方（路由层）传入持久化 run 行 id，保证产物目录与下载路由一致；缺省用内部生成的临时 id */
+  runId?: string;
   /** 审批回调 — 返回 true 继续，false 中止 */
   onApprovalRequired?: (node: WorkflowNodeDef, state: WorkflowRunState) => Promise<boolean>;
   /** 节点事件回调 */
@@ -36,7 +33,7 @@ export class WorkflowExecutor {
   async execute(
     definition: WorkflowDefinition,
     input: JsonObject,
-    options: WorkflowExecutionOptions = {},
+    options: WorkflowExecutionOptions = {}
   ): Promise<WorkflowRunState> {
     if (!definition.nodes?.length) {
       throw new Error(`Workflow ${definition.id} has no executable nodes`);
@@ -51,7 +48,8 @@ export class WorkflowExecutor {
 
     const state: WorkflowRunState = {
       context: {
-        runId: `${definition.id}-${Date.now()}`,
+        // 优先用调用方注入的持久化 run id（产物目录与下载路由对齐），否则退回内部临时 id
+        runId: options.runId ?? `${definition.id}-${Date.now()}`,
         workflow: definition,
         targetProject: options.targetProject,
         targetProfile: options.targetProfile,
@@ -149,7 +147,7 @@ export class WorkflowExecutor {
             // Clear the failed result so it can be retried
             delete state.nodeResults[node.id];
             // Jump back to the retry target
-            const targetIndex = definition.nodes!.findIndex(n => n.id === node.retryTarget);
+            const targetIndex = definition.nodes!.findIndex((n) => n.id === node.retryTarget);
             if (targetIndex >= 0) {
               nodeIndex = targetIndex;
               continue;
@@ -210,7 +208,11 @@ export class WorkflowExecutor {
     return true;
   }
 
-  private async runNode(node: WorkflowNodeDef, input: JsonObject, state: WorkflowRunState): Promise<WorkflowNodeResult> {
+  private async runNode(
+    node: WorkflowNodeDef,
+    input: JsonObject,
+    state: WorkflowRunState
+  ): Promise<WorkflowNodeResult> {
     switch (node.type) {
       case 'agent':
         return this.adapters.runAgent(node, input, state);

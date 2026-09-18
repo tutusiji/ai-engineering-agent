@@ -23,6 +23,7 @@
       "@ai-engineering-agent/policy-engine": ["packages/policy-engine/src"],
       "@ai-engineering-agent/validation-core": ["packages/validation-core/src"],
       "@ai-engineering-agent/plugin-sdk": ["packages/plugin-sdk/src"],
+      "@ai-engineering-agent/pptx-core": ["packages/pptx-core/src"],
       "@ai-engineering-agent/project-scanner": ["plugins/project-scanner/src"],
       "@ai-engineering-agent/page-generator": ["plugins/page-generator/src"],
       "@ai-engineering-agent/playwright-runner": ["plugins/playwright-runner/src"],
@@ -32,7 +33,9 @@
       "@ai-engineering-agent/plugin-api-contract-validator": ["plugins/api-contract-validator/src"],
       "@ai-engineering-agent/plugin-api-scaffold": ["plugins/api-scaffold/src"],
       "@ai-engineering-agent/plugin-db-migration": ["plugins/db-migration/src"],
-      "@ai-engineering-agent/plugin-docker-generator": ["plugins/docker-generator/src"]
+      "@ai-engineering-agent/plugin-docker-generator": ["plugins/docker-generator/src"],
+      "@ai-engineering-agent/ppt-source-collector": ["plugins/ppt-source-collector/src"],
+      "@ai-engineering-agent/pptx-builder": ["plugins/pptx-builder/src"]
     }
   }
 }
