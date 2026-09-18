@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import compression from 'compression';
 
 const allowedOrigins = new Set([
+  'https://souxy.com:7500',
   'https://joox.cc:4399',
   'https://joox.cc',
   'http://localhost:4400',
@@ -30,7 +31,7 @@ export function setupSecurityMiddleware(app: Express): void {
         callback(new Error(`CORS policy: origin ${origin} not allowed`));
       },
       credentials: true,
-    }),
+    })
   );
 
   const limiter = rateLimit({
@@ -38,7 +39,8 @@ export function setupSecurityMiddleware(app: Express): void {
     max: 300, // 每 IP 每窗口最多 300 次
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: Request) => (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown',
+    keyGenerator: (req: Request) =>
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || 'unknown',
     validate: { keyGeneratorIpFallback: false },
     handler: (_req, res) => {
       res.status(429).json({ error: 'Too many requests, please try again later.' });
