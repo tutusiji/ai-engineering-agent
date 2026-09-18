@@ -36,6 +36,7 @@ import { createMetricsRouter } from './routes/metrics.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createBaselinesRouter } from './routes/baselines.js';
 import { createPptRouter } from './routes/ppt.js';
+import { seedBuiltinPptTemplates } from './lib/ppt-seed.js';
 
 const llmConfig = loadLlmConfigFromEnv();
 
@@ -47,6 +48,13 @@ const userStore = new UserStore();
 
 await initPool();
 await runMigrations();
+
+// 内置 PPT 主题种子（幂等：行缺失才入库，资产覆盖写自修复；失败不阻断启动）
+try {
+  await seedBuiltinPptTemplates();
+} catch (err) {
+  console.error('PPT 内置主题种子失败:', err);
+}
 
 const app = express();
 setupSecurityMiddleware(app);

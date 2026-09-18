@@ -52,6 +52,41 @@ export function createPptRouter(): Router {
     }
   });
 
+  // 模板资产读取（主题卡片封面预览等）：单文件名清洗 + 归属校验；
+  // builtin 全员可读，uploaded 仅本人可读
+  router.get('/themes/:id/assets/:name', async (req, res) => {
+    try {
+      const row = await templateStore.get(req.params.id);
+      if (!row) return res.status(404).json({ error: '模板不存在' });
+      if (row.source === 'uploaded' && row.ownerId !== req.user?.id) {
+        return res.status(403).json({ error: '无权访问该模板资产' });
+      }
+      // 资产名按单段文件名清洗（basename 归一 + 拒绝 '.'/'..'），配合 readBinary 的固定
+      // 前缀 templates/<id>/assets/ 双重防穿越
+      const name = sanitizeFileName(req.params.name);
+      if (!name || !path.extname(name)) {
+        return res.status(400).json({ error: '非法的资产名' });
+      }
+      const buf = artifactStore.readBinary('templates', `${row.id}/assets/${name}`);
+      if (!buf) return res.status(404).json({ error: '资产不存在' });
+      const mimeByExt: Record<string, string> = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.bmp': 'image/bmp',
+      };
+      res.setHeader('Content-Type', mimeByExt[path.extname(name).toLowerCase()] ?? 'application/octet-stream');
+      // 资产内容不可变（删除模板即清理目录），允许浏览器短缓存
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      res.send(buf);
+    } catch (err) {
+      // 500 通用文案防内部错误泄露，原始错误仅记录到服务端日志
+      console.error('读取模板资产失败:', err);
+      res.status(500).json({ error: '模板资产读取失败，请稍后重试' });
+    }
+  });
+
   // 上传模板：上传即解析（失败 400 不入库）；资产落盘/入库失败返回 500（不透出内部错误）
   router.post('/templates', async (req, res) => {
     const { name, fileBase64 } = (req.body ?? {}) as UploadBody;

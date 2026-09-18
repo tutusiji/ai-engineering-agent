@@ -13,11 +13,17 @@ export interface PptTemplateRow {
   createdAt: number;
 }
 
-/** 内置预设模板 id 集合（与迁移 002_ppt_templates.sql 种子行一致，供 themeId 注入白名单等场景使用） */
+/** 内置预设模板 id 集合（迁移 002 种子行 + studio-api 启动种子例程注入的六套主题，供 themeId 注入白名单等场景使用） */
 export const BUILTIN_PPT_TEMPLATE_IDS: ReadonlySet<string> = new Set([
   'theme-business-blue',
   'theme-tech-dark',
   'theme-minimal-light',
+  'theme-luxe-indigo',
+  'theme-champagne-gold',
+  'theme-jade-night',
+  'theme-mist-blue',
+  'theme-forest-sage',
+  'theme-violet-dusk',
 ]);
 
 /**
@@ -63,15 +69,16 @@ export class PptTemplateStore {
     return row ? rowToTemplate(row) : undefined;
   }
 
-  /** 新建模板（上传解析成功后调用） */
+  /** 新建模板（上传解析成功后调用；id 缺省自动生成，内置种子例程传固定语义 id） */
   async create(input: {
+    id?: string;
     ownerId: string | null;
     name: string;
     source: 'builtin' | 'uploaded';
     theme: unknown;
     assetPaths?: Record<string, string>;
   }): Promise<PptTemplateRow> {
-    const id = randomUUID();
+    const id = input.id ?? randomUUID();
     const now = Date.now();
     await query(
       `INSERT INTO ppt_templates (id, owner_id, name, source, theme, asset_paths, created_at)

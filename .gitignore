@@ -13,3 +13,7 @@ playwright-report/
 .claude/settings.local.json
 # ppt-e2e 脚本生成的本地验证产物
 sample.pptx
+
+# Python
+__pycache__/
+*.pyc
