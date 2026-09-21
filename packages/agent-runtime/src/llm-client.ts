@@ -11,6 +11,8 @@ export interface LlmConfig {
   model: string;
   temperature?: number;
   maxTokens?: number;
+  /** 整体超时毫秒（默认 5 分钟）— 长输出任务可放宽至 10-15 分钟 */
+  timeoutMs?: number;
   thinking?: { type: 'enabled' | 'disabled' };
 }
 
@@ -43,10 +45,7 @@ export interface LlmCallResult {
 /**
  * Send a chat completion request to an OpenAI-compatible endpoint.
  */
-export async function chatCompletion(
-  config: LlmConfig,
-  messages: ChatMessage[],
-): Promise<LlmCallResult> {
+export async function chatCompletion(config: LlmConfig, messages: ChatMessage[]): Promise<LlmCallResult> {
   const url = `${config.baseUrl.replace(/\/+$/, '')}/chat/completions`;
 
   const body: Record<string, unknown> = {
@@ -62,7 +61,8 @@ export async function chatCompletion(
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5 * 60 * 1000); // 5 minutes
+  // 整体超时可配（config.timeoutMs）— 长输出任务（UI 预览 HTML 等）需要 10 分钟级
+  const timeout = setTimeout(() => controller.abort(), config.timeoutMs ?? 5 * 60 * 1000);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -79,9 +79,7 @@ export async function chatCompletion(
   if (!response.ok) {
     const errorText = await response.text().catch(() => '');
     console.error(`LLM request failed (${response.status}):`, errorText || response.statusText);
-    throw new Error(
-      `LLM request failed (${response.status}): ${errorText || response.statusText}`,
-    );
+    throw new Error(`LLM request failed (${response.status}): ${errorText || response.statusText}`);
   }
 
   const data = (await response.json()) as ChatCompletion;
@@ -127,7 +125,7 @@ export function loadLlmConfigFromEnv(): LlmConfig {
       baseUrl: process.env.KIMI_BASE_URL ?? 'https://api.moonshot.cn/v1',
       apiKey: process.env.KIMI_API_KEY,
       model: process.env.KIMI_MODEL ?? 'kimi-k2.6',
-      temperature: 1,  // Kimi requires temperature=1
+      temperature: 1, // Kimi requires temperature=1
     };
   }
 
@@ -169,6 +167,79 @@ export function loadLlmConfigFromEnv(): LlmConfig {
 
   throw new Error(
     'No LLM credentials found. Set DEEPSEEK_API_KEY, RIGHTCODE_API_KEY, KIMI_API_KEY, ' +
-    'or OPENROUTER_API_KEY in your environment.',
+      'or OPENROUTER_API_KEY in your environment.'
   );
+}
+
+/**
+ * 按 provider 构造 LlmConfig（env 驱动，与 loadLlmConfigFromEnv 的构造逻辑同源）。
+ * 缺 key 返回 undefined。
+ */
+function providerConfigFor(provider: string): LlmConfig | undefined {
+  switch (provider) {
+    case 'deepseek':
+      return process.env.DEEPSEEK_API_KEY
+        ? {
+            baseUrl: process.env.DEEPSEEK_BASE_URL ?? 'https://api.deepseek.com',
+            apiKey: process.env.DEEPSEEK_API_KEY,
+            model: process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-pro',
+          }
+        : undefined;
+    case 'kimi':
+      return process.env.KIMI_API_KEY
+        ? {
+            baseUrl: process.env.KIMI_BASE_URL ?? 'https://api.moonshot.cn/v1',
+            apiKey: process.env.KIMI_API_KEY,
+            model: process.env.KIMI_MODEL ?? 'kimi-k2.6',
+            temperature: 1, // Kimi requires temperature=1
+          }
+        : undefined;
+    case 'ark':
+      return process.env.ARK_API_KEY
+        ? {
+            baseUrl: process.env.ARK_BASE_URL ?? 'https://ark.cn-beijing.volces.com/api/plan/v3',
+            apiKey: process.env.ARK_API_KEY,
+            model: process.env.ARK_MODEL ?? 'ark-code-latest',
+          }
+        : undefined;
+    case 'xiaomi':
+      return process.env.XIAOMI_API_KEY
+        ? {
+            baseUrl: process.env.XIAOMI_BASE_URL ?? 'https://api.xiaomimimo.com/v1',
+            apiKey: process.env.XIAOMI_API_KEY,
+            model: process.env.XIAOMI_MODEL ?? 'mimo-v2.5-pro',
+          }
+        : undefined;
+    case 'rightcode':
+      return process.env.RIGHTCODE_API_KEY
+        ? {
+            baseUrl: 'https://right.codes/codex/v1',
+            apiKey: process.env.RIGHTCODE_API_KEY,
+            model: process.env.RIGHTCODE_MODEL ?? 'gpt-5.5',
+          }
+        : undefined;
+    default:
+      return undefined;
+  }
+}
+
+/** 模型名 → provider 映射（resolveProviderConfig 按 skill.defaultModel.model 查表用） */
+const MODEL_PROVIDER_MAP: Record<string, string> = {
+  'deepseek-flash': 'deepseek',
+  'deepseek-v4-pro': 'deepseek',
+  'kimi-k2.6': 'kimi',
+  'ark-code-latest': 'ark',
+  'mimo-v2.5-pro': 'xiaomi',
+  'gpt-5.5': 'rightcode',
+};
+
+/**
+ * 按具体模型名解析完整 LlmConfig（切换 baseUrl/apiKey/model 三元组）。
+ * 供 skill.defaultModel.model 显式指定跨 provider 模型时使用（如重任务 skill 路由到
+ * DeepSeek——ark-code-latest 实际为 GLM 推理模型，架构/设计重任务 5 分钟内无法完成）。
+ * 查无命中返回 undefined，调用方保持默认 config。
+ */
+export function resolveProviderConfig(modelName: string): LlmConfig | undefined {
+  const provider = MODEL_PROVIDER_MAP[modelName];
+  return provider ? providerConfigFor(provider) : undefined;
 }

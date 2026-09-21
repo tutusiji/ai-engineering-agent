@@ -17,7 +17,9 @@ export const architecturePlanningSkill: SkillDefinition = {
   description: '根据需求生成全栈架构设计方案（系统架构、技术选型、模块划分、数据流、部署架构）',
   inputSchema: { name: 'requirement-spec' },
   outputSchema: { name: 'architecture-design' },
-  defaultModel: { model: 'auto', temperature: 0.2, maxTokens: 16384 },
+  // 默认模型路由：ark-code-latest 实际为 GLM 推理模型（探针实测该任务 >5min 未完成），
+  // 架构设计重任务显式路由到 DeepSeek V4 Pro（实测 ~60s 完成）
+  defaultModel: { model: 'deepseek-v4-pro', temperature: 0.2, maxTokens: 16384 },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {
     const mode = String(input.mode ?? 'generate');
@@ -102,8 +104,14 @@ Profile 中预置的技术偏好（仅供参考，你可以根据实际需求覆
     }
 
     // Generate page/entity context
-    const pageNames = pages.map((p: JsonObject) => String(p.name ?? '')).filter(Boolean).join(', ');
-    const entityNames = entities.map((e: JsonObject) => String(e.name ?? '')).filter(Boolean).join(', ');
+    const pageNames = pages
+      .map((p: JsonObject) => String(p.name ?? ''))
+      .filter(Boolean)
+      .join(', ');
+    const entityNames = entities
+      .map((e: JsonObject) => String(e.name ?? ''))
+      .filter(Boolean)
+      .join(', ');
 
     return {
       system: `你是一个资深全栈架构师。你的任务是根据需求规格，独立做出所有技术选型决策，输出一份完整的、可执行的架构设计方案。
@@ -281,5 +289,5 @@ ${JSON.stringify(input, null, 2)}
 };
 
 function normalizeObject(obj: JsonObject | undefined): JsonObject {
-  return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+  return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj : {};
 }

@@ -43,6 +43,8 @@ export interface SkillModelConfig {
   model: string;
   temperature?: number;
   maxTokens?: number;
+  /** 整体超时（毫秒）— 长输出任务（如 UI 预览 HTML 3 万+ tokens）需 10 分钟级，默认 5 分钟 */
+  timeoutMs?: number;
   thinking?: { type: 'enabled' | 'disabled' };
 }
 

@@ -82,51 +82,80 @@ export async function streamLlm(params: StreamLlmParams): Promise<StreamLlmResul
     stream: true,
   };
 
-  const llmRes = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${llmConfig.apiKey}` },
-    body: JSON.stringify(body),
-    signal,
-  });
+  // 上游守护：首字节 60s + 流空闲 120s —— 上游偶发挂流（连接建立但长时间不吐数据）时
+  // 若无服务端超时，SSE 会无限悬挂、浏览器永远转圈。正常流式 chunk 间隔为秒级，
+  // 空闲阈值远大于正常抖动；客户端主动断开（signal）时同步取消上游。
+  const guard = new AbortController();
+  const onClientAbort = (): void => guard.abort();
+  signal?.addEventListener('abort', onClientAbort, { once: true });
+  let guardTimer: NodeJS.Timeout | undefined;
+  let guardReason = '';
+  const armGuard = (ms: number, reason: string): void => {
+    clearTimeout(guardTimer);
+    guardTimer = setTimeout(() => {
+      guardReason = reason;
+      guard.abort();
+    }, ms);
+  };
+  try {
+    armGuard(60_000, 'LLM 连接超时（60s 无响应头）');
 
-  if (!llmRes.ok) {
-    const errorText = await llmRes.text().catch(() => '');
-    throw new Error(`LLM request failed (${llmRes.status}): ${errorText}`);
-  }
+    const llmRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${llmConfig.apiKey}` },
+      body: JSON.stringify(body),
+      signal: guard.signal,
+    });
 
-  const reader = llmRes.body?.getReader();
-  if (!reader) throw new Error('No response body');
+    if (!llmRes.ok) {
+      const errorText = await llmRes.text().catch(() => '');
+      throw new Error(`LLM request failed (${llmRes.status}): ${errorText}`);
+    }
 
-  let fullContent = '';
-  let finishReason = '';
-  const decoder = new TextDecoder();
-  let buffer = '';
+    const reader = llmRes.body?.getReader();
+    if (!reader) throw new Error('No response body');
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith('data: ')) continue;
-      const data = trimmed.slice(6);
-      if (data === '[DONE]') continue;
-      try {
-        const chunk = JSON.parse(data);
-        const delta = chunk.choices?.[0]?.delta?.content;
-        if (delta) {
-          fullContent += delta;
-          onChunk?.(delta, fullContent);
+    armGuard(120_000, 'LLM 流空闲超时（120s 无新数据）');
+
+    let fullContent = '';
+    let finishReason = '';
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      armGuard(120_000, 'LLM 流空闲超时（120s 无新数据）');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const chunk = JSON.parse(data);
+          const delta = chunk.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullContent += delta;
+            onChunk?.(delta, fullContent);
+          }
+          const fr = chunk.choices?.[0]?.finish_reason;
+          if (fr) finishReason = fr;
+        } catch {
+          // 忽略无法解析的行(如 keep-alive)
         }
-        const fr = chunk.choices?.[0]?.finish_reason;
-        if (fr) finishReason = fr;
-      } catch {
-        // 忽略无法解析的行(如 keep-alive)
       }
     }
-  }
 
-  return { fullContent, finishReason };
+    return { fullContent, finishReason };
+  } catch (err) {
+    // 守护超时的 abort 转译为可读错误（fetch 抛的是笼统 AbortError）
+    if (guardReason) throw new Error(guardReason, { cause: err });
+    throw err;
+  } finally {
+    clearTimeout(guardTimer);
+    signal?.removeEventListener('abort', onClientAbort);
+  }
 }

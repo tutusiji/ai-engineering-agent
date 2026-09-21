@@ -16,10 +16,14 @@ export const designGenerationSkill: SkillDefinition = {
   inputSchema: { name: 'requirement-spec' },
   outputSchema: { name: 'generation-report' },
   defaultModel: {
-    model: 'auto',
+    // 重任务路由：ark-code-latest 实际为 GLM 推理模型（重任务 >5min），显式路由 DeepSeek V4 Pro；
+    // 整页 HTML 输出 3 万+ tokens，DeepSeek 上需 10 分钟级 → 放宽整体超时
+    model: 'deepseek-v4-pro',
     temperature: 0.6,
-    maxTokens: 32768,  // Increased for interactive HTML with mock data + JS
-    thinking: { type: 'disabled' },
+    maxTokens: 32768, // Increased for interactive HTML with mock data + JS
+    timeoutMs: 15 * 60 * 1000,
+    // thinking: { type: 'disabled' } 已移除 — 该参数为 Kimi K2.6 专属；DeepSeek 与 Ark 均
+    // 返回 400 InvalidParameter（thinking.type not supported），导致 UI 预览生成全挂
   },
 
   async buildPrompt(ctx: SkillContext, input: JsonObject): Promise<SkillPrompt> {

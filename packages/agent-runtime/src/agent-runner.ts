@@ -12,7 +12,7 @@
 
 import type { JsonObject } from '@ai-engineering-agent/shared-types';
 import type { SkillContext, SkillDefinition, SkillPrompt } from '@ai-engineering-agent/skill-sdk';
-import { chatCompletion, type LlmConfig, type LlmCallResult } from './llm-client';
+import { chatCompletion, resolveProviderConfig, type LlmConfig, type LlmCallResult } from './llm-client';
 
 export interface AgentRunResult {
   ok: boolean;
@@ -30,17 +30,26 @@ export async function runSkillThroughLlm(
   skill: SkillDefinition,
   ctx: SkillContext,
   input: JsonObject,
-  llmConfig: LlmConfig,
+  llmConfig: LlmConfig
 ): Promise<AgentRunResult> {
   try {
     // 1. Build prompt
     const prompt: SkillPrompt = await skill.buildPrompt(ctx, input);
 
-    // 2. Call LLM — merge skill's defaultModel with global config
+    // 2. Call LLM — merge skill's defaultModel 路由：
+    // model='auto' → 直接用全局 config；model=具体模型名 → 先查 provider 表切换 config 基底
+    // （baseUrl/apiKey/model 整体切换，支持重任务 skill 显式路由到其他 provider，如
+    // ark-code-latest 实际为 GLM 推理模型、架构/设计重任务 5 分钟内无法完成）。
+    // 查无命中保持默认 config 基底（模型名仍写入 merged config，由上游端点拒绝并给出明确错误）
+    const base =
+      skill.defaultModel?.model && skill.defaultModel.model !== 'auto'
+        ? (resolveProviderConfig(skill.defaultModel.model) ?? llmConfig)
+        : llmConfig;
     const mergedConfig: LlmConfig = {
-      ...llmConfig,
+      ...base,
       ...(skill.defaultModel?.temperature != null && { temperature: skill.defaultModel.temperature }),
       ...(skill.defaultModel?.maxTokens != null && { maxTokens: skill.defaultModel.maxTokens }),
+      ...(skill.defaultModel?.timeoutMs != null && { timeoutMs: skill.defaultModel.timeoutMs }),
       ...(skill.defaultModel?.model && skill.defaultModel.model !== 'auto' && { model: skill.defaultModel.model }),
       ...(skill.defaultModel?.thinking && { thinking: skill.defaultModel.thinking }),
     };
@@ -127,17 +136,21 @@ export function extractJson(text: string): JsonObject | null {
       return {
         pageName: 'fullstack-preview',
         targetProfile: 'fullstack-vue3-nestjs',
-        generatedFiles: [{
-          path: 'artifacts/fullstack-preview.html',
-          kind: 'page',
-          status: 'generated',
-          content: htmlContent,
-        }],
-        patches: [{
-          target: 'artifacts/fullstack-preview.html',
-          action: 'create',
-          summary: '全栈预览页',
-        }],
+        generatedFiles: [
+          {
+            path: 'artifacts/fullstack-preview.html',
+            kind: 'page',
+            status: 'generated',
+            content: htmlContent,
+          },
+        ],
+        patches: [
+          {
+            target: 'artifacts/fullstack-preview.html',
+            action: 'create',
+            summary: '全栈预览页',
+          },
+        ],
         notes: ['从 HTML 代码块提取预览页'],
       };
     }
@@ -151,17 +164,21 @@ export function extractJson(text: string): JsonObject | null {
       return {
         pageName: 'fullstack-preview',
         targetProfile: 'fullstack-vue3-nestjs',
-        generatedFiles: [{
-          path: 'artifacts/fullstack-preview.html',
-          kind: 'page',
-          status: 'generated',
-          content: htmlContent,
-        }],
-        patches: [{
-          target: 'artifacts/fullstack-preview.html',
-          action: 'create',
-          summary: '全栈预览页（截断）',
-        }],
+        generatedFiles: [
+          {
+            path: 'artifacts/fullstack-preview.html',
+            kind: 'page',
+            status: 'generated',
+            content: htmlContent,
+          },
+        ],
+        patches: [
+          {
+            target: 'artifacts/fullstack-preview.html',
+            action: 'create',
+            summary: '全栈预览页（截断）',
+          },
+        ],
         notes: ['从截断的 HTML 代码块提取预览页'],
       };
     }
@@ -179,6 +196,39 @@ export function extractJson(text: string): JsonObject | null {
   if (braceMatch) {
     const parsed = tryParse(braceMatch[0]);
     if (parsed) return parsed;
+  }
+
+  // 裸 HTML 兜底 — 响应整体是 HTML（无 fence）或 JSON 包裹 HTML 但内部转义非法
+  // （模型把 HTML 换行/引号原样写进 JSON 字符串，JSON.parse 与修复均失败）时，
+  // 从 <!DOCTYPE html / <html 起提取整段 HTML 作为预览页产物
+  const htmlStart = text.search(/<!DOCTYPE html|<html[\s>]/i);
+  if (htmlStart !== -1) {
+    let htmlContent = text.slice(htmlStart).trim();
+    // 截到 </html> 为止，丢弃 JSON 包裹残尾
+    const htmlEndIdx = htmlContent.toLowerCase().lastIndexOf('</html>');
+    if (htmlEndIdx !== -1) htmlContent = htmlContent.slice(0, htmlEndIdx + 7);
+    if (htmlContent.length > 100) {
+      return {
+        pageName: 'fullstack-preview',
+        targetProfile: 'fullstack-vue3-nestjs',
+        generatedFiles: [
+          {
+            path: 'artifacts/fullstack-preview.html',
+            kind: 'page',
+            status: 'generated',
+            content: htmlContent,
+          },
+        ],
+        patches: [
+          {
+            target: 'artifacts/fullstack-preview.html',
+            action: 'create',
+            summary: '全栈预览页（裸 HTML 提取）',
+          },
+        ],
+        notes: ['从裸 HTML 响应提取预览页'],
+      };
+    }
   }
 
   // Last resort: try to repair truncated JSON

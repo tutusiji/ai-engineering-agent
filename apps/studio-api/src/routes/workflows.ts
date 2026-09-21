@@ -119,11 +119,15 @@ export function createWorkflowsRouter(
         try {
           await runStore.update(runId, { status: 'running' });
           const registry = await loadWorkflowRegistry(path.join(repoRoot, 'workflows'));
-          const definition = registry.get(workflowId);
-          if (!definition) {
+          // loadWorkflowRegistry 返回 Record<string, WorkflowRegistryEntry>（非 Map，值是 { filePath, definition } 包装）——
+          // 此前误用 .get() 导致所有 workflow run 秒挂；修正索引后又漏剥 .definition 包装，
+          // 会报 "Workflow undefined has no executable nodes"（包装对象上没有 id/nodes）
+          const entry = registry[workflowId];
+          if (!entry) {
             await runStore.complete(runId, `Workflow not found: ${workflowId}`);
             return;
           }
+          const definition = entry.definition;
           if (definition.nodes) {
             for (const node of definition.nodes) {
               await runStore.updateStage(runId, node.id, {
