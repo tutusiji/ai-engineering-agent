@@ -10,13 +10,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { ArtifactStore, PptTemplateStore } from '@ai-engineering-agent/persistence';
 import { SEED_PPT_TEMPLATES } from './ppt-seed-templates.js';
-
-/**
- * 仓库根（种子资产相对路径的解析基准）：本文件位于 apps/studio-api/src/lib/，
- * 上溯 4 级到仓库根。注意不用 config.ts 的 repoRoot——其当前定义为上溯 3 级，
- * 实际指向 apps/ 目录（语义与命名不符，另有调用方依赖，此处不引用以免拼出 apps/apps/ 路径）。
- */
-const REPO_ROOT = path.resolve(import.meta.dirname, '../../../..');
+import { repoRoot } from './config.js';
 
 /** 种子例程所需的模板存储最小接口（真实 PptTemplateStore 结构化兼容，测试可注入假实现） */
 export interface PptSeedTemplateStore {
@@ -55,7 +49,7 @@ export interface PptSeedDeps {
 export async function seedBuiltinPptTemplates(deps: PptSeedDeps = {}): Promise<string[]> {
   const store = deps.templateStore ?? new PptTemplateStore();
   const artifacts = deps.artifactStore ?? new ArtifactStore();
-  const root = deps.repoRoot ?? REPO_ROOT;
+  const root = deps.repoRoot ?? repoRoot;
   const seeded: string[] = [];
 
   for (const entry of SEED_PPT_TEMPLATES) {

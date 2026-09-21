@@ -10,7 +10,8 @@ import { loadLlmConfigFromEnv, type LlmConfig } from '@ai-engineering-agent/agen
 import { getPool } from '@ai-engineering-agent/persistence';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(__dirname, '../../..');
+/** 仓库根（本文件位于 apps/studio-api/src/lib/，上溯 4 级）——contracts/、policies/、workflows/ 等仓库级目录的解析基准 */
+export const repoRoot = path.resolve(__dirname, '../../../..');
 export const PORT = Number(process.env.STUDIO_API_PORT ?? 4401);
 
 export function loadLlmConfig(): LlmConfig {
