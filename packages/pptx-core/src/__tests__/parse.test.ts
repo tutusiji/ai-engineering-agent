@@ -14,6 +14,8 @@ import { parseTemplate } from '../parse.js';
 //   不触发兜底），注入 40KB image9.png / 35KB image10.png，并向母版 rels 追加 image10 的图片关系
 let fixturePath: string;
 let fixture2Path: string;
+let fixture4Path: string;
+let fixture5Path: string;
 let corruptPath: string;
 
 /** 1×1 像素 PNG（base64），解码后 70 字节 */
@@ -53,10 +55,35 @@ beforeAll(async () => {
   // fixture 3：非 zip 损坏文件
   corruptPath = path.join(os.tmpdir(), `ppt-corrupt-${Date.now()}.pptx`);
   fs.writeFileSync(corruptPath, 'this is not a zip file');
+
+  // fixture 4：多页整页背景模板 —— 4 页各一张 100% 画幅图片（字节互异 → media 各自独立）。
+  // 管线仅搬运字节不解析像素，故以不同填充字节的 Buffer 充当图片数据
+  const pptx4 = new PptxGenJS();
+  pptx4.defineLayout({ name: 'W16x9', width: 10, height: 5.625 });
+  pptx4.layout = 'W16x9';
+  for (let i = 0; i < 4; i++) {
+    const page = pptx4.addSlide();
+    page.addImage({ data: `data:image/jpeg;base64,${Buffer.alloc(48, i).toString('base64')}`, x: 0, y: 0, w: '100%', h: '100%' });
+  }
+  const buf4 = (await pptx4.write({ outputType: 'nodebuffer' })) as Buffer;
+  fixture4Path = path.join(os.tmpdir(), `ppt-fixture4-${Date.now()}.pptx`);
+  fs.writeFileSync(fixture4Path, buf4);
+
+  // fixture 5：仅 3 页全幅图 → 多页判定失败，回退最大图策略（小图 <30KB → 不设背景）
+  const pptx5 = new PptxGenJS();
+  pptx5.defineLayout({ name: 'W16x9', width: 10, height: 5.625 });
+  pptx5.layout = 'W16x9';
+  for (let i = 0; i < 3; i++) {
+    const page = pptx5.addSlide();
+    page.addImage({ data: `data:image/jpeg;base64,${Buffer.alloc(48, i).toString('base64')}`, x: 0, y: 0, w: '100%', h: '100%' });
+  }
+  const buf5 = (await pptx5.write({ outputType: 'nodebuffer' })) as Buffer;
+  fixture5Path = path.join(os.tmpdir(), `ppt-fixture5-${Date.now()}.pptx`);
+  fs.writeFileSync(fixture5Path, buf5);
 });
 
 afterAll(() => {
-  for (const p of [fixturePath, fixture2Path, corruptPath]) {
+  for (const p of [fixturePath, fixture2Path, fixture4Path, fixture5Path, corruptPath]) {
     if (p) fs.unlinkSync(p);
   }
 });
@@ -117,6 +144,21 @@ describe('parseTemplate 模板主题提取', () => {
     expect(parsed.assets[pngKey!]!.length).toBeGreaterThan(0);
     // 70 字节小图未达 30KB 阈值，不设背景
     expect(parsed.theme.assets?.backgroundPath).toBeUndefined();
+  });
+
+  it('多页整页背景模板：前 4 页各恰一张近全幅图 → 按页序映射四类页面背景', async () => {
+    const parsed = await parseTemplate(fixture4Path);
+    // pptxgenjs 的 media 命名规则 image-<页序>-<形状序>：页序映射据此锁死
+    expect(parsed.theme.assets?.backgroundPath).toBe('image-1-1.jpeg');
+    expect(parsed.theme.assets?.sectionImagePath).toBe('image-2-1.jpeg');
+    expect(parsed.theme.assets?.contentImagePath).toBe('image-3-1.jpeg');
+    expect(parsed.theme.assets?.endingImagePath).toBe('image-4-1.jpeg');
+  });
+
+  it('多页判定失败（仅 3 页全幅图）→ 回退最大图策略（小图不设背景）', async () => {
+    const parsed = await parseTemplate(fixture5Path);
+    expect(parsed.theme.assets?.backgroundPath).toBeUndefined();
+    expect(parsed.theme.assets?.sectionImagePath).toBeUndefined();
   });
 
   it('非 zip 损坏文件报错（JSZip 解包失败）', async () => {

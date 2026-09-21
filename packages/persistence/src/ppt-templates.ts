@@ -24,6 +24,11 @@ export const BUILTIN_PPT_TEMPLATE_IDS: ReadonlySet<string> = new Set([
   'theme-mist-blue',
   'theme-forest-sage',
   'theme-violet-dusk',
+  // 完整版式模板（.pptx 原件，种子例程经 parseTemplate 提取入库）
+  'tpl-luxe-indigo',
+  'tpl-champagne-gold',
+  'tpl-jade-night',
+  'tpl-mist-blue',
 ]);
 
 /**

@@ -113,6 +113,67 @@ describe('buildPptx', () => {
     }
   });
 
+  it('多页型模板：按 pageType 铺对应整页背景（quote 与内容页共用内容图）', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ppt-multibg-'));
+    try {
+      const imgs = [0, 1, 2, 3].map((i) => Buffer.alloc(64, i));
+      for (let i = 0; i < 4; i++) fs.writeFileSync(path.join(dir, `bg${i}.png`), imgs[i]!);
+      const multiTheme: PptTheme = {
+        ...THEME,
+        assetBasePath: dir,
+        assets: { backgroundPath: 'bg0.png', sectionImagePath: 'bg1.png', contentImagePath: 'bg2.png', endingImagePath: 'bg3.png' },
+      };
+      const bgContent: PptContent = {
+        deckTitle: '多页背景',
+        slides: [
+          { pageNo: 1, pageType: 'cover', title: '', polishedTitle: '封面' },
+          { pageNo: 2, pageType: 'section', title: '', polishedTitle: '章节' },
+          { pageNo: 3, pageType: 'content-bullets', title: '', polishedTitle: '内容', polishedBullets: ['要点'] },
+          { pageNo: 4, pageType: 'quote', title: '', polishedTitle: '引用', hookLine: '金句' },
+          { pageNo: 5, pageType: 'ending', title: '', polishedTitle: '结尾' },
+        ],
+      };
+      const zip = await JSZip.loadAsync(await buildPptx(bgContent, multiTheme));
+      const picCount = async (n: string): Promise<number> =>
+        ((await zip.file(`ppt/slides/${n}.xml`)!.async('string')).match(/<p:pic>/g) ?? []).length;
+      // 五种页型各铺一张整页背景
+      expect(await picCount('slide1')).toBe(1);
+      expect(await picCount('slide2')).toBe(1);
+      expect(await picCount('slide3')).toBe(1);
+      expect(await picCount('slide4')).toBe(1);
+      expect(await picCount('slide5')).toBe(1);
+      // pptxgenjs 对同 dataUri 不去重 media：5 次铺图引用各存一份（体积代价可接受）
+      const media = Object.keys(zip.files).filter((n) => n.startsWith('ppt/media/') && !n.endsWith('/'));
+      expect(media).toHaveLength(5);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('单页型模板：仅封面铺 backgroundPath 图，其余页纯色', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ppt-singlebg-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'bg0.png'), Buffer.alloc(64, 0));
+      const theme: PptTheme = { ...THEME, assetBasePath: dir, assets: { backgroundPath: 'bg0.png' } };
+      const bgContent: PptContent = {
+        deckTitle: '单页背景',
+        slides: [
+          { pageNo: 1, pageType: 'cover', title: '', polishedTitle: '封面' },
+          { pageNo: 2, pageType: 'section', title: '', polishedTitle: '章节' },
+          { pageNo: 3, pageType: 'content-bullets', title: '', polishedTitle: '内容', polishedBullets: ['要点'] },
+        ],
+      };
+      const zip = await JSZip.loadAsync(await buildPptx(bgContent, theme));
+      const picCount = async (n: string): Promise<number> =>
+        ((await zip.file(`ppt/slides/${n}.xml`)!.async('string')).match(/<p:pic>/g) ?? []).length;
+      expect(await picCount('slide1')).toBe(1);
+      expect(await picCount('slide2')).toBe(0);
+      expect(await picCount('slide3')).toBe(0);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('列表逐项分段：每条要点独占一个 <a:p>，bullet 页逐项渲染项目符号', async () => {
     // 回归锁：pptxgenjs 仅在项间存在 bullet/align 变化/breakLine 时切分段落，
     // 缺省时多项会被合并进单个 <a:p>（目录曾渲染成「条目一条目二条目三」）

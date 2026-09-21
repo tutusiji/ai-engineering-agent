@@ -56,15 +56,33 @@ function toTextProps(items: string[], withBullet = false): PptxGenJS.TextProps[]
   }));
 }
 
-/** 渲染单页：按 pageType 分派到对应版式 */
-function renderSlide(pptx: PptxGenJS, slide: PptContentSlide, theme: PptTheme, coverImg?: string): void {
+/** 按页型解析好的整页背景（data URI；多页型模板四类齐备，单页型通常仅 cover） */
+interface SlideBackgrounds {
+  cover?: string;
+  section?: string;
+  content?: string;
+  ending?: string;
+}
+
+/** 渲染单页：按 pageType 分派到对应版式（bg 为整页背景，缺图时纯色兜底） */
+function renderSlide(pptx: PptxGenJS, slide: PptContentSlide, theme: PptTheme, bg: SlideBackgrounds): void {
   const s = pptx.addSlide();
   const { colors, fonts } = theme;
   s.background = { color: colors.background };
 
+  // 整页背景铺图：cover→封面图、section→章节图、ending→结尾图，其余页型（toc/content/quote）共用内容图
+  const fullBg =
+    slide.pageType === 'cover'
+      ? bg.cover
+      : slide.pageType === 'section'
+        ? bg.section
+        : slide.pageType === 'ending'
+          ? bg.ending
+          : bg.content;
+  if (fullBg)
+    s.addImage({ data: fullBg, x: 0, y: 0, w: '100%', h: '100%', sizing: { type: 'cover', w: '100%', h: '100%' } });
+
   if (slide.pageType === 'cover') {
-    if (coverImg)
-      s.addImage({ data: coverImg, x: 0, y: 0, w: '100%', h: '100%', sizing: { type: 'cover', w: '100%', h: '100%' } });
     s.addText(slide.polishedTitle, {
       x: 0.6,
       y: 2.2,
@@ -145,7 +163,8 @@ function renderSlide(pptx: PptxGenJS, slide: PptContentSlide, theme: PptTheme, c
   }
 
   // ── content-bullets / content-two-col：标题栏 + 要点区（双栏则左右分栏） ──
-  s.addShape('rect', { x: 0, y: 0, w: '100%', h: 1.0, fill: { color: colors.surface } });
+  // 有整页内容背景图时省略 surface 色块（背景图顶部已为标题留白，色块反而割裂画面）
+  if (!bg.content) s.addShape('rect', { x: 0, y: 0, w: '100%', h: 1.0, fill: { color: colors.surface } });
   s.addText(slide.polishedTitle, {
     x: 0.5,
     y: 0.15,
@@ -225,15 +244,21 @@ export async function buildPptx(content: PptContent, theme: PptTheme): Promise<B
   pptx.layout = theme.slideSize === '16:9' ? 'W16x9' : 'W4x3';
   pptx.title = content.deckTitle;
 
-  // 封面资产解析：仅当 assetBasePath 存在时经闭合校验拼接读取；缺省一律纯色兜底，
-  // 不做无前缀的原始路径读取（防 coverImagePath 携带 cwd 相对/绝对路径直读任意文件）
-  const assetName = theme.assets?.coverImagePath ?? theme.assets?.backgroundPath;
-  const coverImg = await toDataUri(
-    assetName && theme.assetBasePath ? resolveConfinedAssetPath(theme.assetBasePath, assetName) : undefined
-  );
+  // 整页背景资产解析：仅当 assetBasePath 存在时经闭合校验拼接读取；缺省一律纯色兜底，
+  // 不做无前缀的原始路径读取（防 asset 名携带 cwd 相对/绝对路径直读任意文件）
+  const resolveAsset = async (assetName: string | undefined): Promise<string | undefined> =>
+    toDataUri(assetName && theme.assetBasePath ? resolveConfinedAssetPath(theme.assetBasePath, assetName) : undefined);
+
+  const bg: SlideBackgrounds = {
+    // 封面兼容链：coverImagePath 优先，单页型模板回落到 backgroundPath
+    cover: await resolveAsset(theme.assets?.coverImagePath ?? theme.assets?.backgroundPath),
+    section: await resolveAsset(theme.assets?.sectionImagePath),
+    content: await resolveAsset(theme.assets?.contentImagePath),
+    ending: await resolveAsset(theme.assets?.endingImagePath),
+  };
 
   for (const slide of content.slides) {
-    renderSlide(pptx, slide, theme, slide.pageType === 'cover' ? coverImg : undefined);
+    renderSlide(pptx, slide, theme, bg);
   }
 
   const out = (await pptx.write({ outputType: 'nodebuffer' })) as Buffer;

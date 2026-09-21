@@ -28,6 +28,29 @@ export interface SeedPptTemplate {
   assetFiles: Record<string, string>;
 }
 
+/** 内置完整版式模板文件清单项 */
+export interface SeedPptTemplateFile {
+  /** 固定语义 id（tpl- 前缀，需在 BUILTIN_PPT_TEMPLATE_IDS 白名单内） */
+  id: string;
+  /** 选择器展示名 */
+  name: string;
+  /** .pptx 源文件相对仓库根路径 */
+  file: string;
+}
+
+/**
+ * 内置完整版式模板文件清单（.pptx 原件）。
+ * 每套 4 页整页背景（页 1 封面 / 2 章节 / 3 内容 / 4 结尾），由
+ * scripts/build-ppt-seed-templates.py 组装；启动时走 parseTemplate 提取入库，
+ * 与用户上传链路完全同构（theme JSON 不手工维护）。
+ */
+export const SEED_PPT_TEMPLATE_FILES: readonly SeedPptTemplateFile[] = [
+  { id: 'tpl-luxe-indigo', name: '轻奢靛蓝 · 完整版式', file: `${PPT_SEED_ASSET_DIR}/tpl-luxe-indigo.pptx` },
+  { id: 'tpl-champagne-gold', name: '暖沙鎏金 · 完整版式', file: `${PPT_SEED_ASSET_DIR}/tpl-champagne-gold.pptx` },
+  { id: 'tpl-jade-night', name: '墨玉暗夜 · 完整版式', file: `${PPT_SEED_ASSET_DIR}/tpl-jade-night.pptx` },
+  { id: 'tpl-mist-blue', name: '晨雾蓝白 · 完整版式', file: `${PPT_SEED_ASSET_DIR}/tpl-mist-blue.pptx` },
+];
+
 export const SEED_PPT_TEMPLATES: readonly SeedPptTemplate[] = [
   {
     id: 'theme-luxe-indigo',
@@ -35,7 +58,14 @@ export const SEED_PPT_TEMPLATES: readonly SeedPptTemplate[] = [
     theme: {
       name: '轻奢靛蓝',
       mode: 'preset',
-      colors: { primary: '4F46E5', secondary: '8B5CF6', background: 'FAF9F6', surface: 'EEF2FF', text: '1E1B4B', accent: 'D4AF37' },
+      colors: {
+        primary: '4F46E5',
+        secondary: '8B5CF6',
+        background: 'FAF9F6',
+        surface: 'EEF2FF',
+        text: '1E1B4B',
+        accent: 'D4AF37',
+      },
       fonts: { title: 'Microsoft YaHei', body: 'Microsoft YaHei' },
       assets: { backgroundPath: 'background.jpg' },
       slideSize: '16:9',
@@ -49,7 +79,14 @@ export const SEED_PPT_TEMPLATES: readonly SeedPptTemplate[] = [
     theme: {
       name: '暖沙鎏金',
       mode: 'preset',
-      colors: { primary: 'A16207', secondary: 'CA8A04', background: 'FDFBF6', surface: 'FAF3E0', text: '292524', accent: '0E7490' },
+      colors: {
+        primary: 'A16207',
+        secondary: 'CA8A04',
+        background: 'FDFBF6',
+        surface: 'FAF3E0',
+        text: '292524',
+        accent: '0E7490',
+      },
       fonts: { title: 'Microsoft YaHei', body: 'Microsoft YaHei' },
       assets: { backgroundPath: 'background.jpg' },
       slideSize: '16:9',
@@ -63,7 +100,14 @@ export const SEED_PPT_TEMPLATES: readonly SeedPptTemplate[] = [
     theme: {
       name: '墨玉暗夜',
       mode: 'preset',
-      colors: { primary: '34D399', secondary: '2DD4BF', background: '0A0F0D', surface: '12201A', text: 'E7F6EF', accent: 'FBBF24' },
+      colors: {
+        primary: '34D399',
+        secondary: '2DD4BF',
+        background: '0A0F0D',
+        surface: '12201A',
+        text: 'E7F6EF',
+        accent: 'FBBF24',
+      },
       fonts: { title: 'Microsoft YaHei', body: 'Microsoft YaHei' },
       assets: { backgroundPath: 'background.jpg' },
       slideSize: '16:9',
@@ -77,7 +121,14 @@ export const SEED_PPT_TEMPLATES: readonly SeedPptTemplate[] = [
     theme: {
       name: '晨雾蓝白',
       mode: 'preset',
-      colors: { primary: '0369A1', secondary: '38BDF8', background: 'FFFFFF', surface: 'F0F9FF', text: '0C4A6E', accent: '059669' },
+      colors: {
+        primary: '0369A1',
+        secondary: '38BDF8',
+        background: 'FFFFFF',
+        surface: 'F0F9FF',
+        text: '0C4A6E',
+        accent: '059669',
+      },
       fonts: { title: 'Microsoft YaHei', body: 'Microsoft YaHei' },
       assets: { backgroundPath: 'background.jpg' },
       slideSize: '16:9',
@@ -91,7 +142,14 @@ export const SEED_PPT_TEMPLATES: readonly SeedPptTemplate[] = [
     theme: {
       name: '森语绿意',
       mode: 'preset',
-      colors: { primary: '166534', secondary: '65A30D', background: 'F5F8EF', surface: 'E7EFD9', text: '14261B', accent: 'D97706' },
+      colors: {
+        primary: '166534',
+        secondary: '65A30D',
+        background: 'F5F8EF',
+        surface: 'E7EFD9',
+        text: '14261B',
+        accent: 'D97706',
+      },
       fonts: { title: 'Microsoft YaHei', body: 'Microsoft YaHei' },
       assets: { backgroundPath: 'background.jpg' },
       slideSize: '16:9',
@@ -105,7 +163,14 @@ export const SEED_PPT_TEMPLATES: readonly SeedPptTemplate[] = [
     theme: {
       name: '绛紫晚霞',
       mode: 'preset',
-      colors: { primary: 'C084FC', secondary: 'F472B6', background: '150B28', surface: '2A1745', text: 'F5EFFF', accent: 'F2C46B' },
+      colors: {
+        primary: 'C084FC',
+        secondary: 'F472B6',
+        background: '150B28',
+        surface: '2A1745',
+        text: 'F5EFFF',
+        accent: 'F2C46B',
+      },
       fonts: { title: 'Microsoft YaHei', body: 'Microsoft YaHei' },
       assets: { backgroundPath: 'background.jpg' },
       slideSize: '16:9',

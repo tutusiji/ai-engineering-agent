@@ -9,7 +9,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { ArtifactStore, PptTemplateStore } from '@ai-engineering-agent/persistence';
-import { SEED_PPT_TEMPLATES } from './ppt-seed-templates.js';
+import { parseTemplate } from '@ai-engineering-agent/pptx-core';
+import { SEED_PPT_TEMPLATES, SEED_PPT_TEMPLATE_FILES } from './ppt-seed-templates.js';
 import { repoRoot } from './config.js';
 
 /** 种子例程所需的模板存储最小接口（真实 PptTemplateStore 结构化兼容，测试可注入假实现） */
@@ -76,6 +77,41 @@ export async function seedBuiltinPptTemplates(deps: PptSeedDeps = {}): Promise<s
       name: entry.name,
       source: 'builtin',
       theme: entry.theme,
+      assetPaths,
+    });
+    seeded.push(entry.id);
+  }
+
+  // 完整版式模板（.pptx 原件）：走 parseTemplate 提取入库，与上传链路同构；
+  // 原件本身也作为资产落盘（保留名 template.pptx），支撑未来的模板下载能力
+  for (const entry of SEED_PPT_TEMPLATE_FILES) {
+    const srcPath = path.join(root, entry.file);
+    if (!existsSync(srcPath)) {
+      console.warn(`⚠️ PPT 种子模板文件缺失，跳过: ${srcPath}`);
+      continue;
+    }
+    const fileBuf = readFileSync(srcPath);
+    const { theme, assets } = await parseTemplate(srcPath);
+    theme.name = entry.name; // parse 默认取文件 basename，覆盖为选择器语义名
+
+    // 提取出的 media 资产逐个落盘；原件以保留名 template.pptx 一并入库
+    const assetPaths: Record<string, string> = {
+      'template.pptx': `templates/${entry.id}/assets/template.pptx`,
+    };
+    for (const [assetName, buf] of Object.entries(assets)) {
+      artifacts.saveBinary('templates', `${entry.id}/assets/${assetName}`, buf);
+      assetPaths[assetName] = `templates/${entry.id}/assets/${assetName}`;
+    }
+    artifacts.saveBinary('templates', `${entry.id}/assets/template.pptx`, fileBuf);
+
+    const existing = await store.get(entry.id);
+    if (existing) continue;
+    await store.create({
+      id: entry.id,
+      ownerId: null,
+      name: entry.name,
+      source: 'builtin',
+      theme,
       assetPaths,
     });
     seeded.push(entry.id);

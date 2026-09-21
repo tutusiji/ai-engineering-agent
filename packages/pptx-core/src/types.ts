@@ -32,6 +32,12 @@ export interface PptThemeAssets {
   logoPath?: string;
   backgroundPath?: string;
   coverImagePath?: string;
+  /** 章节页整页背景（多页型模板：.pptx 第 2 页提取） */
+  sectionImagePath?: string;
+  /** 内容页整页背景（多页型模板：第 3 页提取，toc/content/quote 共用） */
+  contentImagePath?: string;
+  /** 结尾页整页背景（多页型模板：第 4 页提取） */
+  endingImagePath?: string;
 }
 
 /** PPT 内容单页 — pageType 决定版式，polished* 为润色后要渲染的文本 */

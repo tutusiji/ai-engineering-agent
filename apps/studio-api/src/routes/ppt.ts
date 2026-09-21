@@ -75,6 +75,7 @@ export function createPptRouter(): Router {
         '.jpeg': 'image/jpeg',
         '.gif': 'image/gif',
         '.bmp': 'image/bmp',
+        '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       };
       res.setHeader('Content-Type', mimeByExt[path.extname(name).toLowerCase()] ?? 'application/octet-stream');
       // 资产内容不可变（删除模板即清理目录），允许浏览器短缓存

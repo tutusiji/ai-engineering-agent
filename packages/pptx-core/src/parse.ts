@@ -18,10 +18,21 @@ const COLOR_SLOT_MAP: Record<string, keyof PptTheme['colors']> = {
   'a:lt2': 'surface',
   'a:dk1': 'text',
   'a:dk2': 'text', // dk2 无对应槽位，并入 text 兜底（实际取值以 dk1 优先）
+  'a:accent3': 'accent',
 };
 
 /** Office 默认主题色（命中时认为模板未定制配色，走页面用色频次统计兜底） */
 const OFFICE_DEFAULT_ACCENT1 = '4472C4';
+
+/** 逐层取 OOXML 节点（fast-xml-parser 产物），任一层非对象即返回 undefined */
+function nodeAt(root: unknown, ...keys: string[]): Record<string, unknown> | undefined {
+  let cur: unknown = root;
+  for (const key of keys) {
+    if (typeof cur !== 'object' || cur === null) return undefined;
+    cur = (cur as Record<string, unknown>)[key];
+  }
+  return typeof cur === 'object' && cur !== null ? (cur as Record<string, unknown>) : undefined;
+}
 
 /** 校验并规范化 6 位十六进制颜色值（OOXML srgbClr val；非法输入返回 undefined） */
 function normalizeColor(val: unknown): string | undefined {
@@ -116,14 +127,64 @@ export async function parseTemplate(filePath: string): Promise<ParsedTemplate> {
     assets[path.basename(name)] = buf;
   }
 
-  // 背景图 = 最大的栅格图片（≥30KB）— 仅接受图片扩展名，视频/WMF 等媒体误选会产出损坏封面
   const themeAssets: PptThemeAssets = {};
   const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.bmp']);
-  const largest = Object.entries(assets)
-    .filter(([name]) => IMAGE_EXTS.has(path.extname(name).toLowerCase()))
-    .sort((a, b) => b[1].length - a[1].length)[0];
-  if (largest && largest[1].length >= 30 * 1024) {
-    themeAssets.backgroundPath = largest[0];
+
+  // ── 5b. 多页整页背景模板判定：前 4 页各恰一张近全幅图片 → 按页序映射四类页面背景。
+  // 打包约定（见 scripts/build-ppt-seed-templates.py）：页 1 封面 / 2 章节 / 3 内容 / 4 结尾，
+  // 每页一张 ext ≥ 90% 画幅的图片，slide→media 经 slideN.xml.rels 的 blip r:embed 定位。
+  // 页 1 同时写入 backgroundPath（与单页型语义兼容：卡片预览/封面兜底读该字段）。
+  const slideNums = Object.keys(zip.files)
+    .map((n) => /^ppt\/slides\/slide(\d+)\.xml$/.exec(n))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => Number(m[1]))
+    .sort((a, b) => a - b);
+  const pageBackgrounds: string[] = [];
+  if (slideNums.length >= 4 && slideNums.slice(0, 4).every((n, i) => n === i + 1)) {
+    for (const num of slideNums.slice(0, 4)) {
+      const slideFile = zip.file(`ppt/slides/slide${num}.xml`);
+      if (!slideFile) break;
+      const slideObj = parser.parse(await slideFile.async('string'));
+      const picNode: unknown = nodeAt(slideObj, 'p:sld', 'p:cSld', 'p:spTree')?.['p:pic'];
+      const pics: Record<string, unknown>[] = Array.isArray(picNode)
+        ? (picNode as Record<string, unknown>[])
+        : picNode != null
+          ? [picNode as Record<string, unknown>]
+          : [];
+      if (pics.length !== 1) break; // 约定：每页恰好一张整页图片
+      const pic = pics[0]!;
+      const ext = nodeAt(pic, 'p:spPr', 'a:xfrm', 'a:ext');
+      const picCx = Number(ext?.['@_cx'] ?? 0);
+      const picCy = Number(ext?.['@_cy'] ?? 0);
+      if (picCx < cx * 0.9 || picCy < cy * 0.9) break; // 非近全幅 → 不算多页型背景
+      const embed = nodeAt(pic, 'p:blipFill', 'a:blip')?.['@_r:embed'];
+      if (typeof embed !== 'string') break;
+      const relsFile = zip.file(`ppt/slides/_rels/slide${num}.xml.rels`);
+      if (!relsFile) break;
+      const relsObj = parser.parse(await relsFile.async('string'));
+      const relNode: unknown = relsObj?.['Relationships']?.['Relationship'];
+      const relList: unknown[] = Array.isArray(relNode) ? relNode : relNode != null ? [relNode] : [];
+      const hit = relList.find((rel) => {
+        const attrs = (rel ?? {}) as Record<string, unknown>;
+        return attrs['@_Id'] === embed && typeof attrs['@_Target'] === 'string';
+      });
+      const target = hit ? ((hit as Record<string, unknown>)['@_Target'] as string) : '';
+      const base = path.basename(target);
+      if (!assets[base]) break;
+      pageBackgrounds.push(base);
+    }
+  }
+  if (pageBackgrounds.length === 4) {
+    [themeAssets.backgroundPath, themeAssets.sectionImagePath, themeAssets.contentImagePath, themeAssets.endingImagePath] =
+      pageBackgrounds;
+  } else {
+    // 回退：单页型/常规模板 — 背景图 = 最大的栅格图片（≥30KB），视频/WMF 等媒体误选会产出损坏封面
+    const largest = Object.entries(assets)
+      .filter(([name]) => IMAGE_EXTS.has(path.extname(name).toLowerCase()))
+      .sort((a, b) => b[1].length - a[1].length)[0];
+    if (largest && largest[1].length >= 30 * 1024) {
+      themeAssets.backgroundPath = largest[0];
+    }
   }
 
   // logo = 母版 rels 引用的图片（取第一个存在于 assets 的图片关系）
