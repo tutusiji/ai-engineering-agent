@@ -36,6 +36,17 @@ export const designGenerationSkill: SkillDefinition = {
     const pageCount = pages.length;
     const pageNames = pages.map((p: JsonObject) => String(p.name ?? '')).join('、');
 
+    // 产品形态定位：预览页是形态的"先期预览载体"（如先 H5 呈现、后续移植终态形态）——
+    // 界面结构/交互流程对齐终态形态，核心逻辑不依赖预览载体专属能力（与架构的 portingStrategy 呼应）
+    const techStackText = typeof input.techStack === 'string' ? input.techStack.trim() : '';
+    const productForm = String(input.productForm ?? '').trim() || techStackText;
+    const formPositioning = productForm
+      ? `产品形态定位: ${productForm}
+本预览页是上述产品形态下的先期预览载体（对话中已确认先以 H5 形态呈现完整界面与交互逻辑）。要求：界面结构与交互流程必须与终态形态保持一致；核心业务逻辑不得依赖预览载体（H5/浏览器）专属能力，保证后续可平滑移植到终态形态。
+
+`
+      : '';
+
     return {
       system: `你是一个资深全栈 UI 设计师。你的任务是根据需求文档生成一个**可交互操作的高保真预览页面**。
 
@@ -116,7 +127,7 @@ export const designGenerationSkill: SkillDefinition = {
       user: `需求文档:
 ${JSON.stringify(input, null, 2)}
 
-目标框架: ${framework}
+${formPositioning}目标框架: ${framework}
 UI 库: ${uiLibrary}
 
 请生成一个可交互操作的高保真预览页，让用户可以在浏览器中实际操作体验。`,

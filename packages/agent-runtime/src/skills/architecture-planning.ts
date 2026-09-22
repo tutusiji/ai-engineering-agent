@@ -31,6 +31,19 @@ export const architecturePlanningSkill: SkillDefinition = {
       const currentMarkdown = String(input.currentMarkdown ?? '');
       const currentArchitecture = input.currentArchitecture as JsonObject | undefined;
 
+      // 精炼模式同样守住产品形态约束（终态形态不可被精炼反馈推翻；含移植路径时
+      // portingStrategy 必须保留或在反馈涉及形态时同步修订）
+      const refineTechStackText = typeof input.techStack === 'string' ? input.techStack.trim() : '';
+      const refineProductForm = String(input.productForm ?? '').trim() || refineTechStackText;
+      const refineFormSection = refineProductForm
+        ? `
+## 产品形态约束（精炼时不可违反）
+
+需求方已确认的产品形态: **${refineProductForm}**
+
+以上形态是目标终态。修改架构时不得做出与终态形态冲突的决策；若修改涉及前端形态相关选型，必须同步检查 portingStrategy（移植策略）是否仍然成立。`
+        : '';
+
       return {
         system: `你是一个资深全栈架构师。你的任务是**修改现有的架构设计方案**，响应用户的反馈意见。
 
@@ -46,6 +59,7 @@ ${JSON.stringify(currentArchitecture ?? {}, null, 2)}
 \`\`\`markdown
 ${currentMarkdown}
 \`\`\`
+${refineFormSection}
 
 ## 你的任务
 
@@ -70,6 +84,26 @@ ${currentMarkdown}
     const businessGoal = String(input.businessGoal ?? '');
     const pages: JsonObject[] = Array.isArray(input.pages) ? (input.pages as JsonObject[]) : [];
     const entities: JsonObject[] = Array.isArray(input.entities) ? (input.entities as JsonObject[]) : [];
+
+    // 产品形态约束：优先读独立字段 productForm（extractor 新落地），旧会话回退 techStack 自由文本
+    // （techStack 为对象形态时忽略——无法作为形态约束文本注入）
+    const techStackText = typeof input.techStack === 'string' ? input.techStack.trim() : '';
+    const productForm = String(input.productForm ?? '').trim() || techStackText;
+    // 形态约束段：终态形态优先 + 含「先期形态+移植路径」时强制输出移植策略
+    const productFormSection = productForm
+      ? `
+## 产品形态约束（最高优先级，必须遵守）
+
+需求方已确认的产品形态: **${productForm}**
+
+架构设计必须遵守:
+1. 上述形态是**目标终态** — 业务能力、数据模型、API 设计必须服务于该终态形态
+2. 如果形态描述包含"先期形态 + 后续移植"（如先以 H5 形态呈现、后续平滑移植微信小程序）:
+   - 首期实现按先期形态设计，但**业务逻辑层必须平台无关**，为移植到终态形态预留清晰边界
+   - 必须在输出 JSON 中增加 "portingStrategy" 字段（见输出格式），说明跨端方案选型、平台无关分层、首期限定实现及其移植替代方案
+3. 禁止输出与终态形态冲突的不可逆决策（如首期 H5 却把核心逻辑绑死在浏览器专属 API 上）
+4. 前端技术选型必须同时兼容首期形态与终态形态（如终态为微信小程序，优先选 Taro/Uni-app 等跨端方案，或首期 H5 与小程序同构的技术栈）`
+      : '';
 
     // Read profile as optional preference hint, NOT as authoritative values
     const profileHint = ctx.resolvedTargetProfile;
@@ -120,7 +154,7 @@ Profile 中预置的技术偏好（仅供参考，你可以根据实际需求覆
 
 - 功能名称: ${featureName}
 - 业务目标: ${businessGoal}${pageNames ? `\n- 页面列表: ${pageNames}` : ''}${entityNames ? `\n- 数据实体: ${entityNames}` : ''}
-${preferenceSection}
+${preferenceSection}${productFormSection}
 
 ## 你需要独立做出的技术决策
 
@@ -241,6 +275,14 @@ ${preferenceSection}
     { "phase": "Phase 1", "name": "阶段名", "goal": "目标", "deliverables": ["交付物1"] }
   ],
 
+  "portingStrategy": {
+    "crossPlatformFramework": "跨端框架选型（仅当产品形态含"先期形态+移植路径"时必填，如 Taro/Uni-app；纯单形态项目可省略本字段）",
+    "platformAgnosticLayers": ["平台无关的业务逻辑分层说明（如独立 domain/service 层、平台桥接层）"],
+    "h5OnlyReplacements": [
+      { "h5Implementation": "首期 H5 限定实现", "replacementOnPorting": "移植到终态形态时的替代方案" }
+    ]
+  },
+
   "risksAndMitigations": [
     { "risk": "风险描述", "impact": "high|medium|low", "mitigation": "缓解措施" }
   ],
@@ -281,6 +323,8 @@ ${JSON.stringify(input, null, 2)}
       securityConsiderations: Array.isArray(raw.securityConsiderations) ? raw.securityConsiderations : [],
       deploymentArchitecture: normalizeObject(raw.deploymentArchitecture as JsonObject),
       developmentPhases: Array.isArray(raw.developmentPhases) ? raw.developmentPhases : [],
+      // 移植策略（产品形态含"先期形态+移植路径"时由模型输出，如先 H5 后微信小程序）
+      portingStrategy: normalizeObject(raw.portingStrategy as JsonObject),
       risksAndMitigations: Array.isArray(raw.risksAndMitigations) ? raw.risksAndMitigations : [],
       openDecisions: Array.isArray(raw.openDecisions) ? raw.openDecisions : [],
       notes: Array.isArray(raw.notes) ? raw.notes : [],

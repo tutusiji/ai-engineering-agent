@@ -7,17 +7,7 @@ import { Button } from '@heroui/react/button';
 import { Chip } from '@heroui/react/chip';
 import { ProgressBar } from '@heroui/react/progress-bar';
 import { Spinner } from '@heroui/react/spinner';
-import {
-  FileText,
-  RefreshCw,
-  Download,
-  CheckCircle,
-  Sparkles,
-  Pencil,
-  X,
-  Clock,
-  LayoutTemplate,
-} from 'lucide-react';
+import { FileText, RefreshCw, Download, CheckCircle, Sparkles, Pencil, X, Clock, LayoutTemplate } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectPopover } from '@heroui/react/select';
 import { ListBox } from '@heroui/react/list-box';
 import type { RequirementDocument } from '../hooks/useChat';
@@ -25,9 +15,15 @@ import type { RequirementDocument } from '../hooks/useChat';
 // ─── Normalize ─────────────────────────────────────────────────────────
 
 function normalizeDoc(doc: RequirementDocument): Required<RequirementDocument> {
+  // 向后兼容：旧会话把形态信息放在 techStack 自由文本，未设置 productForm 时回退读取
+  const techForm = typeof doc.techStack === 'string' ? doc.techStack.trim() : '';
+  const productForm = doc.productForm?.trim() || techForm;
   return {
     featureName: doc.featureName ?? '',
     businessGoal: doc.businessGoal ?? '',
+    productForm,
+    // 形态已归并到 productForm，techStack 仅作类型完整性占位（无对应渲染模块）
+    techStack: '',
     userRoles: doc.userRoles ?? [],
     uiLibrary: doc.uiLibrary ?? null,
     pages: doc.pages ?? [],
@@ -53,6 +49,7 @@ interface ModuleConfig {
 
 const MODULES: ModuleConfig[] = [
   { key: 'businessGoal', label: '业务目标', icon: '🎯', type: 'text' },
+  { key: 'productForm', label: '产品形态', icon: '📱', type: 'text' },
   { key: 'userRoles', label: '用户角色', icon: '👥', type: 'array-objects' },
   { key: 'uiLibrary', label: 'UI 组件库', icon: '🎨', type: 'object' },
   { key: 'pages', label: '页面', icon: '📄', type: 'array-objects' },
@@ -100,20 +97,23 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
     }
   }, [isOpen]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // 只在 header 区域触发拖动
-    const target = e.target as HTMLElement;
-    if (target.closest('button')) return; // 忽略按钮点击
-    
-    setIsDragging(true);
-    dragStart.current = {
-      x: e.clientX,
-      y: e.clientY,
-      posX: position.x,
-      posY: position.y,
-    };
-    e.preventDefault();
-  }, [position]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      // 只在 header 区域触发拖动
+      const target = e.target as HTMLElement;
+      if (target.closest('button')) return; // 忽略按钮点击
+
+      setIsDragging(true);
+      dragStart.current = {
+        x: e.clientX,
+        y: e.clientY,
+        posX: position.x,
+        posY: position.y,
+      };
+      e.preventDefault();
+    },
+    [position]
+  );
 
   useEffect(() => {
     if (!isDragging) return;
@@ -176,7 +176,9 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
       <div className="flex-1 overflow-auto p-5 flex flex-col gap-4">
         {/* Current value preview */}
         <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider font-medium">当前内容</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider font-medium">
+            当前内容
+          </p>
           <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 max-h-40 overflow-auto text-sm text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700">
             {currentValue ? (
               <pre className="whitespace-pre-wrap break-words text-xs">
@@ -190,7 +192,9 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
 
         {/* Instruction input */}
         <div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider font-medium">优化指令</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-1.5 uppercase tracking-wider font-medium">
+            优化指令
+          </p>
           <textarea
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
@@ -211,13 +215,10 @@ function OptimizeModal({ isOpen, onClose, moduleConfig, currentValue, loading, o
 
       {/* Footer */}
       <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/80">
-        <Button variant="ghost" size="sm" onPress={onClose}>取消</Button>
-        <Button
-          variant="primary"
-          size="sm"
-          onPress={handleSubmit}
-          isDisabled={!instruction.trim() || loading}
-        >
+        <Button variant="ghost" size="sm" onPress={onClose}>
+          取消
+        </Button>
+        <Button variant="primary" size="sm" onPress={handleSubmit} isDisabled={!instruction.trim() || loading}>
           {loading ? <Spinner size="sm" className="mr-1" /> : <Sparkles size={14} className="mr-1" />}
           优化
         </Button>
@@ -249,7 +250,7 @@ function OpenQuestionsSection({
     setAnswers({});
   };
 
-  const answeredCount = Object.values(answers).filter(v => v.trim()).length;
+  const answeredCount = Object.values(answers).filter((v) => v.trim()).length;
 
   return (
     <div className="flex flex-col gap-2">
@@ -278,7 +279,7 @@ function OpenQuestionsSection({
                 <p className="text-gray-500 text-xs">{q}</p>
                 <textarea
                   value={answers[idx] ?? ''}
-                  onChange={(e) => setAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
+                  onChange={(e) => setAnswers((prev) => ({ ...prev, [idx]: e.target.value }))}
                   placeholder="你的回答..."
                   rows={1}
                   className="w-full resize-none rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 transition"
@@ -319,7 +320,7 @@ function ModuleSection({
   const [modalOpen, setModalOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const isOptimizing = optimizingModule === config.key;
-  const moduleHistory = history.filter(h => h.module === config.key);
+  const moduleHistory = history.filter((h) => h.module === config.key);
 
   const renderContent = () => {
     if (!value || (Array.isArray(value) && value.length === 0)) {
@@ -362,7 +363,11 @@ function ModuleSection({
                     <span className="font-medium text-sm text-gray-800">{name}</span>
                     {desc && <span className="text-gray-500 text-xs ml-2">— {desc}</span>}
                     {goal && <span className="text-gray-500 text-xs ml-2">— {goal}</span>}
-                    {pageType && <Chip size="sm" variant="soft" className="ml-2">{pageType}</Chip>}
+                    {pageType && (
+                      <Chip size="sm" variant="soft" className="ml-2">
+                        {pageType}
+                      </Chip>
+                    )}
                     {fieldsCount > 0 && <p className="text-gray-400 text-xs mt-0.5">{fieldsCount} 个字段</p>}
                   </div>
                 </div>
@@ -377,7 +382,9 @@ function ModuleSection({
         return (
           <div className="flex flex-col gap-1">
             {arr.map((item, idx) => (
-              <p key={idx} className="text-gray-700 text-sm">• {item}</p>
+              <p key={idx} className="text-gray-700 text-sm">
+                • {item}
+              </p>
             ))}
           </div>
         );
@@ -390,7 +397,9 @@ function ModuleSection({
 
   return (
     <>
-      <div className={`border border-gray-200 rounded-xl p-3 shadow-sm bg-white hover:shadow-md transition-shadow relative ${isOptimizing ? 'overflow-hidden' : ''}`}>
+      <div
+        className={`border border-gray-200 rounded-xl p-3 shadow-sm bg-white hover:shadow-md transition-shadow relative ${isOptimizing ? 'overflow-hidden' : ''}`}
+      >
         {/* Loading overlay */}
         {isOptimizing && (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-xl">
@@ -426,16 +435,24 @@ function ModuleSection({
                         优化历史 ({moduleHistory.length})
                       </div>
                       <div className="max-h-60 overflow-auto">
-                        {moduleHistory.slice().reverse().map((h, i) => (
-                          <div key={i} className="px-3 py-2 border-b border-gray-100 last:border-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] text-gray-400">
-                                {new Date(h.timestamp).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                        {moduleHistory
+                          .slice()
+                          .reverse()
+                          .map((h, i) => (
+                            <div key={i} className="px-3 py-2 border-b border-gray-100 last:border-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-gray-400">
+                                  {new Date(h.timestamp).toLocaleString('zh-CN', {
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600">{h.instruction}</p>
                             </div>
-                            <p className="text-xs text-gray-600">{h.instruction}</p>
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     </div>
                   </>
@@ -495,7 +512,7 @@ function generateMarkdown(doc: RequirementDocument): string {
 
   if (d.pages.length > 0) {
     lines.push('## 📄 页面列表');
-    d.pages.forEach(p => {
+    d.pages.forEach((p) => {
       lines.push(`### ${p.name}`);
       lines.push(`- **类型**: ${p.pageType}`);
       lines.push(`- **目标**: ${p.goal}`);
@@ -503,7 +520,9 @@ function generateMarkdown(doc: RequirementDocument): string {
       if (p.actions.length) lines.push(`- **操作**: ${p.actions.join(', ')}`);
       if (p.fields.length) {
         lines.push('- **字段**:');
-        p.fields.forEach(f => lines.push(`  - ${f.name} (${f.type}${f.required ? ', 必填' : ''}) — ${f.description}`));
+        p.fields.forEach((f) =>
+          lines.push(`  - ${f.name} (${f.type}${f.required ? ', 必填' : ''}) — ${f.description}`)
+        );
       }
       lines.push('');
     });
@@ -511,34 +530,34 @@ function generateMarkdown(doc: RequirementDocument): string {
 
   if (d.entities.length > 0) {
     lines.push('## 📦 数据实体');
-    d.entities.forEach(e => {
+    d.entities.forEach((e) => {
       lines.push(`### ${e.name}`);
-      e.fields.forEach(f => lines.push(`- ${f.name} (${f.type}${f.required ? ', 必填' : ''})`));
+      e.fields.forEach((f) => lines.push(`- ${f.name} (${f.type}${f.required ? ', 必填' : ''})`));
       lines.push('');
     });
   }
 
   if (d.businessRules.length) {
     lines.push('## 📏 业务规则');
-    d.businessRules.forEach(r => lines.push(`- ${r}`));
+    d.businessRules.forEach((r) => lines.push(`- ${r}`));
     lines.push('');
   }
 
   if (d.edgeCases.length) {
     lines.push('## ⚠️ 边界情况');
-    d.edgeCases.forEach(e => lines.push(`- ${e}`));
+    d.edgeCases.forEach((e) => lines.push(`- ${e}`));
     lines.push('');
   }
 
   if (d.phases.length) {
     lines.push('## 🗓️ 阶段规划');
-    d.phases.forEach(p => lines.push(`- **${p.id}** ${p.name} (${p.priority}) — ${p.pages.join(', ')}`));
+    d.phases.forEach((p) => lines.push(`- **${p.id}** ${p.name} (${p.priority}) — ${p.pages.join(', ')}`));
     lines.push('');
   }
 
   if (d.openQuestions.length) {
     lines.push('## ❓ 待确认问题');
-    d.openQuestions.forEach(q => lines.push(`- [ ] ${q}`));
+    d.openQuestions.forEach((q) => lines.push(`- [ ] ${q}`));
     lines.push('');
   }
 
@@ -578,12 +597,7 @@ export function DocumentPanel({
         <FileText size={48} className="mx-auto mb-4 opacity-40" />
         <p className="text-sm mb-3">开始对话后，需求文档将在这里实时展示</p>
         {sessionId && (
-          <Button
-            variant="primary"
-            size="sm"
-            onPress={onGenerate}
-            isDisabled={generating}
-          >
+          <Button variant="primary" size="sm" onPress={onGenerate} isDisabled={generating}>
             {generating ? <Spinner size="sm" className="mr-1" /> : <Sparkles size={14} className="mr-1" />}
             {generating ? '生成中...' : '生成结构化文档'}
           </Button>
@@ -610,13 +624,7 @@ export function DocumentPanel({
       {/* Fixed header area — 操作按钮区 */}
       <div className="p-4 pb-2 shrink-0 flex flex-col gap-3">
         {/* 主要操作：生成结构化文档 */}
-        <Button
-          variant="primary"
-          size="sm"
-          className="w-full"
-          onPress={onGenerate}
-          isDisabled={generating}
-        >
+        <Button variant="primary" size="sm" className="w-full" onPress={onGenerate} isDisabled={generating}>
           {generating ? <Spinner size="sm" className="mr-1" /> : <Sparkles size={14} className="mr-1" />}
           {generating ? '生成中...' : '生成结构化文档'}
         </Button>
@@ -669,29 +677,32 @@ export function DocumentPanel({
       {/* Scrollable module sections */}
       <div className="flex-1 overflow-auto p-4 pt-0">
         <div className="flex flex-col gap-3">
-        {MODULES.map(config => (
-          <ModuleSection
-            key={config.key}
-            config={config}
-            value={(d as Record<string, unknown>)[config.key]}
-            onOptimize={onOptimize}
-            optimizingModule={optimizingModule}
-            history={((d as Record<string, unknown>)._optimizeHistory as Array<{ module: string; instruction: string; timestamp: number; previousValue: unknown }>) ?? []}
-          />
-        ))}
-
-        {d.openQuestions.length > 0 && (
-          <div className="border border-gray-200 rounded-xl p-3 shadow-sm bg-white">
-            <span className="font-semibold text-sm text-gray-800 mb-2 block">
-              ❓ 待确认 ({d.openQuestions.length})
-            </span>
-            <OpenQuestionsSection
-              questions={d.openQuestions}
-              onSend={onSend}
-              loading={loading}
+          {MODULES.map((config) => (
+            <ModuleSection
+              key={config.key}
+              config={config}
+              value={(d as Record<string, unknown>)[config.key]}
+              onOptimize={onOptimize}
+              optimizingModule={optimizingModule}
+              history={
+                ((d as Record<string, unknown>)._optimizeHistory as Array<{
+                  module: string;
+                  instruction: string;
+                  timestamp: number;
+                  previousValue: unknown;
+                }>) ?? []
+              }
             />
-          </div>
-        )}
+          ))}
+
+          {d.openQuestions.length > 0 && (
+            <div className="border border-gray-200 rounded-xl p-3 shadow-sm bg-white">
+              <span className="font-semibold text-sm text-gray-800 mb-2 block">
+                ❓ 待确认 ({d.openQuestions.length})
+              </span>
+              <OpenQuestionsSection questions={d.openQuestions} onSend={onSend} loading={loading} />
+            </div>
+          )}
         </div>
       </div>
     </div>

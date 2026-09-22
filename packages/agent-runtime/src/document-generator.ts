@@ -14,6 +14,7 @@ import { chatCompletion } from './llm-client';
 export type DocumentModule =
   | 'featureName'
   | 'businessGoal'
+  | 'productForm'
   | 'userRoles'
   | 'uiLibrary'
   | 'pages'
@@ -32,11 +33,12 @@ export type DocumentModule =
 export async function generateFullDocument(
   config: LlmConfig,
   conversationText: string,
-  currentDoc: Record<string, unknown>,
+  currentDoc: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  const currentSummary = currentDoc && Object.keys(currentDoc).length > 0
-    ? `\n当前已有文档：\n${JSON.stringify(currentDoc, null, 2).slice(0, 2000)}`
-    : '';
+  const currentSummary =
+    currentDoc && Object.keys(currentDoc).length > 0
+      ? `\n当前已有文档：\n${JSON.stringify(currentDoc, null, 2).slice(0, 2000)}`
+      : '';
 
   const prompt = [
     {
@@ -50,6 +52,7 @@ ${currentSummary}
   "featureName": "功能名称",
   "businessGoal": "业务目标和背景描述",
   "techStack": "技术栈",
+  "productForm": "产品形态（目标终态形态+先期形态与移植路径，如「微信小程序，先以 H5 形态呈现、后续平滑移植」；对话中确认过形态时必须填写）",
   "userRoles": [{"name": "角色名", "description": "描述", "permissions": ["权限"]}],
   "uiLibrary": {"id": "库ID", "name": "库名称", "npmPackage": "包名"},
   "pages": [{"name": "页面名", "goal": "目标", "pageType": "类型", "sections": ["区域"], "actions": ["操作"], "fields": [{"name": "字段", "type": "类型", "required": true, "description": "描述"}], "interactions": ["交互"]}],
@@ -74,10 +77,7 @@ ${currentSummary}
     },
   ];
 
-  const result = await chatCompletion(
-    { ...config, maxTokens: 16384 },
-    prompt,
-  );
+  const result = await chatCompletion({ ...config, maxTokens: 16384 }, prompt);
 
   return parseJsonFromResponse(result.content);
 }
@@ -93,7 +93,7 @@ export async function optimizeModule(
   moduleName: string,
   currentValue: unknown,
   instruction: string,
-  fullDoc: Record<string, unknown>,
+  fullDoc: Record<string, unknown>
 ): Promise<unknown> {
   // Build a compact context of other modules
   const otherContext: Record<string, unknown> = {};
@@ -128,10 +128,7 @@ ${JSON.stringify(currentValue, null, 2)}
     },
   ];
 
-  const result = await chatCompletion(
-    { ...config, maxTokens: 8192 },
-    prompt,
-  );
+  const result = await chatCompletion({ ...config, maxTokens: 8192 }, prompt);
 
   return parseJsonFromResponse(result.content);
 }
@@ -147,7 +144,7 @@ ${JSON.stringify(currentValue, null, 2)}
  */
 export function mergeDocumentDeep(
   current: Record<string, unknown>,
-  incoming: Record<string, unknown>,
+  incoming: Record<string, unknown>
 ): Record<string, unknown> {
   const merged = { ...current };
 
@@ -171,17 +168,19 @@ export function mergeDocumentDeep(
 
     // Array fields
     if (Array.isArray(newVal)) {
-      const oldArr = Array.isArray(oldVal) ? oldVal as unknown[] : [];
+      const oldArr = Array.isArray(oldVal) ? (oldVal as unknown[]) : [];
 
       // Arrays of objects with 'name' (pages, entities, userRoles, phases)
-      if (newVal.length > 0 && typeof newVal[0] === 'object' && newVal[0] !== null && 'name' in (newVal[0] as Record<string, unknown>)) {
-        merged[key] = mergeArrayByName(
-          oldArr as Record<string, unknown>[],
-          newVal as Record<string, unknown>[],
-        );
+      if (
+        newVal.length > 0 &&
+        typeof newVal[0] === 'object' &&
+        newVal[0] !== null &&
+        'name' in (newVal[0] as Record<string, unknown>)
+      ) {
+        merged[key] = mergeArrayByName(oldArr as Record<string, unknown>[], newVal as Record<string, unknown>[]);
       } else {
         // Arrays of strings (businessRules, edgeCases, nonFunctional)
-        const existing = new Set(oldArr.map(v => JSON.stringify(v)));
+        const existing = new Set(oldArr.map((v) => JSON.stringify(v)));
         const appended = [...oldArr];
         for (const item of newVal) {
           const key = JSON.stringify(item);
@@ -197,7 +196,7 @@ export function mergeDocumentDeep(
 
     // Object fields (uiLibrary): overwrite
     if (typeof newVal === 'object') {
-      merged[key] = { ...(oldVal as Record<string, unknown> ?? {}), ...newVal };
+      merged[key] = { ...((oldVal as Record<string, unknown>) ?? {}), ...newVal };
       continue;
     }
 
@@ -232,6 +231,8 @@ export function estimateCompleteness(doc: Record<string, unknown>): number {
   if (doc.featureName && String(doc.featureName).length > 2) score += 10;
   if (doc.businessGoal && String(doc.businessGoal).length > 10) score += 10;
   if (doc.techStack) score += 5;
+  // 产品形态（终态+移植路径）是架构/UI 链路的形态约束来源，与 techStack 同等权重
+  if (doc.productForm) score += 5;
   if (doc.uiLibrary) score += 5;
 
   const userRoles = Array.isArray(doc.userRoles) ? doc.userRoles : [];
@@ -263,7 +264,7 @@ export function estimateCompleteness(doc: Record<string, unknown>): number {
 
 function mergeArrayByName(
   existing: Record<string, unknown>[],
-  incoming: Record<string, unknown>[],
+  incoming: Record<string, unknown>[]
 ): Record<string, unknown>[] {
   const map = new Map<string, Record<string, unknown>>();
   for (const item of existing) {

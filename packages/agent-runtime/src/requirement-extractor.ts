@@ -27,7 +27,7 @@ export interface ExtractedInfo {
 export async function extractRequirementInfo(
   config: LlmConfig,
   conversationSummary: string,
-  currentDoc: Record<string, unknown>,
+  currentDoc: Record<string, unknown>
 ): Promise<ExtractedInfo | null> {
   const currentDocSummary = summarizeDoc(currentDoc);
 
@@ -45,6 +45,7 @@ ${currentDocSummary || '（空文档）'}
     "featureName": "如果本次确认了功能名称",
     "businessGoal": "如果本次确认了业务目标",
     "techStack": "如果本次确认了技术栈",
+    "productForm": "如果本次确认了产品形态（目标形态+先期形态与移植路径，如「微信小程序，先以 H5 形态呈现、后续平滑移植」）。即使 techStack 等字段已有相关描述，只要对话明确确认了形态/移植路径，也必须在这里给出完整规范表述",
     "uiLibrary": "如果本次确认了UI库",
     "pages": [{"name": "页面名", "goal": "目标", "pageType": "类型"}],
     "entities": [{"name": "实体名", "fields": [{"name": "字段", "type": "类型"}]}],
@@ -59,6 +60,7 @@ ${currentDocSummary || '（空文档）'}
 
 规则：
 - confirmed 中只放本次新确认的信息，不要重复已有内容
+- **例外**: 若对话明确确认了产品形态（目标形态/先期形态/移植路径），即使文档摘要中已有相关描述（如 techStack 提到过形态），也必须将其规范化提取到 confirmed.productForm——架构/UI 生成链路只认这个独立字段
 - 如果本次只是追问没有新确认信息，confirmed 为空对象
 - completeness 基于整体信息完整度评估
 - 只输出 JSON，不要其他文字`,
@@ -70,10 +72,7 @@ ${currentDocSummary || '（空文档）'}
   ];
 
   try {
-    const result = await chatCompletion(
-      { ...config, maxTokens: 8192 },
-      prompt,
-    );
+    const result = await chatCompletion({ ...config, maxTokens: 8192 }, prompt);
 
     console.log(`🔍 [extractor] LLM response length: ${result.content.length}`);
     console.log(`🔍 [extractor] LLM response preview: ${result.content.slice(0, 200)}`);
@@ -108,10 +107,7 @@ ${currentDocSummary || '（空文档）'}
  * Merge extracted info into existing document.
  * Only updates fields that have new information.
  */
-export function mergeDocument(
-  current: Record<string, unknown>,
-  extracted: ExtractedInfo,
-): Record<string, unknown> {
+export function mergeDocument(current: Record<string, unknown>, extracted: ExtractedInfo): Record<string, unknown> {
   const doc = { ...current };
   const c = extracted.confirmed;
 
@@ -119,23 +115,31 @@ export function mergeDocument(
   if (c.featureName) doc.featureName = c.featureName;
   if (c.businessGoal) doc.businessGoal = c.businessGoal;
   if (c.techStack) doc.techStack = c.techStack;
+  // 产品形态独立字段（终态形态+移植路径）— 架构/UI 生成链路的形态约束来源
+  if (c.productForm) doc.productForm = c.productForm;
   if (c.uiLibrary) doc.uiLibrary = c.uiLibrary;
+
+  // 产品形态归并兜底（不依赖模型显式抽取）：形态信息仅存在于 techStack 自由文本
+  // （旧会话存量数据）时，自动归并到 productForm，保证下游链路有独立形态字段可用
+  if (!doc.productForm && typeof doc.techStack === 'string' && doc.techStack.trim()) {
+    doc.productForm = doc.techStack.trim();
+  }
 
   // Array fields: merge (avoid duplicates by name)
   if (Array.isArray(c.pages) && c.pages.length > 0) {
-    const existing = Array.isArray(doc.pages) ? doc.pages as Record<string, unknown>[] : [];
+    const existing = Array.isArray(doc.pages) ? (doc.pages as Record<string, unknown>[]) : [];
     const merged = mergeArrayByName(existing, c.pages as Record<string, unknown>[]);
     doc.pages = merged;
   }
 
   if (Array.isArray(c.entities) && c.entities.length > 0) {
-    const existing = Array.isArray(doc.entities) ? doc.entities as Record<string, unknown>[] : [];
+    const existing = Array.isArray(doc.entities) ? (doc.entities as Record<string, unknown>[]) : [];
     const merged = mergeArrayByName(existing, c.entities as Record<string, unknown>[]);
     doc.entities = merged;
   }
 
   if (Array.isArray(c.userRoles) && c.userRoles.length > 0) {
-    const existing = Array.isArray(doc.userRoles) ? doc.userRoles as Record<string, unknown>[] : [];
+    const existing = Array.isArray(doc.userRoles) ? (doc.userRoles as Record<string, unknown>[]) : [];
     const merged = mergeArrayByName(existing, c.userRoles as Record<string, unknown>[]);
     doc.userRoles = merged;
   }
@@ -146,13 +150,13 @@ export function mergeDocument(
 
   // Update open questions: remove answered, add new
   if (Array.isArray(extracted.answeredQuestions) || Array.isArray(extracted.newQuestions)) {
-    let questions = Array.isArray(doc.openQuestions) ? [...doc.openQuestions] as string[] : [];
-    
+    let questions = Array.isArray(doc.openQuestions) ? ([...doc.openQuestions] as string[]) : [];
+
     // Remove answered questions
     if (Array.isArray(extracted.answeredQuestions)) {
-      questions = questions.filter(q => !extracted.answeredQuestions!.includes(q));
+      questions = questions.filter((q) => !extracted.answeredQuestions!.includes(q));
     }
-    
+
     // Add new questions (avoid duplicates)
     if (Array.isArray(extracted.newQuestions)) {
       for (const q of extracted.newQuestions) {
@@ -161,7 +165,7 @@ export function mergeDocument(
         }
       }
     }
-    
+
     doc.openQuestions = questions;
   }
 
@@ -186,7 +190,7 @@ export function mergeDocument(
 /** Merge two arrays by 'name' field, new items override old */
 function mergeArrayByName(
   existing: Record<string, unknown>[],
-  incoming: Record<string, unknown>[],
+  incoming: Record<string, unknown>[]
 ): Record<string, unknown>[] {
   const map = new Map<string, Record<string, unknown>>();
   for (const item of existing) {
@@ -201,13 +205,9 @@ function mergeArrayByName(
 }
 
 /** Append values to an array field, avoiding duplicates */
-function appendUnique(
-  doc: Record<string, unknown>,
-  field: string,
-  values: unknown[] | undefined,
-): void {
+function appendUnique(doc: Record<string, unknown>, field: string, values: unknown[] | undefined): void {
   if (!Array.isArray(values) || values.length === 0) return;
-  const existing = Array.isArray(doc[field]) ? doc[field] as unknown[] : [];
+  const existing = Array.isArray(doc[field]) ? (doc[field] as unknown[]) : [];
   for (const v of values) {
     if (!existing.includes(v)) {
       existing.push(v);
@@ -223,8 +223,19 @@ function summarizeDoc(doc: Record<string, unknown>): string {
   const parts: string[] = [];
   if (doc.featureName) parts.push(`功能: ${doc.featureName}`);
   if (doc.businessGoal) parts.push(`目标: ${doc.businessGoal}`);
-  if (doc.uiLibrary) parts.push(`UI库: ${typeof doc.uiLibrary === 'object' ? (doc.uiLibrary as Record<string, unknown>).name : doc.uiLibrary}`);
-  
+  // 产品形态摘要（新会话读独立字段，旧会话回退 techStack 自由文本）
+  const formText =
+    typeof doc.productForm === 'string' && doc.productForm.trim()
+      ? doc.productForm
+      : typeof doc.techStack === 'string' && doc.techStack.trim()
+        ? doc.techStack
+        : '';
+  if (formText) parts.push(`产品形态: ${formText}`);
+  if (doc.uiLibrary)
+    parts.push(
+      `UI库: ${typeof doc.uiLibrary === 'object' ? (doc.uiLibrary as Record<string, unknown>).name : doc.uiLibrary}`
+    );
+
   const pages = Array.isArray(doc.pages) ? doc.pages : [];
   if (pages.length > 0) {
     parts.push(`页面(${pages.length}): ${pages.map((p: Record<string, unknown>) => p.name).join(', ')}`);

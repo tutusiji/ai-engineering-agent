@@ -8,13 +8,7 @@ import { TextArea } from '@heroui/react/textarea';
 import { Chip } from '@heroui/react/chip';
 import { ProgressBar } from '@heroui/react/progress-bar';
 import { Spinner } from '@heroui/react/spinner';
-import {
-  Accordion,
-  AccordionItem,
-  AccordionHeading,
-  AccordionTrigger,
-  AccordionPanel,
-} from '@heroui/react/accordion';
+import { Accordion, AccordionItem, AccordionHeading, AccordionTrigger, AccordionPanel } from '@heroui/react/accordion';
 import {
   Bot,
   User,
@@ -38,6 +32,8 @@ function normalizeDoc(doc: RequirementDocument): Required<RequirementDocument> {
   return {
     featureName: doc.featureName ?? '',
     businessGoal: doc.businessGoal ?? '',
+    productForm: doc.productForm ?? '',
+    techStack: '',
     userRoles: doc.userRoles ?? [],
     uiLibrary: doc.uiLibrary ?? null,
     pages: doc.pages ?? [],
@@ -67,8 +63,10 @@ interface ChatPanelProps {
 function isJsonDocument(content: string): boolean {
   try {
     const parsed = JSON.parse(content);
-    return typeof parsed === 'object' && parsed !== null && (
-      parsed.completeness !== undefined || parsed.featureName !== undefined || parsed.openQuestions !== undefined
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      (parsed.completeness !== undefined || parsed.featureName !== undefined || parsed.openQuestions !== undefined)
     );
   } catch {
     return false;
@@ -85,7 +83,7 @@ function formatDocAsMarkdown(doc: RequirementDocument): string {
   if (d.uiLibrary) parts.push(`**UI 组件库：** ${d.uiLibrary.name}`);
   if (d.pages.length > 0) {
     parts.push(`\n**页面列表：**`);
-    d.pages.forEach(p => parts.push(`- **${p.name}** (${p.pageType}) — ${p.goal || ''}`));
+    d.pages.forEach((p) => parts.push(`- **${p.name}** (${p.pageType}) — ${p.goal || ''}`));
   }
   parts.push(`\n**需求完整度：** ${d.completeness}%`);
 
@@ -151,7 +149,7 @@ function MessageContent({ content, isUser }: { content: string; isUser: boolean 
   }
 
   // Pre-process: single \n to double \n\n so ReactMarkdown renders paragraphs
-  const processed = cleaned.replace(/([^\n])\n(?!\n)/g, "$1\n\n");
+  const processed = cleaned.replace(/([^\n])\n(?!\n)/g, '$1\n\n');
 
   return (
     <div className="chat-markdown">
@@ -186,7 +184,9 @@ export function ChatPanel({
   useEffect(() => {
     const el = messagesContainerRef.current;
     if (!el) return;
-    const onScroll = () => { isNearBottomRef.current = checkIfNearBottom(); };
+    const onScroll = () => {
+      isNearBottomRef.current = checkIfNearBottom();
+    };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
@@ -223,7 +223,6 @@ export function ChatPanel({
             valueLabel={`${completeness}%`}
           />
         </div>
-
       </div>
 
       {/* Messages — scrollable area */}
@@ -242,10 +241,7 @@ export function ChatPanel({
         )}
 
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}
-          >
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
             <div className="max-w-[85%] flex gap-2 items-start">
               {msg.role === 'assistant' && (
                 <div
@@ -289,12 +285,14 @@ export function ChatPanel({
                     let sc = streamContent;
                     // Strip JSON from streaming display
                     sc = sc.replace(/```(?:json)?\s*\n?[\s\S]*?(?:```|$)/g, '').trim();
-                    sc = sc.replace(/\n?\{[\s\S]*?"(?:featureName|completeness|userRoles|businessGoal)"[\s\S]*/g, '').trim();
+                    sc = sc
+                      .replace(/\n?\{[\s\S]*?"(?:featureName|completeness|userRoles|businessGoal)"[\s\S]*/g, '')
+                      .trim();
                     sc = sc.replace(/\n?\{[\s\S]*$/g, '').trim();
                     sc = sc.replace(/^-{3,}\s*$/gm, '').trim();
                     if (sc.length < 15) sc = '';
                     if (!sc) return <span className="text-gray-400 text-sm italic">💬 AI 思考中...</span>;
-                    const p = sc.replace(/([^\n])\n(?!\n)/g, "$1\n\n");
+                    const p = sc.replace(/([^\n])\n(?!\n)/g, '$1\n\n');
                     return <ReactMarkdown remarkPlugins={[remarkGfm]}>{p}</ReactMarkdown>;
                   })()}
                 </div>
@@ -341,20 +339,11 @@ export function ChatPanel({
           }}
         />
         {loading ? (
-          <Button
-            variant="danger"
-            onPress={onStop}
-            className="shrink-0"
-          >
+          <Button variant="danger" onPress={onStop} className="shrink-0">
             <Square size={16} className="inline mr-1" /> 停止
           </Button>
         ) : (
-          <Button
-            variant="primary"
-            onPress={handleSend}
-            isDisabled={!inputValue.trim()}
-            className="shrink-0"
-          >
+          <Button variant="primary" onPress={handleSend} isDisabled={!inputValue.trim()} className="shrink-0">
             <Send size={16} className="inline mr-1" /> 发送
           </Button>
         )}
@@ -386,7 +375,7 @@ function generateMarkdown(doc: RequirementDocument): string {
 
   if (d.pages.length > 0) {
     lines.push('## 📄 页面列表');
-    d.pages.forEach(p => {
+    d.pages.forEach((p) => {
       lines.push(`### ${p.name}`);
       lines.push(`- **类型**: ${p.pageType}`);
       lines.push(`- **目标**: ${p.goal}`);
@@ -394,7 +383,9 @@ function generateMarkdown(doc: RequirementDocument): string {
       if (p.actions.length) lines.push(`- **操作**: ${p.actions.join(', ')}`);
       if (p.fields.length) {
         lines.push('- **字段**:');
-        p.fields.forEach(f => lines.push(`  - ${f.name} (${f.type}${f.required ? ', 必填' : ''}) — ${f.description}`));
+        p.fields.forEach((f) =>
+          lines.push(`  - ${f.name} (${f.type}${f.required ? ', 必填' : ''}) — ${f.description}`)
+        );
       }
       lines.push('');
     });
@@ -402,34 +393,34 @@ function generateMarkdown(doc: RequirementDocument): string {
 
   if (d.entities.length > 0) {
     lines.push('## 📦 数据实体');
-    d.entities.forEach(e => {
+    d.entities.forEach((e) => {
       lines.push(`### ${e.name}`);
-      e.fields.forEach(f => lines.push(`- ${f.name} (${f.type}${f.required ? ', 必填' : ''})`));
+      e.fields.forEach((f) => lines.push(`- ${f.name} (${f.type}${f.required ? ', 必填' : ''})`));
       lines.push('');
     });
   }
 
   if (d.businessRules.length) {
     lines.push('## 📏 业务规则');
-    d.businessRules.forEach(r => lines.push(`- ${r}`));
+    d.businessRules.forEach((r) => lines.push(`- ${r}`));
     lines.push('');
   }
 
   if (d.edgeCases.length) {
     lines.push('## ⚠️ 边界情况');
-    d.edgeCases.forEach(e => lines.push(`- ${e}`));
+    d.edgeCases.forEach((e) => lines.push(`- ${e}`));
     lines.push('');
   }
 
   if (d.phases.length) {
     lines.push('## 🗓️ 阶段规划');
-    d.phases.forEach(p => lines.push(`- **${p.id}** ${p.name} (${p.priority}) — ${p.pages.join(', ')}`));
+    d.phases.forEach((p) => lines.push(`- **${p.id}** ${p.name} (${p.priority}) — ${p.pages.join(', ')}`));
     lines.push('');
   }
 
   if (d.openQuestions.length) {
     lines.push('## ❓ 待确认问题');
-    d.openQuestions.forEach(q => lines.push(`- [ ] ${q}`));
+    d.openQuestions.forEach((q) => lines.push(`- [ ] ${q}`));
     lines.push('');
   }
 
@@ -459,7 +450,7 @@ function OpenQuestionsSection({
   const [expanded, setExpanded] = useState(false);
 
   const handleAnswer = (idx: number, value: string) => {
-    setAnswers(prev => ({ ...prev, [idx]: value }));
+    setAnswers((prev) => ({ ...prev, [idx]: value }));
   };
 
   const handleSubmitAll = () => {
@@ -471,7 +462,7 @@ function OpenQuestionsSection({
     setAnswers({});
   };
 
-  const answeredCount = Object.values(answers).filter(v => v.trim()).length;
+  const answeredCount = Object.values(answers).filter((v) => v.trim()).length;
 
   return (
     <div className="flex flex-col gap-2">
@@ -599,10 +590,7 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
         </div>
       )}
 
-      <Accordion
-        variant="default"
-        defaultExpandedKeys={['goal', 'ui', 'pages', 'questions']}
-      >
+      <Accordion variant="default" defaultExpandedKeys={['goal', 'ui', 'pages', 'questions']}>
         <AccordionItem key="goal">
           <AccordionHeading>
             <AccordionTrigger>🎯 业务目标</AccordionTrigger>
@@ -618,7 +606,9 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
           </AccordionHeading>
           <AccordionPanel>
             {d.uiLibrary ? (
-              <Chip color="default" variant="soft">{d.uiLibrary.name}</Chip>
+              <Chip color="default" variant="soft">
+                {d.uiLibrary.name}
+              </Chip>
             ) : (
               <Chip variant="soft">未选择</Chip>
             )}
@@ -634,7 +624,9 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
               {d.pages.map((page, idx) => (
                 <div key={idx} className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
-                    <Chip size="sm" variant="soft">{page.pageType}</Chip>
+                    <Chip size="sm" variant="soft">
+                      {page.pageType}
+                    </Chip>
                     <span className="font-medium">{page.name}</span>
                   </div>
                   <p className="text-default-400 text-sm">{page.goal}</p>
@@ -667,7 +659,9 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
           <AccordionPanel>
             <div className="flex flex-col gap-1">
               {d.businessRules.map((rule, idx) => (
-                <p key={idx} className="text-default-700 text-sm">• {rule}</p>
+                <p key={idx} className="text-default-700 text-sm">
+                  • {rule}
+                </p>
               ))}
             </div>
           </AccordionPanel>
@@ -682,9 +676,13 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
               {d.phases.map((phase, idx) => (
                 <div key={idx} className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
-                    <Chip size="sm" color="default" variant="soft">{phase.id}</Chip>
+                    <Chip size="sm" color="default" variant="soft">
+                      {phase.id}
+                    </Chip>
                     <span className="font-medium">{phase.name}</span>
-                    <Chip size="sm" color="warning" variant="soft">{phase.priority}</Chip>
+                    <Chip size="sm" color="warning" variant="soft">
+                      {phase.priority}
+                    </Chip>
                   </div>
                   <p className="text-default-400 text-sm">{phase.pages.join(', ')}</p>
                 </div>
@@ -699,11 +697,7 @@ export function DocumentPanel({ document: doc, onSend, onRegenerate, loading }: 
               <AccordionTrigger>❓ 待确认 ({d.openQuestions.length})</AccordionTrigger>
             </AccordionHeading>
             <AccordionPanel>
-              <OpenQuestionsSection
-                questions={d.openQuestions}
-                onSend={onSend}
-                loading={loading}
-              />
+              <OpenQuestionsSection questions={d.openQuestions} onSend={onSend} loading={loading} />
             </AccordionPanel>
           </AccordionItem>
         )}
