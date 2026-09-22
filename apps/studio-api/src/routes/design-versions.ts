@@ -14,7 +14,7 @@ import type { LlmConfig } from '@ai-engineering-agent/agent-runtime';
 export function createDesignVersionsRouter(
   sessionStore: SessionStore,
   artifactStore: ArtifactStoreType,
-  llmConfig: LlmConfig,
+  llmConfig: LlmConfig
 ) {
   const router = Router({ mergeParams: true });
 
@@ -39,7 +39,7 @@ export function createDesignVersionsRouter(
       const { designId } = req.body;
       const doc = (session.document ?? {}) as Record<string, unknown>;
       const versions = (doc._designVersions as Array<Record<string, unknown>>) ?? [];
-      if (!versions.some(v => v.id === designId)) {
+      if (!versions.some((v) => v.id === designId)) {
         return res.status(400).json({ error: `Version ${designId} not found` });
       }
       await sessionStore.update(req.params.id, {
@@ -67,7 +67,9 @@ export function createDesignVersionsRouter(
       const version = {
         id: versionId,
         design,
-        htmlContent,
+        // 字段名与 generate 路由及前端版本列表读取（version.html）保持一致——
+        // 此前存 htmlContent 导致保存的草稿在版本列表里取不到 HTML 显示空白
+        html: htmlContent,
         model: usedModel,
         createdAt: now,
         label: `${usedModel} · ${new Date(now).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`,

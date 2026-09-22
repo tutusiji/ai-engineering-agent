@@ -16,8 +16,8 @@ export const designGenerationSkill: SkillDefinition = {
   inputSchema: { name: 'requirement-spec' },
   outputSchema: { name: 'generation-report' },
   defaultModel: {
-    // 重任务路由：ark-code-latest 实际为 GLM 推理模型（重任务 >5min），显式路由 DeepSeek V4 Pro；
-    // 整页 HTML 输出 3 万+ tokens，DeepSeek 上需 10 分钟级 → 放宽整体超时
+    // 重任务路由：DeepSeek V4 Pro（充值恢复后即用）。勿改 ark-code-latest——GLM 推理模型
+    // 长思考期约 5 分钟无字节输出会被网关断连（fetch failed），重任务无法完成
     model: 'deepseek-v4-pro',
     temperature: 0.6,
     maxTokens: 32768, // Increased for interactive HTML with mock data + JS

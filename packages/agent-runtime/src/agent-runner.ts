@@ -114,6 +114,19 @@ function buildUserContent(prompt: SkillPrompt): string {
  * Handles: raw JSON, JSON in markdown code fences, mixed text + JSON.
  */
 export function extractJson(text: string): JsonObject | null {
+  // 整个响应是 JSON 字符串值（模型把 HTML 作为带引号的 JSON 字符串整体输出，如
+  // "\"<!DOCTYPE html>\\n<html lang=\\\"zh-CN\\\">...\""）时，先 unwrap 再处理 ——
+  // 否则后续裸 HTML 兜底会在转义文本中匹配到字面 <!DOCTYPE html，把 \n \" 转义序列
+  // 原样截进内容，导致预览页显示「乱码」（实测 design v3 乱码根因）
+  try {
+    const whole: unknown = JSON.parse(text);
+    if (typeof whole === 'string' && whole !== text) {
+      return extractJson(whole);
+    }
+  } catch {
+    // 整体不是 JSON —— 继续常规提取流程
+  }
+
   // Try parsing the whole thing first
   const direct = tryParse(text);
   if (direct) return direct;
